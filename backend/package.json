@@ -1,0 +1,25 @@
+{
+  "name": "portal-meraki-backend",
+  "version": "1.0.0",
+  "description": "Backend del portal Meraki, API en Node.js y Express, en español.",
+  "main": "src/servidor.js",
+  "scripts": {
+    "dev": "nodemon src/servidor.js",
+    "start": "node src/servidor.js",
+    "load-predios": "node scripts/loadAllPredios.js",
+    "update-predios": "node scripts/updatePredios.js",
+    "predios-stats": "node scripts/updatePredios.js stats",
+    "predios-check": "node scripts/updatePredios.js check",
+    "demo-csv": "node scripts/demoCSV.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

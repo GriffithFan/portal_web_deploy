@@ -1,0 +1,53 @@
+# Node modules
+node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Archivos de desarrollo
+.git
+.gitignore
+.vscode
+.idea
+*.md
+!README.md
+
+# Archivos temporales
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist
+build
+.next
+.cache
+
+# Testing
+coverage
+.nyc_output
+test
+tests
+__tests__
+
+# Environment files (se copiarán manualmente)
+.env.local
+.env.development
+.env.test
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Meraki specific
+summary.json
+summary_debug.json
+*.zip
