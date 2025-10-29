@@ -44,48 +44,81 @@ cd backend && npm install && npm run load-predios && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-## Funcionalidades
+```md
+# Portal Meraki — Panel técnico de operación
 
-- **Búsqueda Instantánea**: <1ms por código de predio usando índice CSV (32k+ predios)
-- **Topología**: Visualización fuerza-dirigida con LLDP/CDP
-- **Switches**: Lista MS con puertos y conectividad
-- **Access Points**: Tabla MR con velocidades y estados
-- **Appliance Status**: Uplinks WAN con métricas
+Este repositorio contiene una aplicación web para monitorizar y diagnosticar infraestructuras gestionadas con Cisco Meraki. Está pensada para equipos técnicos (NOC/soporte) que necesitan obtener un resumen operativo rápido de redes, topología de dispositivos y estado de appliances.
 
-## Configuración
+Este README ofrece una guía práctica de arranque, despliegue y enlaces a la documentación técnica del backend y frontend.
 
-```bash
-# backend/.env
-MERAKI_API_KEY=tu_api_key
-ADMIN_KEY=clave_segura
-MERAKI_ORG_ID=              # Opcional
-PUERTO=3000
+Resumen rápido
+- Backend: Node.js (Express). API REST que orquesta llamadas al Meraki Dashboard.
+- Frontend: React + Vite. Interfaz para técnicos, en español.
+- Despliegue recomendado: Docker Compose / runner CI que construya imágenes.
+
+Requisitos mínimos
+- Docker y Docker Compose (para despliegue)
+- Node 18+ y npm (para desarrollo local)
+
+Inicio rápido (Docker)
+
+```powershell
+# Copia el fichero de ejemplo de variables y ajústalo
+cp backend/.env.production .env
+
+# Levanta los servicios
+docker-compose up -d --build
+
+# (Opcional) Cargar catálogo de predios si procede
+docker-compose exec portal-meraki node backend/scripts/loadAllPredios.js
 ```
 
-## API Endpoints
+Desarrollo local (modo iterativo)
 
-```http
-POST /api/login
-GET /api/resolve-network?q=602360
-GET /api/networks/:networkId/summary
-POST /api/predios/sync  # requiere x-admin-key
+```powershell
+# Backend
+cd backend
+npm ci
+npm run dev
+
+# Frontend (en otra terminal)
+cd frontend
+npm ci
+npm run dev
+
+# Accede a http://localhost:5173 para el frontend y al puerto configurado para el backend (por defecto 3000)
 ```
 
-## Scripts
+Variables de entorno clave
+- MERAKI_API_KEY — (requerido) API Key de Meraki Dashboard
+- ADMIN_KEY — (requerido) clave para endpoints administrativos
+- MERAKI_ORG_ID — ID de organización (opcional, acelera la resolución)
+- PUERTO — puerto del backend (default 3000)
 
-```bash
-npm run load-predios              # Carga inicial
-node scripts/updatePredios.js     # Actualización
-node scripts/dumpSummary.js 602360
-```
+Principales endpoints (resumen)
 
-## Documentación
+POST /api/login — autenticación de técnicos
+GET /api/resolve-network?q={codigo} — busca y resuelve un código de predio
+GET /api/networks/{networkId}/summary — resumen operativo completo (topology, devices, stats)
+POST /api/predios/sync — sincroniza CSV de predios (requiere x-admin-key)
 
-- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Despliegue completo con Docker + Portainer
-- [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md) - Configuración de Cloudflare (CDN/SSL/Firewall)
-- [backend/README.md](backend/README.md) - Documentación del API
-- [backend/scripts/README.md](backend/scripts/README.md) - Scripts de mantenimiento
+Estructura del repositorio (alto nivel)
 
----
+- /backend — API, scripts y datos maestros (predios.csv)
+- /frontend — aplicación React + assets
+- /docker-compose.yml — orquestación local
+- /.github/workflows — workflows CI (builds y tests)
 
-**Versión 2.0.0** | Enero 2025
+Buenas prácticas y notas
+- No subir instaladores/binarios grandes al repo; si es necesario, usar Git LFS.
+- Mantener la API key fuera del repositorio (.env no versionado).
+- Para producción, use un proceso supervisado (systemd / PM2) y configure backups del CSV si se mantiene como fuente de verdad.
+
+Soporte y documentación adicional
+- Backend: ./backend/README.md
+- Frontend: ./frontend/README.md
+- Guías de despliegue detalladas: carpeta de docs (si existe) o archivos DEPLOYMENT_*.md
+
+Si necesitas que prepare un pipeline de CI/CD más completo (build + tests + push de imágenes), dime el proveedor objetivo (GitHub Packages, Docker Hub, Azure ACR) y preparo el workflow.
+
+``` 

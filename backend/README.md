@@ -2,116 +2,85 @@
 
 API REST desarrollada en Node.js + Express para comunicación con Cisco Meraki Dashboard API.
 
-## Estructura
+```md
+# Backend — API del Portal Meraki
+
+Descripción
+- Servicio REST responsable de orquestar llamadas al Meraki Dashboard API, normalizar resultados y exponer endpoints consumibles por el frontend y herramientas internas.
+
+Estructura relevante
 
 ```
 backend/
-├── src/
-│   ├── servidor.js      # Servidor principal y endpoints
-│   ├── merakiApi.js     # Cliente API Meraki con caché
-│   ├── auth.js          # Autenticación de técnicos
-│   ├── rutas.js         # Definición de rutas
-│   ├── transformers.js  # Normalización de topología
-│   └── tecnicos.json    # Base de datos de usuarios
-├── config/              # Configuraciones
-├── data/
-│   └── predios.csv      # Catálogo de predios
-└── scripts/             # Scripts de mantenimiento
+├─ src/
+│  ├─ servidor.js       # Inicializa servidor y monta rutas
+│  ├─ merakiApi.js      # Cliente API con cache y retries
+│  ├─ auth.js           # Autenticación / autorización de técnicos
+│  ├─ rutas.js          # Agrupación de endpoints
+│  └─ transformers.js   # Reglas para construir topología y normalizar devices
+├─ data/
+│  └─ predios.csv       # Catálogo maestro de predios
+└─ scripts/              # Scripts de carga, depuración y mantenimiento
 ```
 
-## Instalación
+Instalación y arranque (local)
 
-```bash
-npm install
-cp .env.example .env
-nano .env  # Configurar MERAKI_API_KEY
+```powershell
+cd backend
+npm ci
+cp .env.example .env   # editar .env con MERAKI_API_KEY y ADMIN_KEY
 npm run dev
 ```
 
-## Variables de Entorno
+Variables de entorno importantes
 
-| Variable | Requerido | Descripción |
-|----------|-----------|-------------|
-| `MERAKI_API_KEY` | Sí | API Key de Dashboard Meraki |
-| `MERAKI_ORG_ID` | No | ID específico (si no, recorre todas) |
-| `PUERTO` | No | Puerto del servidor (default 3000) |
-| `ADMIN_KEY` | Sí | Clave para endpoints admin |
-| `CORS_ORIGINS` | No | Orígenes permitidos (default *) |
-| `NODE_ENV` | No | production/development |
+- `MERAKI_API_KEY` (requerido): API Key del Dashboard Meraki.
+- `ADMIN_KEY` (requerido): clave para operaciones administrativas internas.
+- `MERAKI_ORG_ID` (opcional): limita consultas a una org concreta.
+- `PUERTO` (opcional): puerto del servidor (por defecto 3000).
 
-## Endpoints Principales
+Principales endpoints (resumen operativo)
 
-### Autenticación
-- `POST /api/login` - Login de técnicos
+- `POST /api/login` — autenticación de técnicos.
+- `GET /api/resolve-network?q={codigo}` — resuelve código de predio a org/network.
+- `GET /api/networks/{networkId}/summary` — resumen operativo: dispositivos, links, uplinks y métricas.
+- `GET /api/networks/{networkId}/topology` — topología basada en LLDP/CDP y heurísticas.
+- `POST /api/predios/sync` — sincroniza el CSV de predios (requiere header `x-admin-key`).
 
-### Búsqueda de Predios
-- `GET /api/networks/search?q=<codigo>` - Buscar predio por código
-- `GET /api/resolve-network?q=<codigo>` - Resolver predio (retorna org + network)
+Comportamiento y consideraciones técnicas
 
-### Datos de Red
-- `GET /api/networks/:networkId/summary` - Resumen completo (topology, devices, appliance)
-- `GET /api/networks/:networkId/topology` - Topología linkLayer con fallbacks
-- `GET /api/networks/:networkId/switches` - Lista de switches MS
-- `GET /api/networks/:networkId/access_points` - Access points MR
-- `GET /api/networks/:networkId/appliance_status` - Estado de appliances MX
+- Caché: TTL configurables por tipo de dato para evitar sobrecarga a la API de Meraki. Hay un proceso de warm-up opcional (`warmCache.js`).
+- Topología: se prioriza LinkLayer (si está disponible), luego LLDP/CDP y finalmente heurísticas basadas en uplinks.
+- Manejo de errores: la API contempla reintentos para llamadas a Meraki y degradación parcial (se devuelven subcomponentes si otros fallan).
 
-### Administración (requiere `x-admin-key`)
-- `POST /api/predios/sync` - Sincronizar CSV predios
-- `GET /api/predios/last-sync` - Último estado de sincronización
-- `GET /api/tecnicos` - Listar técnicos
-- `POST /api/tecnicos` - Crear técnico `{ username, password }`
-- `DELETE /api/tecnicos/:username` - Eliminar técnico
+Scripts útiles
 
-## Arquitectura Técnica
+- `node scripts/loadAllPredios.js` — carga inicial del catálogo.
+- `node scripts/updatePredios.js` — actualizaciones incrementales.
+- `node scripts/dumpSummary.js <networkId>` — exporta snapshot para diagnóstico.
 
-### Sistema de Caché
-- TTL dinámico por tipo de dato (5 min networks, 3 min devices, 1 min appliance)
-- Caché en memoria con limpieza automática
-- Warm-up opcional al inicio (`warmCache.js`)
+Desarrollo y logs
 
-### Transformación de Topología
-`transformers.js` reconstruye topología usando:
-1. **Datos LinkLayer** (preferido)
-2. **LLDP/CDP** de dispositivos (fallback)
-3. **Appliance Uplinks** (último recurso)
-
-### Sincronización de Predios
-- Catálogo CSV con códigos de 6 dígitos
-- Auto-sync programable cada N minutos
-- Rebuild completo con `POST /api/predios/sync` + `{ force: true }`
-
-## Scripts de Mantenimiento
-
-Ver [scripts/README.md](scripts/README.md) para detalles de:
-- `loadAllPredios.js` - Carga inicial del catálogo
-- `updatePredios.js` - Actualización incremental
-- `dumpSummary.js` - Exportar snapshots
-- `checkPrediosDuplicates.js` - Verificar duplicados
-
-## Desarrollo
-
-```bash
-# Modo desarrollo con hot-reload
-npm run dev
-
-# Verificar logs
+```powershell
+# Logs en desarrollo
 tail -f logs/app.log
 
-# Cargar predios (CRÍTICO después de deploy)
-npm run load-predios
+# Correr tareas de mantenimiento
+node scripts/checkPrediosDuplicates.js
 ```
 
-## Troubleshooting
+Problemas comunes y acciones rápidas
 
-| Problema | Solución |
-|----------|----------|
-| 401 Unauthorized | Verificar `MERAKI_API_KEY` en .env |
-| No encuentra predios | Ejecutar `npm run load-predios` |
-| Timeout en API | Verificar conectividad a api.meraki.com |
-| Caché desactualizado | Reiniciar servidor o esperar TTL |
+- 401 Unauthorized: revisar que `MERAKI_API_KEY` esté correcto y activo.
+- No aparecen predios: ejecutar `node scripts/loadAllPredios.js` y verificar `data/predios.csv`.
+- Latencia/timeout en llamadas Meraki: comprobar conectividad saliente y límites de tasa (rate limits).
 
----
+Más documentación
+- Leer el README principal (`../README.md`) para guías de despliegue.
 
-**Ver documentación completa:** [README.md](../README.md) | [DEPLOYMENT.md](../DEPLOYMENT.md)
+``` 
+
+
+## Scripts de Mantenimiento
 
 
