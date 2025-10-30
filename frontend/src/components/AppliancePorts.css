@@ -1,0 +1,151 @@
+.PortMatrixWrapper {
+  display: inline-flex;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  margin-bottom: 18px;
+}
+
+.NodePortTableSpan {
+  display: inline-flex;
+}
+
+.NodePortTable {
+  background-color: #ebebeb;
+  border-collapse: initial;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+}
+
+.NodePortTable tbody tr td {
+  padding: 4px 8px;
+}
+
+.NodePortTable td {
+  font-size: 11px;
+  text-align: center;
+  vertical-align: bottom;
+  color: #2b2f33;
+}
+
+.NodePortTable td.label-cell {
+  font-weight: 600;
+  color: #4b5563;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.NodePortTable td.firstOfGroup {
+  padding-left: 2em;
+}
+
+.NodePortTable td.lastOfMiniGroup {
+  padding-right: 1em;
+}
+
+.NodePortTable td.lastOfGroup {
+  padding-right: 2em;
+}
+
+.NodePortTable svg.rotated {
+  transform: rotate(180deg);
+}
+
+.NodePortTable td.Mx400Module {
+  border-left: 1px solid #cfcfd1;
+  min-width: 138px;
+  padding: 0 1em;
+  vertical-align: middle;
+}
+
+.NodePortTable td.Mx400Module.builtin {
+  border: none;
+}
+
+.NodePort {
+  background: #d7d7d9;
+  border: 1px solid #cfcfd1;
+  display: inline-block;
+  height: 25px;
+  width: 30px;
+  border-radius: 4px;
+}
+
+.NodePort.usb {
+  height: 1rem;
+}
+
+.NodePort polygon {
+  fill: #4b5563;
+  stroke: none;
+  transition: fill 0.2s ease;
+}
+
+.NodePort.clickable polygon {
+  cursor: pointer;
+}
+
+.NodePort.disabled polygon {
+  fill: #d1d5db;
+}
+
+.NodePort.passthrough polygon {
+  fill: #cbcfd6;
+}
+
+.NodePort.has_carrier:not(.disabled) polygon {
+  fill: #67b346;
+}
+
+.NodePort.warning polygon {
+  fill: #f59e0b;
+}
+
+.NodePort .poeBolt {
+  fill: #ff0;
+  font-family: 'Font Awesome 5 Free', FontAwesome, sans-serif;
+  font-size: 13px;
+  text-shadow: -1px 0 #000;
+}
+
+.NodePort.rotated .poeBolt {
+  transform: rotate(180deg);
+  transform-origin: center;
+}
+
+.NodePortTooltip .tooltip-inner {
+  text-align: left;
+}
+
+.NodePortCell {
+  min-width: 42px;
+}
+
+.NodePortCell svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.NodePortTable .port-number {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.ManagementPorts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ManagementNumbers {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1f2937;
+}

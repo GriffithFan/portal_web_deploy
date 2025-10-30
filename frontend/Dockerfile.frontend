@@ -1,0 +1,40 @@
+# Dockerfile para Frontend - Portal Meraki
+FROM node:18-alpine AS builder
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm ci
+
+# Copiar código fuente
+COPY . .
+
+# Build de producción
+RUN npm run build
+
+# Stage de producción con servidor simple
+FROM node:18-alpine AS production
+
+# Instalar servidor HTTP simple
+RUN npm install -g serve
+
+# Crear usuario no-root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S portal -u 1001
+
+# Copiar build
+WORKDIR /app
+COPY --from=builder --chown=portal:nodejs /app/dist ./dist
+
+# Cambiar a usuario no-root
+USER portal
+
+# Exponer puerto
+EXPOSE 5173
+
+# Comando para servir la aplicación
+CMD ["serve", "-s", "dist", "-l", "5173", "--no-clipboard"]
