@@ -1,3 +1,16 @@
+# Node / general
+node_modules/
+dist/
+.env
+*.log
+
+# Ignore docker image tars and certs
+portal-meraki-*.tar
+deploy/nginx/certs/
+
+# Ignore editor folders
+/.vscode/
+.idea/
 node_modules/
 dist/
 build/
