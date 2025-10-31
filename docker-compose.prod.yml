@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-  image: ghcr.io/griffithfan/portal-meraki-backend:latest
+    image: ghcr.io/griffithfan/portal-meraki-backend:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -37,18 +37,12 @@ services:
     networks:
       - portal-network
 
-  certbot:
-    image: certbot/certbot
-    container_name: portal-meraki-certbot
-    entrypoint: ""
-    volumes:
-      - ./deploy/nginx/certs:/etc/letsencrypt
-      - ./deploy/nginx/www:/var/www/certbot
-    networks:
-      - portal-network
+  # certbot service intentionally removed from automatic startup.
+  # We run certbot manually when needed to perform ACME challenges:
+  # docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d portalmeraki.info -d www.portalmeraki.info --email you@domain.tld --agree-tos --no-eff-email
 
   frontend:
-  image: ghcr.io/griffithfan/portal-meraki-frontend:latest
+    image: ghcr.io/griffithfan/portal-meraki-frontend:latest
     restart: unless-stopped
     ports:
       - "80:5173" # Servir la app en el puerto 80 del host
@@ -57,6 +51,10 @@ services:
         condition: service_healthy
     networks:
       - portal-network
+
+networks:
+  portal-network:
+    driver: bridge
 
 networks:
   portal-network:

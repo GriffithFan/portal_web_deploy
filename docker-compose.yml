@@ -37,15 +37,9 @@ services:
     networks:
       - portal-network
 
-  certbot:
-    image: certbot/certbot
-    container_name: portal-meraki-certbot
-    entrypoint: ""
-    volumes:
-      - ./deploy/nginx/certs:/etc/letsencrypt
-      - ./deploy/nginx/www:/var/www/certbot
-    networks:
-      - portal-network
+  # certbot service intentionally removed from automatic startup.
+  # Run certbot manually when ready to obtain certificates (see deploy/nginx/README.md):
+  # docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d portalmeraki.info -d www.portalmeraki.info --email you@domain.tld --agree-tos --no-eff-email
 
   frontend:
   image: ghcr.io/griffithfan/portal-meraki-frontend:latest
