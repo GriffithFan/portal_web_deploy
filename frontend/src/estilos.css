@@ -93,10 +93,12 @@
   max-width: 350px;
   margin: 60px auto 0 auto;
   background: #fff;
+
+/* Final mobile overrides: keep topbar minimal (hamburger left, magnifier right) and blue like desktop */
   border-radius: 12px;
   box-shadow: 0 2px 16px rgba(44,62,80,0.08);
   padding: 2.5rem 2rem 2rem 2rem;
-  display: flex;
+    background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%) !important;
   flex-direction: column;
   align-items: center;
 }
@@ -285,6 +287,969 @@ html, body {
   overflow-x: hidden;
   max-width: 100vw;
   box-sizing: border-box;
+}
+
+/* Responsive: mobile-first adjustments */
+@media (max-width: 900px) {
+  /* Force minimal topbar: hide desktop search/brand and show only hamburger + magnifier */
+  .topbar-brand { display: none !important; }
+  .topbar-search-form, .topbar-search-wrapper, .topbar-input, .search-submit { display: none !important; }
+  .mobile-search-toggle { display: inline-flex !important; }
+
+  /* Ensure the topbar becomes taller and icons vertically centered for better touch targets */
+  .topbar { height: 65px !important; padding-left: 14px !important; padding-right: 14px !important; transition: height 220ms ease, padding 220ms ease, box-shadow 220ms ease; }
+
+  /* Make hamburger and magnifier larger and centered */
+  .mobile-hamburger, .mobile-search-toggle { width: 44px !important; height: 44px !important; padding: 8px !important; border-radius: 10px !important; }
+  .mobile-hamburger svg, .mobile-search-toggle svg { width: 20px !important; height: 20px !important; }
+
+  /* Make sure the mobile section tiles don't overflow horizontally */
+  .mobile-section-tiles { width: calc(100% - 48px); margin: 18px auto 14px auto; box-sizing: border-box; }
+  .mobile-section-tiles { grid-auto-rows: minmax(82px, auto); }
+  .dashboard-container {
+    padding: 14px 12px;
+    min-height: auto;
+  }
+
+
+  /* Make TopBar fixed on small screens so it doesn't overlap content when search opens */
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    background: linear-gradient(180deg, #071233 0%, #081428 100%);
+    color: #fff;
+  }
+
+  /* Push main dashboard content below the fixed topbar on small screens.
+     Use a slightly smaller reserve to avoid too much whitespace. */
+  .dashboard-container {
+    margin-top: 65px; /* reserve space equal to approximate topbar height */
+  }
+
+  .mobile-search-bar {
+    margin-top: 8px;
+  }
+
+  /* Avoid global padding; instead the mobile search bar will push content when opened */
+  /* (removed previous html/body padding-top which caused layout shift) */
+
+  /* Tables become stacked cards for narrow screens */
+  .modern-table thead {
+    display: none;
+  }
+  .modern-table, .modern-table tbody, .modern-table tr, .modern-table td {
+    display: block;
+    width: 100%;
+  }
+  .modern-table tbody tr {
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #e6eef7;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .modern-table td {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 6px;
+    border: none;
+    font-size: 14px;
+  }
+  .modern-table td::before {
+    content: attr(data-label) ': ';
+    font-weight: 700;
+    color: #475569;
+    margin-right: 8px;
+    flex: 0 0 auto;
+  }
+  .modern-table td > * {
+    flex: 1 1 auto;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .modern-card {
+    padding: 12px;
+  }
+
+  .StatusCompact {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Port matrix scales down on small screens */
+  .PortMatrixWrapper {
+    padding: 8px;
+    transform-origin: top left;
+    transform: scale(0.9);
+  }
+}
+
+/* Mobile drawer (hamburger) ----------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .mobile-hamburger {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    margin-right: 8px;
+    padding: 6px;
+    position: absolute !important;
+    left: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 1300 !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 1800;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+  .mobile-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+  }
+  .mobile-drawer-content {
+    position: relative;
+    width: 75vw;
+    max-width: 520px;
+    height: 100vh;
+    background: linear-gradient(180deg, #071233 0%, #081428 100%);
+    color: #fff;
+    padding: 18px 14px;
+    box-shadow: 0 12px 40px rgba(2,6,23,0.6);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-drawer-appname {
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: 0.4px;
+    color: #ffffff;
+    margin-bottom: 12px;
+  }
+
+  .mobile-drawer-predio { margin: 12px 0 18px 0; }
+  .drawer-label { font-size: 12px; color: rgba(255,255,255,0.65); margin-bottom: 6px; }
+  .drawer-predio-code { font-size: 20px; font-weight: 700; color: #ffffff; min-height: 26px; }
+
+  .drawer-search-form { display: flex; gap: 8px; margin: 12px 0 18px 0; }
+  .drawer-search-input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    outline: none;
+  }
+  .drawer-search-input::placeholder { color: rgba(255,255,255,0.6); }
+  .drawer-search-button {
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    border: none;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .drawer-recent { margin-top: 6px; padding-bottom: 40px; }
+  .drawer-section-title { font-size: 13px; color: rgba(255,255,255,0.85); margin-bottom: 8px; font-weight: 700 }
+  .drawer-recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .drawer-recent-item { width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); color: #fff }
+  .drawer-recent-item:hover { background: rgba(255,255,255,0.06); }
+  .drawer-empty { color: rgba(255,255,255,0.6); padding: 6px 0 }
+  .drawer-recent-id { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+}
+
+/* Mobile section tiles: 2x2 grid and blue cards matching topbar */
+@media (max-width: 900px) {
+  .mobile-section-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 6px auto 8px auto;
+    /* Center the grid inside the white panel */
+    max-width: 520px;
+    justify-content: center;
+    /* Reserve vertical space but reduce it to avoid big white bands */
+    min-height: 156px; /* 2 rows * 72px + gap */
+    align-content: start; /* align to top so tiles sit near the top of the panel */
+    justify-items: center; /* ensure individual tiles are centered within each grid cell */
+    align-items: start;
+  }
+
+  /* entrance animation for tiles */
+  @keyframes tileIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.995); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .mobile-section-tile {
+    background: linear-gradient(180deg, #1b4aa0 0%, #2b65f0 100%);
+    color: #ffffff;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* center vertically to avoid per-section misalignment */
+    align-items: center; /* center content horizontally for a compact mobile look */
+    gap: 6px;
+    text-align: left;
+    height: 100px; /* slightly smaller fixed height */
+    width: 100%;
+    max-width: 240px; /* keep tiles compact */
+    box-sizing: border-box;
+    overflow: hidden; /* avoid shadows/content protruding */
+    animation: tileIn 220ms cubic-bezier(.2,.9,.2,1) both;
+  }
+
+  /* subtle stagger so the tiles feel lively */
+  .mobile-section-tiles > .mobile-section-tile:nth-child(1) { animation-delay: 0ms; }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(2) { animation-delay: 40ms; }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(3) { animation-delay: 80ms; }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(4) { animation-delay: 120ms; }
+
+  /* Button interaction: subtle press effect and prevent highlight that reflows layout */
+  .mobile-section-tile {
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    touch-action: manipulation;
+    user-select: none;
+    cursor: pointer;
+    transition: transform 180ms cubic-bezier(.2,.9,.2,1), box-shadow 180ms ease, opacity 160ms ease, background 220ms ease;
+  }
+  .mobile-section-tile:active {
+    transform: translateY(3px) scale(0.994);
+    box-shadow: inset 0 3px 12px rgba(0,0,0,0.12);
+    opacity: 0.98;
+  }
+  /* Desktop hover (only when not touch) */
+  @media (min-width: 481px) {
+    .mobile-section-tile:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 10px 30px rgba(15,23,42,0.12); }
+  }
+  .mobile-section-tile:focus {
+    outline: none;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+  }
+
+  /* Drawer: predio box and minimal search button */
+  .drawer-predio-box {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-weight: 700;
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .drawer-search-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    color: #fff;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .mobile-section-tile-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center; /* center icon + title horizontally */
+    width: 100%;
+  }
+
+  .mobile-section-tile-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex: 0 0 40px;
+  }
+
+  /* wrapper that visually matches the white rounded panel where tiles previously lived */
+  .mobile-section-tiles-wrapper {
+    display: block;
+    max-width: 720px;
+    margin: 8px auto 6px auto;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden; /* prevent cards/shadows from bleeding out */
+  }
+
+  /* Hide the empty search placeholder while mobile tiles are visible */
+  .empty-predio {
+    display: none !important;
+  }
+
+  /* Simplified mobile device list (switches / APs) */
+  .mobile-device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 2px 2px 2px;
+  }
+  .mobile-device-item {
+    width: 100%;
+    background: transparent;
+    border-radius: 10px;
+  }
+  .mobile-device-button {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e6eefc;
+    box-shadow: 0 1px 2px rgba(2,6,23,0.04);
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    touch-action: manipulation;
+    user-select: none;
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }
+  .mobile-device-button:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 4px rgba(2,6,23,0.06) inset;
+  }
+  .mobile-device-button:focus { outline: none; box-shadow: 0 8px 24px rgba(15,23,42,0.08); }
+
+  .mobile-section-tile-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    line-height: 1.1;
+    margin: 0;
+    text-align: center;
+    width: calc(100% - 56px); /* leave room for icon */
+  }
+
+  .mobile-section-tile-count {
+    font-size: 13px;
+    color: rgba(255,255,255,0.95);
+    opacity: 0.95;
+    text-align: center;
+    width: 100%;
+  }
+
+  /* Icono pequeño a la izquierda de cada item móvil */
+  .mobile-device-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #0f172a;
+    flex: 0 0 40px;
+  }
+
+  .mobile-device-subline {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Make topbar vertically larger on mobile for clearer touch targets */
+  .topbar {
+    height: 72px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    align-items: center !important;
+  }
+
+  /* Reposition hamburger and magnifier to vertically center in taller bar */
+  .mobile-hamburger { top: 50% !important; transform: translateY(-50%) !important; }
+  .mobile-search-toggle { top: 50% !important; transform: translateY(-50%) !important; }
+}
+
+/* Desktop override: hide mobile-only controls to avoid rendering them on large screens */
+@media (min-width: 901px) {
+  .mobile-hamburger, .mobile-drawer, .mobile-drawer-backdrop, .mobile-drawer-content { display: none !important; }
+}
+
+/* By default (without media queries) keep mobile elements hidden to be explicit */
+/* Do not globally hide mobile elements here; the desktop media query will hide them on large screens. */
+
+/* TopBar specific fixes to avoid clipped search input and improve mobile visuals */
+.topbar {
+  position: relative;
+  z-index: 1200; /* keep it above other content */
+  overflow: visible !important; /* ensure rounded corners / shadows are visible */
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Make the form and search area flexible so the input can grow on desktop
+   and shrink on small screens without being cropped. */
+.topbar form { display: flex; align-items: center; flex: 1 1 auto; max-width: 100%; }
+.topbar-search-form { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; max-width: 920px; }
+.topbar-search-form input[type="text"], .topbar input[type="text"] {
+  box-sizing: border-box;
+  line-height: 1.2;
+  min-height: 38px;
+  border-radius: 12px !important;
+  padding: 8px 44px 8px 12px !important; /* espacio para botón a la derecha */
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 220px; /* evita quedar extremadamente estrecho en desktop */
+}
+.topbar-search-form button[type="submit"] {
+  z-index: 1250;
+  width: 40px;
+  height: 36px;
+  margin-left: 6px;
+  flex: 0 0 auto;
+}
+
+/* Desktop-specific stronger caps to avoid accidental shrink on wide layouts */
+@media (min-width: 901px) {
+  .topbar-search-form { max-width: 900px !important; }
+}
+
+/* Restaurar apariencia original del TopBar para desktop (no tocar móvil) */
+@media (min-width: 901px) {
+  .topbar {
+    padding: 6px 24px !important;
+    background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  /* Volver al ancho de búsqueda previo en desktop para evitar cambios visuales */
+  .topbar-search-form { max-width: 500px !important; flex: 0 0 auto; }
+
+  /* Asegurar que el brand y las acciones mantengan el espaciado original */
+  .topbar-brand { min-width: 140px; }
+  .topbar-actions { margin-left: 12px; }
+
+  /* Input visual igual al inline previo */
+  .topbar-input {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+  }
+
+  /* Mostrar el botón de búsqueda en desktop */
+  .search-submit { display: inline-flex !important; }
+
+  /* Ocultar el toggle móvil en desktop */
+  .mobile-search-toggle { display: none !important; }
+}
+
+/* Desktop: botón de búsqueda redondo fusionado con la barra */
+@media (min-width: 901px) {
+  .topbar-search-wrapper { position: relative; }
+
+  /* Hacer que el input tenga bordes grandes (pill) y espacio a la derecha para el botón */
+  .topbar-input {
+    border-radius: 999px !important;
+    padding-right: 56px !important; /* espacio para botón circular */
+    transition: box-shadow 0.12s ease, background 0.12s ease;
+  }
+
+  /* Botón circular: sobresale ligeramente sobre la entrada para efecto "fusionado" */
+  .search-submit {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 6px 14px rgba(37,99,235,0.16);
+    border: none;
+    cursor: pointer;
+  }
+
+  .search-submit svg { stroke: #fff; }
+
+  /* Hover / focus states para refinar la fusión visual */
+  .search-submit:hover { transform: translateY(-50%) scale(1.03); }
+  .topbar-input:focus { box-shadow: 0 4px 18px rgba(2,6,23,0.16); }
+
+  /* Asegurar que el contenedor no corte la sombra del botón */
+  .topbar-search-form { overflow: visible; }
+}
+
+/* TopBar children styling (brand, search wrapper, buttons) */
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+  color: #fff;
+}
+.topbar-brand-icon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #4a90e2 0%, #357ab8 100%);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.topbar-brand-title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+
+.topbar-search-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
+.topbar-input {
+  width: 100%;
+  padding: 10px 44px 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+.topbar-input:focus {
+  background: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.4);
+}
+
+.search-submit {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(74, 144, 226, 0.95);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.search-submit:hover { transform: translateY(-50%) scale(1.02); }
+
+.mobile-search-toggle { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: #fff; display: none; }
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; margin-left: 12px; }
+
+.topbar-logout {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.topbar-logout:hover {
+  background: rgba(239,68,68,0.95);
+  border-color: rgba(239,68,68,1);
+}
+
+/* Mobile toggle visibility rules (kept similar to previous behavior) */
+@media (max-width: 480px) {
+  .mobile-search-toggle { display: inline-flex !important; }
+  .topbar-input { display: none; }
+  .search-submit { display: none; }
+}
+
+@media (max-width: 900px) and (min-width: 481px) {
+  .mobile-search-toggle { display: none !important; }
+  .topbar-input { display: block !important; }
+  .search-submit { display: inline-flex !important; }
+}
+
+/* Desktop: allow the search form to be wider so it doesn't look squashed */
+@media (min-width: 901px) {
+  .topbar-search-form { max-width: 720px !important; }
+}
+
+@media (min-width: 1200px) {
+  .topbar-search-form { max-width: 900px !important; }
+}
+
+/* Ensure logout icon and selector are visible and not clipped */
+.topbar .topbar-logout svg { color: #fff; width: 16px; height: 16px; display: inline-block; }
+.topbar .mobile-section-select { color: #fff; background: transparent; border: none; }
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-logout { white-space: nowrap; }
+.topbar-logout .logout-label { display: inline-block; }
+
+/* Mobile: show compact selector and ensure search shrinks instead of being cropped */
+@media (max-width: 900px) {
+  .topbar { padding-left: 12px !important; padding-right: 12px !important; }
+  .topbar form { max-width: none; flex: 1 1 auto; margin-left: 8px; margin-right: 8px; }
+  .topbar input[type="text"] { width: 100%; min-width: 0; }
+  .mobile-section-select { display: inline-block !important; }
+}
+
+@media (min-width: 901px) {
+  .mobile-section-select { display: none !important; }
+}
+
+@media (max-width: 480px) {
+  .modern-table td::before {
+    font-size: 13px;
+  }
+  .NodePort {
+    width: 22px !important;
+    height: 18px !important;
+  }
+  .NodePortTable td {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+  .dashboard-container {
+    padding: 10px;
+  }
+
+  /* Hide logout text on very small screens to save space */
+  .topbar-logout .logout-label { display: none; }
+  .topbar-logout { padding: 8px 8px !important; }
+  .topbar-search-form { margin-left: 6px; margin-right: 6px; }
+
+  /* make mobile search toggle visible and hide desktop submit/input until opened */
+  .mobile-search-toggle { display: inline-flex !important; left: 8px !important; }
+  .topbar-input { display: none !important; }
+  .topbar.mobile-search-open .topbar-input { display: block !important; }
+  .search-submit { display: none !important; }
+}
+
+/* Fixes específicos de mobile: asegurar que el toggle sea clicable, el selector visible y el placeholder centrado */
+@media (max-width: 900px) {
+  .mobile-search-toggle {
+    z-index: 1400 !important;
+    pointer-events: auto !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Asegurar que el selector de secciones se muestre en pantallas pequeñas */
+  .mobile-section-select {
+    display: inline-block !important;
+    color: #fff !important;
+    background: transparent !important;
+    border: none !important;
+    font-weight: 600 !important;
+    padding: 6px 8px !important;
+    border-radius: 8px !important;
+    z-index: 1300 !important;
+  }
+
+  /* Ajustes de altura/alineación del topbar en mobile para centrar placeholder y evitar desalineos */
+  .topbar { align-items: center; height: 56px; }
+  .topbar-search-wrapper { height: 38px; }
+  .topbar-input {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    line-height: 1.2 !important;
+    box-sizing: border-box;
+  }
+
+  /* Make sure mobile modal appears above everything and input is usable */
+  .mobile-search-modal { z-index: 1600; }
+  .mobile-search-backdrop { z-index: 1590; }
+}
+
+/* Mobile: lupa sin recuadro, posicionada al extremo derecho; desplegable centrado; input alineado */
+@media (max-width: 900px) {
+  /* Remove visual box from the magnifier and place it at the far right of the topbar */
+  .mobile-search-toggle {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    right: 12px !important;
+    left: auto !important;
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    padding: 6px !important;
+    z-index: 1600 !important;
+    color: #ffffff !important;
+  }
+  .mobile-search-toggle svg { stroke: #ffffff !important; }
+
+  /* Ensure the search button (desktop .search-submit) is also borderless in mobile if visible */
+  .search-submit {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #ffffff !important;
+  }
+
+  /* Center the section selector in the TopBar */
+  .mobile-section-select {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  display: inline-block !important;
+  z-index: 1500 !important;
+  /* use translucent light bg so it reads on the blue topbar */
+  background: rgba(255,255,255,0.08) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  padding: 6px 12px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(2,6,23,0.06) !important;
+  }
+
+  /* Fix input alignment: make wrapper a flex center so placeholder is vertically centered */
+  .topbar-search-wrapper { display: flex !important; align-items: center !important; }
+  .topbar-input {
+    padding-left: 16px !important;
+    padding-right: 56px !important; /* keep space for right icon */
+    height: 40px !important;
+    line-height: 20px !important;
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Avoid overlap: ensure brand keeps left space */
+  .topbar-brand { margin-left: 8px; }
+}
+
+/* Mobile-specific visual fixes: topbar should be blue like desktop and icons visible on dark bg */
+@media (max-width: 900px) {
+  .topbar {
+    /* Match desktop gradient so mobile topbar is blue like requested */
+    background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%) !important;
+    color: #ffffff !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    backdrop-filter: none;
+  }
+
+  /* Brand icon/text on dark bg */
+  .topbar-brand-title { color: #ffffff !important; }
+  .topbar-brand-icon { box-shadow: 0 2px 6px rgba(0,0,0,0.18); }
+
+  /* Ensure search wrapper has internal padding so input content never overflows the rounded box */
+  .topbar-search-wrapper { padding-left: 8px; padding-right: 8px; box-sizing: border-box; }
+
+  /* Input on mobile: keep a visible dark pill that fits the blue topbar (white text inside) */
+  .topbar-input {
+    display: block !important;
+    background: rgba(255,255,255,0.06) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    padding-left: 14px !important;
+    padding-right: 48px !important; /* leave space for icons */
+    border-radius: 999px !important;
+    box-shadow: none !important;
+  }
+
+  .topbar-input::placeholder { color: rgba(255,255,255,0.75) !important; }
+
+  /* Mobile search toggle: white icon on blue background */
+  .mobile-search-toggle { color: #ffffff !important; }
+  .mobile-search-toggle svg { stroke: #ffffff !important; }
+
+  /* Style the mobile section select to be visible and touch-friendly on dark bg */
+  .mobile-section-select {
+    display: inline-block !important;
+    background: rgba(255,255,255,0.08) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    padding: 6px 10px !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(2,6,23,0.06) !important;
+  }
+
+  /* Ensure the search button (if visible) is above the input and usable on mobile */
+  .search-submit { z-index: 1500 !important; }
+
+  /* Slightly increase topbar height to avoid clipping on some devices */
+  .topbar { padding-top: 8px !important; padding-bottom: 8px !important; height: auto !important; }
+}
+
+/* On intermediate small screens show the mobile toggle and hide extra labels */
+@media (max-width: 900px) and (min-width: 481px) {
+  /* Intermediate sizes: show regular search input, hide the mobile-only toggle */
+  .mobile-search-toggle { display: none !important; }
+  .topbar-input { display: block !important; }
+  .search-submit { display: inline-flex !important; }
+  .mobile-section-select { display: inline-block !important; }
+}
+
+/* Styles for the mobile search bar rendered below TopBar */
+.mobile-search-bar {
+  display: block;
+  background: transparent;
+  padding: 8px 12px 12px 12px;
+}
+.mobile-search-bar input {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.mobile-search-bar button {
+  min-width: 64px;
+}
+
+/* Mobile search modal styles */
+.mobile-search-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1400;
+}
+.mobile-search-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+}
+.mobile-search-content {
+  position: relative;
+  width: calc(100% - 40px);
+  max-width: 720px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 12px 40px rgba(2,6,23,0.3);
+}
+
+/* Tooltip modal (usado en móviles táctiles) */
+.tooltip-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1900;
+}
+.tooltip-modal-content {
+  position: fixed;
+  left: 50%;
+  top: 60%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 28px);
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+  z-index: 1901;
+  box-shadow: 0 12px 40px rgba(2,6,23,0.32);
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+}
+.tooltip-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #64748b;
+}
+
+/* Layout and sidebar adjustments for responsive dashboard */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+}
+.dashboard-sidebar {
+  width: 260px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-sidebar {
+    display: none; /* Hide sidebar on small screens to maximize content area */
+  }
+  /* Make header controls (TopBar) provide section switching in small screens if needed */
+  .summary-chip {
+    padding: 8px 10px !important;
+    min-width: 80px !important;
+    font-size: 13px;
+  }
+  .summary-chip div:first-child {
+    font-size: 11px;
+  }
+  .summary-chip div:last-child {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  /* Make refresh buttons more touch-friendly */
+  button[title^="Forzar recarga"] {
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+  }
 }
 
 *, *::before, *::after {
@@ -482,7 +1447,17 @@ h1 {
   background: #d1fae5;
   color: #047857;
 }
-.admin-feedback.error {
-  background: #fee2e2;
-  color: #b91c1c;
+
+/* Authoritative mobile topbar override (placed after other rules to avoid conflicts) */
+@media (max-width: 900px) {
+  .topbar {
+    height: 56px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    transition: height 180ms ease, padding 180ms ease, box-shadow 180ms ease;
+    align-items: center !important;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.10) !important;
+  }
+  .mobile-hamburger, .mobile-search-toggle { top: 50% !important; transform: translateY(-50%) !important; }
+  .dashboard-container { margin-top: 56px !important; }
 }

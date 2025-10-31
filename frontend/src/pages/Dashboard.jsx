@@ -1503,7 +1503,7 @@ export default function Dashboard({ onLogout }) {
   
   const renderSection = () => {
     if (loading) return <div className="loading">Cargando datos del predio…</div>;
-    if (!selectedNetwork) return <div>Busca un predio en la barra superior…</div>;
+  if (!selectedNetwork) return <div className="empty-predio">Busca un predio en la barra superior…</div>;
     if (!summaryData) return <div>No hay datos disponibles para este predio.</div>;
 
     const sectionAvailable = availableSections.some(item => item.k === section);
