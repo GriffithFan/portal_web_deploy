@@ -2,11 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: portal-meraki-backend:latest
-    container_name: portal-meraki-backend
+    image: ghcr.io/GriffithFan/portal-meraki-backend:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -52,11 +48,7 @@ services:
       - portal-network
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.frontend
-    image: portal-meraki-frontend:latest
-    container_name: portal-meraki-frontend
+    image: ghcr.io/GriffithFan/portal-meraki-frontend:latest
     restart: unless-stopped
     ports:
       - "80:5173" # Servir la app en el puerto 80 del host
