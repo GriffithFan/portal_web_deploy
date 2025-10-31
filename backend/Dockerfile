@@ -15,6 +15,7 @@ RUN npm ci --only=production
 
 # Copiar código fuente
 COPY src ./src
+COPY scripts ./scripts
 COPY data ./data
 
 # Crear usuario no-root

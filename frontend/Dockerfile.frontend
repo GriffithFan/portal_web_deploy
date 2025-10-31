@@ -1,5 +1,5 @@
 # Dockerfile para Frontend - Portal Meraki
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Configurar directorio de trabajo
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Stage de producción con servidor simple
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Instalar servidor HTTP simple
 RUN npm install -g serve
