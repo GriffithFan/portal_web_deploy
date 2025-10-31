@@ -2372,17 +2372,59 @@ export default function Dashboard({ onLogout }) {
         }}>
           {isMobile && (
             <div className="mobile-section-tiles-wrapper">
-              <div className="mobile-section-tile-row">
+              <div className="mobile-section-tiles">
                 {availableSections.map((item) => {
                   const IconComp = item.IconComponent || TopologyIcon;
+                  // derive some counts for specific tiles
+                  const total = mobileCounts[item.k] ?? 0;
+                  let online = 0;
+                  let offline = 0;
+                  if (item.k === 'access_points') {
+                    const aps = (enrichedAPs && enrichedAPs.length) ? enrichedAPs : (summaryData?.devices || []).filter(d => (d.model || '').toLowerCase().startsWith('mr'));
+                    online = aps.filter(a => normalizeReachability(a.status) === 'connected').length;
+                    offline = aps.filter(a => normalizeReachability(a.status) === 'disconnected').length;
+                  } else if (item.k === 'switches') {
+                    const sws = (summaryData?.devices || []).filter(d => (d.model || '').toLowerCase().startsWith('ms'));
+                    online = sws.filter(s => normalizeReachability(s.status || s.statusNormalized || s.connectionStatus || 'unknown') === 'connected').length;
+                    offline = sws.filter(s => normalizeReachability(s.status || s.statusNormalized || s.connectionStatus || 'unknown') === 'disconnected').length;
+                  } else if (item.k === 'appliance_status') {
+                    const apps = summaryData?.applianceStatus || [];
+                    online = apps.filter(a => {
+                      const uplinks = Array.isArray(a.uplinks) ? a.uplinks : [];
+                      return uplinks.some(u => normalizeReachability(u.status || u.statusNormalized) === 'connected');
+                    }).length;
+                    offline = apps.length - online;
+                  } else if (item.k === 'topology') {
+                    online = mobileCounts.topology;
+                    offline = 0;
+                  }
+
                   return (
-                    <button key={item.k} className="mobile-section-tile" onClick={() => setSection(item.k)} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                      <div className="mobile-section-tile-icon"><IconComp /></div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
-                        <div className="mobile-section-tile-title">{item.t}</div>
-                        <div className="mobile-section-tile-count">{mobileCounts[item.k] ?? ''}</div>
+                    <div key={item.k} className="mobile-section-tile" role="button" onClick={() => setSection(item.k)} tabIndex={0}>
+                      <div className="mobile-section-tile-row">
+                        <div className="mobile-section-tile-icon"><IconComp /></div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
+                          <div className="mobile-section-tile-title">{item.t}</div>
+                          <div className="mobile-section-tile-count">{total} {total === 1 ? 'device' : 'devices'}</div>
+                        </div>
                       </div>
-                    </button>
+
+                      {/* small summary row */}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10, width: '100%', justifyContent: 'space-between' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.08)', padding: '6px 8px', borderRadius: 8, color: '#fff', fontSize: 12 }}>
+                          <div style={{ fontWeight: 700 }}>{online}</div>
+                          <div style={{ fontSize: 11, opacity: 0.9 }}>Online</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.04)', padding: '6px 8px', borderRadius: 8, color: '#fff', fontSize: 12 }}>
+                          <div style={{ fontWeight: 700 }}>{offline}</div>
+                          <div style={{ fontSize: 11, opacity: 0.9 }}>Offline</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.04)', padding: '6px 8px', borderRadius: 8, color: '#fff', fontSize: 12 }}>
+                          <div style={{ fontWeight: 700 }}>{total ? total : '-'}</div>
+                          <div style={{ fontSize: 11, opacity: 0.9 }}>{item.k === 'access_points' ? 'Total APs' : item.t}</div>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
