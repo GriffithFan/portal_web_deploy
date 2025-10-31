@@ -1,0 +1,9 @@
+# Backend dockerignore
+node_modules
+npm-debug.log
+.env
+.env.*
+logs
+data
+README.md
+/.git

@@ -1,3 +1,20 @@
+# Exclude files from Docker context at repository root
+node_modules
+**/node_modules
+dist
+frontend/dist
+backend/logs
+*.log
+.env
+.env.*
+.git
+.gitignore
+Dockerfile*
+README.md
+/.vscode
+/.idea
+npm-debug.log
+yarn-error.log
 # Node modules
 node_modules
 npm-debug.log

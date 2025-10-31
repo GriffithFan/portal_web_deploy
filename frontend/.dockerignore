@@ -1,0 +1,7 @@
+# Frontend dockerignore
+node_modules
+dist
+.env
+.env.*
+npm-debug.log
+/.git
