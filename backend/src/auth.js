@@ -7,8 +7,12 @@ async function login(req, res) {
   const { correo, contraseña } = req.body;
   // Buscar usuario en la base de datos
   const usuario = await buscarPorCorreo(correo);
-  console.log('Usuario encontrado:', usuario);
-  console.log('Contraseña recibida:', contraseña);
+  // Registrar sólo información no sensible para diagnóstico
+  if (usuario) {
+    console.debug(`Inicio de sesión solicitado para usuario id=${usuario.id} correo=${correo}`);
+  } else {
+    console.debug(`Intento de login para correo=${correo} — usuario no encontrado`);
+  }
   if (!usuario) {
     return res.status(401).json({ mensaje: 'Credenciales incorrectas' });
   }

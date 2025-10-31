@@ -10,9 +10,10 @@ const ConnectivityGraph = ({
   uplinkHistory = [], 
   showFilters = true 
 }) => {
-  const [timeFilter, setTimeFilter] = useState(24); // horas por defecto
+  const [timeFilter, setTimeFilter] = useState(1); // horas por defecto (1h)
 
   const TIME_FILTERS = [
+    { label: '1h', hours: 1 },
     { label: '2h', hours: 2 },
     { label: '6h', hours: 6 },
     { label: '12h', hours: 12 },

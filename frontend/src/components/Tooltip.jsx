@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import './Tooltip.css';
 
 /**
@@ -34,6 +34,8 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
   }, []);
 
   const close = () => setVisible(false);
+
+  const modalRef = useRef(null);
 
   const handleMouseEnter = (e) => {
     // No activar hover si es dispositivo táctil
@@ -74,12 +76,47 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
     return undefined;
   }, [visible, isTouch, modalOnMobile]);
 
+  // Close on Escape when modal is open
+  useEffect(() => {
+    if (!(visible && isTouch && modalOnMobile)) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        setVisible(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible, isTouch, modalOnMobile]);
+
+  // Close when clicking/tapping outside the modal content (more reliable on mobile)
+  useEffect(() => {
+    if (!(visible && isTouch && modalOnMobile)) return undefined;
+
+    const onPointerDown = (e) => {
+      try {
+        if (!modalRef.current) return;
+        if (!modalRef.current.contains(e.target)) {
+          setVisible(false);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [visible, isTouch, modalOnMobile]);
+
   // Si no hay contenido, renderizar children tal cual (hooks ya fueron llamados)
   if (!content) return <>{children}</>;
 
   return (
     <div
-      className="tooltip-wrapper"
+      className={`tooltip-wrapper${visible ? ' tooltip-open' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
@@ -90,9 +127,10 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
       {visible && isTouch && modalOnMobile && (
         <>
           <div className="tooltip-modal-backdrop" onClick={close} />
-          <div className="tooltip-modal-content" role="dialog" aria-modal="true">
-            <button className="tooltip-modal-close" onClick={close} aria-label="Cerrar">✕</button>
-            {typeof content === 'string' ? <div>{content}</div> : content}
+          <div ref={modalRef} className="tooltip-modal-content" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="tooltip-modal-inner">
+              {typeof content === 'string' ? <div className="tooltip-modal-text">{content}</div> : content}
+            </div>
           </div>
         </>
       )}

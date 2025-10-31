@@ -329,13 +329,13 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   let yGap = 75;
   
   if (totalDevices <= 10) {
-    // Redes pequeñas: elementos más pequeños
-    scaleFactor = 0.75;
-    yGap = 70;
+    // Redes pequeñas: elementos aún más pequeños
+    scaleFactor = 0.65;
+    yGap = 50;
   } else if (totalDevices <= 30) {
-    // Redes medianas: tamaño normal
-    scaleFactor = 0.9;
-    yGap = 75;
+    // Redes medianas: aún más compacto
+    scaleFactor = 0.7;
+    yGap = 48;
   } else if (totalDevices <= 60) {
     // Redes grandes: un poco más grandes
     scaleFactor = 1.0;
@@ -599,7 +599,14 @@ const buildLayout = (graph, deviceMap = new Map()) => {
 
   // Normalizar: mover todo para que minX quede en paddingLeft
   const shiftX = paddingLeft - minX;
-  const shiftY = paddingTop - minY;
+  let shiftY = paddingTop - minY;
+
+  // Si es predio GAP/GTW (Z3) y solo hay 1 AP, agregar margen extra arriba
+  const isGAPorGTW = layoutNodes.some(n => n.kind === 'gateway' || n.model?.toUpperCase().includes('Z3'));
+  const apCountForMargin = layoutNodes.filter(n => n.kind === 'ap').length;
+  if (isGAPorGTW && apCountForMargin === 1) {
+    shiftY += 40; // margen extra arriba
+  }
 
   layoutNodes.forEach((node) => {
     node.x += shiftX;
@@ -783,30 +790,37 @@ export default function SimpleGraph({ graph, devices = [] }) {
         const isExternal = node.kind === 'external';
         
         // Todos los labels centrados arriba del icono (excepto external que va a la izquierda)
-        let textAnchor = 'middle';
-        let labelX = 0;
-        let primaryY = -32;  // Más cerca del dispositivo (era -40)
-        let secondaryY = primaryY + 28; // Separación entre nombre y serial
-        
-        // Aplicar factor de escala dinámico a fuentes - Aumentado más
-        const baseScale = layout.scaleFactor || 1.0;
-        const primaryFontSize = Math.round(24 * baseScale);  // Aumentado de 22 a 24
-        let secondaryFontSize = Math.round(20 * baseScale); // Aumentado de 18 a 20
-        
-        // Para UTM/Appliance: subir texto más arriba y aumentar mucho más el tamaño del MAC
-        const isAppliance = node.kind === 'appliance' || node.kind === 'gateway';
-        if (isAppliance) {
-          primaryY = -40;  // Más alto para evitar choque con dispositivo
-          secondaryY = primaryY + 24;
-          secondaryFontSize = Math.round(23 * baseScale); // MAC aumentado de 21 a 23
-        }
-        
-        if (isExternal) {
-          textAnchor = 'end';
-          labelX = -28;
-          primaryY = -8;
-          secondaryY = primaryY + 16;
-        }
+          let textAnchor = 'middle';
+          let labelX = 0;
+          let primaryY = -32;  // Más cerca del dispositivo (era -40)
+          let secondaryY = primaryY + 28; // Separación entre nombre y serial
+
+          // Aplicar factor de escala dinámico a fuentes - Aumentado más
+          const baseScale = layout.scaleFactor || 1.0;
+          const primaryFontSize = Math.round(24 * baseScale);  // Aumentado de 22 a 24
+          let secondaryFontSize = Math.round(20 * baseScale); // Aumentado de 18 a 20
+
+          // Ajuste de posición para redes pequeñas y medianas
+          const isAppliance = node.kind === 'appliance' || node.kind === 'gateway';
+          if (baseScale < 0.95 && !isAppliance) {
+            // Red pequeña/mediana: acercar el label aún más
+            primaryY = -18;
+            secondaryY = primaryY + 18;
+          }
+
+          // Para UTM/Appliance: dejar como estaba originalmente
+          if (isAppliance) {
+            primaryY = -40;  // Valor original
+            secondaryY = primaryY + 24;
+            secondaryFontSize = Math.round(23 * baseScale); // MAC aumentado de 21 a 23
+          }
+
+          if (isExternal) {
+            textAnchor = 'end';
+            labelX = -28;
+            primaryY = -8;
+            secondaryY = primaryY + 16;
+          }
         
         const { primary, secondary } = computeNodeLabels(node);
         const showPrimary = !isExternal && Boolean(primary);

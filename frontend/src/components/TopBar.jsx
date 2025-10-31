@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
-export default function TopBar({ onSearch, onLogout }) {
+export default function TopBar({ onSearch, onLogout, onSelectSection, sections = [], selectedSection, selectedNetwork }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [recentPredios, setRecentPredios] = useState([]);
+  const [drawerSearch, setDrawerSearch] = useState('');
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const inputRef = useRef(null);
   
   const handleLogoutClick = () => {
     setShowConfirm(true);
@@ -23,146 +29,200 @@ export default function TopBar({ onSearch, onLogout }) {
       onSearch(searchQuery.trim());
     }
   };
+
+  useEffect(() => {
+    if (showMobileSearch && inputRef.current) {
+      // focus puede fallar en navegadores antiguos si el elemento no está visible aún
+      try {
+        inputRef.current.focus();
+      } catch (err) {
+        // ignore
+        // eslint-disable-next-line no-console
+        console.debug('focus failed on mobile search input', err && err.message ? err.message : err);
+      }
+    }
+  }, [showMobileSearch]);
+
+  // track window width to switch between desktop/mobile render
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Cargar predios recientes cuando se abre el drawer
+  useEffect(() => {
+    if (!showDrawer) return;
+    try {
+      const raw = localStorage.getItem('recentPredios') || '[]';
+      const parsed = JSON.parse(raw);
+      setRecentPredios(Array.isArray(parsed) ? parsed : []);
+    } catch (e) {
+      setRecentPredios([]);
+    }
+  }, [showDrawer]);
   
   return (
     <>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        padding: '6px 24px', 
-        background: 'linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%)', 
-        color: '#fff',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        gap: '20px'
-      }}>
-        {/* Logo y branding */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px',
-          minWidth: '140px'
-        }}>
-          <div style={{
-            width: '28px',
-            height: '28px',
-            background: 'linear-gradient(135deg, #4a90e2 0%, #357ab8 100%)',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 'bold',
-            fontSize: '15px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-          }}>
-            M
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '15px', letterSpacing: '0.5px' }}>
-              Portal
-            </div>
-          </div>
-        </div>
+  <div className={`topbar ${showMobileSearch ? 'mobile-search-open' : ''}`}>
+        {windowWidth <= 900 ? (
+          // Mobile minimal: only hamburger (left) and magnifier (right)
+          <>
+            <button className="mobile-hamburger" type="button" onClick={() => setShowDrawer(true)} aria-label="Abrir menú">
+              <svg width="20" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
 
-        {/* Barra de búsqueda */}
-        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: '500px' }}>
-          <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar predio por ID o nombre..."
-              style={{
-                width: '100%',
-                padding: '10px 40px 10px 16px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.15)',
-                backdropFilter: 'blur(10px)',
-                color: '#fff',
-                fontSize: '14px',
-                outline: 'none',
-                transition: 'all 0.2s ease'
-              }}
-              onFocus={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.25)';
-                e.target.style.borderColor = 'rgba(255,255,255,0.4)';
-              }}
-              onBlur={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.15)';
-                e.target.style.borderColor = 'rgba(255,255,255,0.2)';
-              }}
-            />
+            <div style={{ flex: 1 }} />
+
             <button
-              type="submit"
-              style={{
-                position: 'absolute',
-                right: '6px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'rgba(74, 144, 226, 0.9)',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '6px 10px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(74, 144, 226, 1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(74, 144, 226, 0.9)';
-              }}
+              type="button"
+              className="mobile-search-toggle"
+              onClick={() => setShowMobileSearch(s => !s)}
+              aria-label="Abrir búsqueda"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <path d="m21 21-4.35-4.35"></path>
               </svg>
             </button>
-          </div>
-        </form>
-        
-        {/* Botón de logout */}
-        <button 
-          onClick={handleLogoutClick} 
-          title="Cerrar sesión"
-          style={{
-            background: 'rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(10px)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)';
-            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-          Salir
-        </button>
+          </>
+        ) : (
+          <> 
+            {/* Logo y branding */}
+            <div className="topbar-brand">
+              <div className="topbar-brand-icon">M</div>
+              <div className="topbar-brand-title">Portal</div>
+            </div>
+
+            {/* Barra de búsqueda */}
+            <form className="topbar-search-form" onSubmit={handleSearch}>
+              <div className="topbar-search-wrapper">
+                <input
+                  ref={inputRef}
+                  className="topbar-input"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar predio por ID o nombre..."
+                  aria-label="Buscar predio"
+                />
+                <button type="submit" className="search-submit" aria-label="Buscar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                  </svg>
+                </button>
+              </div>
+            </form>
+
+            {/* Agrupar acciones a la derecha para evitar overlap con la búsqueda */}
+            <div className="topbar-actions">
+              {/* Mobile section selector - visible only on small screens via CSS */}
+              {typeof onSelectSection === 'function' && (
+                <select
+                  className="mobile-section-select"
+                  value={selectedSection || ''}
+                  onChange={(e) => onSelectSection(e.target.value)}
+                  aria-label="Seleccionar sección"
+                >
+                  {sections.map((s) => (
+                    <option key={s.k} value={s.k}>{s.t}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Botón de logout */}
+              <button 
+                onClick={handleLogoutClick} 
+                title="Cerrar sesión"
+                className="topbar-logout"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span className="logout-label">Salir</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Mobile drawer: menú lateral que ocupa el 75% del ancho y 100% alto */}
+      {showDrawer && (
+        <div className="mobile-drawer" role="dialog" aria-modal="true">
+          <div className="mobile-drawer-backdrop" onClick={() => setShowDrawer(false)} />
+          <div className="mobile-drawer-content">
+            <div className="mobile-drawer-header">
+                <div className="mobile-drawer-appname">Portal Meraki</div>
+              </div>
+
+              <div className="mobile-drawer-predio">
+                <div className="drawer-label">PREDIO</div>
+                <div className="drawer-predio-box">{(selectedNetwork && (selectedNetwork.predio_code || selectedNetwork.id)) || ''}</div>
+              </div>
+
+              <form className="drawer-search-form" onSubmit={(e) => { e.preventDefault(); if (drawerSearch && drawerSearch.trim()) { onSearch(drawerSearch.trim()); setShowDrawer(false); } }}>
+                <input
+                  type="text"
+                  value={drawerSearch}
+                  onChange={(e) => setDrawerSearch(e.target.value)}
+                  placeholder="Buscar predio por ID o nombre..."
+                  aria-label="Buscar predio en drawer"
+                  className="drawer-search-input"
+                />
+                <button type="submit" className="drawer-search-button" aria-label="Buscar predio">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                </button>
+              </form>
+
+            <div className="drawer-recent">
+              <div className="drawer-section-title">Predios frecuentes</div>
+              <ul className="drawer-recent-list">
+                {recentPredios.length === 0 && <li className="drawer-empty">No hay predios recientes</li>}
+                {recentPredios.map((p) => (
+                  <li key={p.id}>
+                    <button type="button" className="drawer-recent-item" onClick={() => { onSearch(p.id); setShowDrawer(false); }}>
+                      <span className="drawer-recent-name">{p.name || p.id}</span>
+                      <span className="drawer-recent-id">{p.id}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile search modal (opens on small screens) */}
+      {showMobileSearch && (
+        <div className="mobile-search-modal" role="dialog" aria-modal="true">
+          <div className="mobile-search-backdrop" onClick={() => setShowMobileSearch(false)} />
+          <div className="mobile-search-content">
+            <form onSubmit={(e) => { handleSearch(e); setShowMobileSearch(false); }} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar predio por ID o nombre..."
+                aria-label="Buscar predio"
+                style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}
+              />
+              <button type="submit" style={{ background: '#2563eb', color: '#fff', borderRadius: 8, padding: '10px 14px', border: 'none' }}>Buscar</button>
+              <button type="button" onClick={() => setShowMobileSearch(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '10px 12px' }}>Cerrar</button>
+            </form>
+          </div>
+        </div>
+      )}
       
       {/* Modal de confirmación */}
       {showConfirm && (

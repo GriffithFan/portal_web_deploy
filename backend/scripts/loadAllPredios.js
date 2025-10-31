@@ -93,10 +93,10 @@ async function processOrganization(org, options = {}) {
     progressCallback,
   } = options;
   try {
-  console.log(`\nProcesando organización: ${org.name} (${org.id})`);
+    console.info(`\nProcesando organización: ${org.name} (${org.id})`);
     
     const networks = await getNetworks(org.id);
-    console.log(`   → ${networks.length} redes encontradas`);
+      console.info(`   → ${networks.length} redes encontradas`);
     
     const predios = [];
     let duplicatesByNetwork = 0;
@@ -199,7 +199,7 @@ function appendToCSV(predios, isFirst = false) {
  * Función principal del script
  */
 async function loadAllPredios() {
-  console.log('Iniciando carga masiva de predios...\n');
+  console.info('Iniciando carga masiva de predios...\n');
   
   const startTime = Date.now();
   let totalPredios = 0;
@@ -211,9 +211,9 @@ async function loadAllPredios() {
   
   try {
     // 1. Obtener todas las organizaciones
-  console.log('Obteniendo lista de organizaciones...');
+  console.info('Obteniendo lista de organizaciones...');
   const organizations = await getOrganizations();
-  console.log(`Se encontraron ${organizations.length} organizaciones\n`);
+  console.info(`Se encontraron ${organizations.length} organizaciones\n`);
     
     // 2. Procesar organizaciones en lotes
     let firstBatch = true;
@@ -221,7 +221,7 @@ async function loadAllPredios() {
     for (let i = 0; i < organizations.length; i += BATCH_SIZE) {
       const batch = organizations.slice(i, i + BATCH_SIZE);
       
-  console.log(`Procesando lote ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(organizations.length/BATCH_SIZE)}...`);
+  console.info(`Procesando lote ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(organizations.length/BATCH_SIZE)}...`);
       
       // Procesar lote en paralelo
       const batchPromises = batch.map(org => 
@@ -237,7 +237,7 @@ async function loadAllPredios() {
               duplicateInfo.push(`${stats.duplicatesByCode} coincidencias de código`);
             }
             const extra = duplicateInfo.length ? ` (omitidos ${duplicateInfo.join(' + ')})` : '';
-            console.log(`   ${org.name}: ${predios.length} predios${extra}`);
+            console.info(`   ${org.name}: ${predios.length} predios${extra}`);
           }
         })
       );
@@ -263,12 +263,12 @@ async function loadAllPredios() {
         totalPredios += batchPredios.length;
         firstBatch = false;
         
-  console.log(`Guardados ${batchPredios.length} predios (Total: ${totalPredios})`);
+  console.info(`Guardados ${batchPredios.length} predios (Total: ${totalPredios})`);
       }
       
       // Delay entre lotes para rate limiting
       if (i + BATCH_SIZE < organizations.length) {
-  console.log(`Esperando ${DELAY_MS}ms...`);
+  console.info(`Esperando ${DELAY_MS}ms...`);
         await delay(DELAY_MS);
       }
     }
@@ -277,26 +277,26 @@ async function loadAllPredios() {
     const endTime = Date.now();
     const duration = Math.round((endTime - startTime) / 1000);
     
-  console.log('\nCarga completada!');
-    console.log('═'.repeat(50));
-  console.log(`Estadísticas:`);
-    console.log(`   • Organizaciones procesadas: ${processedOrgs}/${organizations.length}`);
-    console.log(`   • Total de predios cargados: ${totalPredios}`);
-    if (totalDuplicates > 0) {
-      console.log(`   • Duplicados omitidos por network_id: ${totalDuplicates}`);
-    }
-    if (totalCodeCollisions > 0) {
-      console.log(`   • Códigos de predio repetidos detectados: ${totalCodeCollisions}`);
-    }
-    console.log(`   • Tiempo total: ${duration} segundos`);
-    console.log(`   • Promedio: ${Math.round(totalPredios/duration)} predios/segundo`);
-    console.log(`   • Archivo generado: ${CSV_PATH}`);
+  console.info('\nCarga completada!');
+  console.info('═'.repeat(50));
+  console.info(`Estadísticas:`);
+  console.info(`   • Organizaciones procesadas: ${processedOrgs}/${organizations.length}`);
+  console.info(`   • Total de predios cargados: ${totalPredios}`);
+  if (totalDuplicates > 0) {
+    console.info(`   • Duplicados omitidos por network_id: ${totalDuplicates}`);
+  }
+  if (totalCodeCollisions > 0) {
+    console.info(`   • Códigos de predio repetidos detectados: ${totalCodeCollisions}`);
+  }
+  console.info(`   • Tiempo total: ${duration} segundos`);
+  console.info(`   • Promedio: ${Math.round(totalPredios/duration)} predios/segundo`);
+  console.info(`   • Archivo generado: ${CSV_PATH}`);
     
     // 4. Estadísticas del CSV generado
     if (fs.existsSync(CSV_PATH)) {
       const content = fs.readFileSync(CSV_PATH, 'utf8');
       const lines = content.split('\n').filter(line => line.trim());
-      console.log(`   • Líneas en CSV: ${lines.length - 1} (sin header)`);
+      console.info(`   • Líneas en CSV: ${lines.length - 1} (sin header)`);
       
       // Análisis por región
       const regionCount = {};
@@ -308,16 +308,16 @@ async function loadAllPredios() {
         }
       });
       
-  console.log(`\nDistribución por región:`);
+  console.info(`\nDistribución por región:`);
       Object.entries(regionCount)
         .sort(([,a], [,b]) => b - a)
         .forEach(([region, count]) => {
-          console.log(`   • ${region}: ${count} predios`);
+          console.info(`   • ${region}: ${count} predios`);
         });
     }
     
-  console.log('\nEl sistema ahora puede resolver predios instantáneamente!');
-  console.log('Ejemplo: GET /api/resolve-network?q=603005');
+  console.info('\nEl sistema ahora puede resolver predios instantáneamente!');
+  console.info('Ejemplo: GET /api/resolve-network?q=603005');
     
   } catch (error) {
     console.error('\nError durante la carga:', error.message);
@@ -334,9 +334,9 @@ function validateConfig() {
     process.exit(1);
   }
   
-  console.log('Configuración validada');
-  console.log(`   • API Key: ${process.env.MERAKI_API_KEY.substring(0, 8)}...`);
-  console.log(`   • Organizaciones: ${process.env.MERAKI_ORG_ID ? 'Una específica' : 'Todas disponibles'}`);
+  console.info('Configuración validada');
+  console.info(`   • API Key: ${process.env.MERAKI_API_KEY.substring(0, 8)}...`);
+  console.info(`   • Organizaciones: ${process.env.MERAKI_ORG_ID ? 'Una específica' : 'Todas disponibles'}`);
 }
 
 // Ejecutar script si se llama directamente

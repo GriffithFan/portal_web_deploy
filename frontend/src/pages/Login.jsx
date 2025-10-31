@@ -59,10 +59,12 @@ export default function Login({ onLogin, onAdminLogin }) {
         body: JSON.stringify({ username: user, password: pass })
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         setError('');
-        onLogin(user, pass);
+        // data.token puede ser undefined si el backend no devuelve token
+        if (typeof onLogin === 'function') onLogin(user, data.token || null);
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setError(data.message || 'Error de autenticación');
       }
     } catch (err) {

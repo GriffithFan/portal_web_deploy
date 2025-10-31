@@ -166,3 +166,60 @@
   background: #3b82f6;
   color: #fff;
 }
+
+/* Modal-specific styling: reuse tooltip row/title styles but tuned for modal */
+.tooltip-modal-content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, calc(100% - 32px));
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  padding: 14px 16px 18px 16px;
+  box-shadow: 0 20px 60px rgba(2,6,23,0.35);
+  z-index: 1910;
+  animation: tooltipModalIn 220ms cubic-bezier(.2,.9,.2,1) both;
+}
+
+.tooltip-modal-backdrop { /* ensure it sits beneath content */
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.42);
+  z-index: 1905;
+}
+
+@keyframes tooltipModalIn {
+  from { transform: translate(-50%, -48%) scale(0.99); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.tooltip-modal-content .tooltip-modal-inner { padding-top: 8px; }
+.tooltip-modal-content .tooltip-title { color: #0f172a; font-size: 16px; margin-bottom: 10px; border-bottom: none; padding-bottom: 0; }
+.tooltip-modal-content .tooltip-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eef2f7; }
+.tooltip-modal-content .tooltip-row:last-child { border-bottom: none; }
+.tooltip-modal-content .tooltip-label { color: #64748b; font-size: 12px; text-transform: none; letter-spacing: 0; }
+.tooltip-modal-content .tooltip-value { color: #0f172a; font-weight: 600; }
+.tooltip-modal-content .tooltip-title { color: #0f172a; font-size: 16px; margin-bottom: 10px; border-bottom: none; padding-bottom: 0; font-weight: 600; }
+.tooltip-modal-content .tooltip-badge { font-size: 12px; padding: 4px 8px; }
+.tooltip-modal-content .tooltip-modal-text { white-space: pre-wrap; line-height: 1.45; color: #0f172a; }
+
+/* Close button styling inside modal */
+.tooltip-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+  padding: 6px;
+  border-radius: 8px;
+}
+.tooltip-modal-close:focus { outline: none; box-shadow: 0 6px 18px rgba(2,6,23,0.12); }
+.tooltip-modal-close:hover { background: rgba(0,0,0,0.04); color: #0f172a; }

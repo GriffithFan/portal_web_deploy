@@ -74,12 +74,15 @@ const cache = {
   topology: new Map(),
   switchPorts: new Map(),
   accessPoints: new Map(),
+  // Caché específica para LLDP/CDP por network
+  lldpByNetwork: new Map(),
   // TTL específicos por categoría (en ms)
   TTL: {
     networks: 10 * 60 * 1000,     // 10 minutos - redes cambian poco
     devices: 3 * 60 * 1000,       // 3 minutos - dispositivos y estados
     appliance: 1 * 60 * 1000,     // 1 minuto - métricas de uplinks
     topology: 5 * 60 * 1000,      // 5 minutos - topología
+    lldp: Number(process.env.LLDP_CACHE_TTL_MS) || 10 * 60 * 1000, // configurable via .env
     ports: 2 * 60 * 1000          // 2 minutos - puertos y APs
   }
 };
@@ -616,13 +619,15 @@ app.get('/api/debug/topology/:networkId', async (req, res) => {
     
   console.debug(`Switches: ${switches.length}, MX: ${mxDevice ? mxDevice.serial : 'NO ENCONTRADO'}`);
     
-    // Obtener LLDP de cada switch
+    // Obtener LLDP de cada switch (reutilizar caché si existe)
     const lldpData = {};
+    const forceLldpRefreshDbg = (req.query.forceLldpRefresh || '').toString().toLowerCase() === 'true' || (req.query.forceLldpRefresh || '').toString() === '1';
+    const cachedLldpMapDebug = !forceLldpRefreshDbg && (getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {});
     for (const sw of switches) {
       try {
-        const lldpInfo = await getDeviceLldpCdp(sw.serial);
-  lldpData[sw.serial] = lldpInfo;
-  console.debug(`${sw.name} (${sw.serial}) - puertos LLDP: ${Object.keys(lldpInfo.ports || {}).length}`);
+        const lldpInfo = (cachedLldpMapDebug && cachedLldpMapDebug[sw.serial]) || await getDeviceLldpCdp(sw.serial);
+        lldpData[sw.serial] = lldpInfo;
+        console.debug(`${sw.name} (${sw.serial}) - puertos LLDP: ${Object.keys(lldpInfo?.ports || {}).length}`);
       } catch (err) {
         console.error(`Error LLDP para ${sw.serial}:`, err.message);
       }
@@ -795,7 +800,8 @@ app.get('/api/debug/snapshot/:networkId', async (req, res) => {
       const devs = await getNetworkDevices(networkId);
       const ap = (devs || []).find(d => (d.model||'').toLowerCase().startsWith('mr'));
       if (ap) {
-        const info = await getDeviceLldpCdp(ap.serial);
+        const cachedLldpMap = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
+        const info = cachedLldpMap[ap.serial] || await getDeviceLldpCdp(ap.serial);
         out.lldpCdp[ap.serial] = info;
       }
     } catch {}
@@ -803,6 +809,47 @@ app.get('/api/debug/snapshot/:networkId', async (req, res) => {
     return res.status(500).json({ error: e.message, details: e.response?.data });
   }
   res.json(out);
+});
+
+// Admin: invalidar caché (por kind y/o networkId)
+app.post('/api/cache/clear', requireAdmin, (req, res) => {
+  try {
+    const networkId = (req.body && req.body.networkId) || req.query.networkId || null;
+    const kind = ((req.body && req.body.kind) || req.query.kind || 'lldp').toString();
+    if (kind === 'lldp') {
+      if (networkId) {
+        cache.lldpByNetwork.delete(networkId);
+        return res.json({ ok: true, cleared: `lldp:${networkId}` });
+      }
+      cache.lldpByNetwork.clear();
+      return res.json({ ok: true, cleared: 'lldp:all' });
+    }
+
+    // Soporte para otras cachés
+    const mapByKind = {
+      topology: cache.topology,
+      networks: cache.networkById,
+      networksByOrg: cache.networksByOrg,
+      switchPorts: cache.switchPorts,
+      accessPoints: cache.accessPoints,
+      appliance: cache.applianceStatus,
+    };
+
+    const target = mapByKind[kind];
+    if (target && typeof target.clear === 'function') {
+      if (networkId && typeof target.delete === 'function') {
+        target.delete(networkId);
+        return res.json({ ok: true, cleared: `${kind}:${networkId}` });
+      }
+      target.clear();
+      return res.json({ ok: true, cleared: `${kind}:all` });
+    }
+
+    return res.status(400).json({ error: 'kind desconocido. Usa lldp|topology|networks|switchPorts|accessPoints|appliance' });
+  } catch (e) {
+    console.error('Error invalidando caché:', e?.message || e);
+    return res.status(500).json({ error: 'Error invalidando caché' });
+  }
 });
 
 
@@ -1209,9 +1256,10 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
           console.warn('Estadísticas wireless de la red no disponibles');
         }
         
+        const cachedLldpMap = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
         for (const ap of accessPoints) {
           try {
-            const info = await getDeviceLldpCdp(ap.serial);
+            const info = cachedLldpMap[ap.serial] || await getDeviceLldpCdp(ap.serial);
             if (info) lldpSnapshots[ap.serial] = info;
           } catch (err) {
             console.warn(`LLDP no disponible para ${ap.serial}`);
@@ -1228,52 +1276,47 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
         
         result.accessPoints = accessPoints.map(ap => {
           const lldp = lldpSnapshots[ap.serial];
-          const port = lldp?.ports?.['0'] || lldp?.ports?.[Object.keys(lldp.ports || {})[0]];
-          const stats = wirelessStats[ap.serial];
-          
-          console.debug(`Procesando AP ${ap.name} (${ap.serial}) - LLDP: ${!!lldp}, puerto disponible: ${!!port}`);
-          
-          // Construir connectedTo en formato "SWITCH_01/Port 4"
+          let port = null;
           let switchName = '';
           let portNum = '';
-          
+          if (lldp && lldp.ports) {
+            // Buscar el primer puerto con datos LLDP/CDP
+            const portKeys = Object.keys(lldp.ports);
+            for (const key of portKeys) {
+              const p = lldp.ports[key];
+              if (p.lldp || p.cdp) {
+                port = p;
+                break;
+              }
+            }
+          }
+          const stats = wirelessStats[ap.serial];
           if (port) {
             const { cdp, lldp: lldpData } = port;
-            
             if (lldpData && lldpData.systemName) {
-              // Extraer solo el nombre del switch, eliminar modelo si existe
-              // Ej: "Meraki MS225-24P - SWITCH_01" -> "SWITCH_01"
               const nameParts = lldpData.systemName.split('-').map(p => p.trim());
               switchName = nameParts[nameParts.length - 1] || lldpData.systemName;
-              
               if (lldpData.portId) {
                 const portMatch = lldpData.portId.match(/(\d+)(?:\/\d+)*$/);
                 portNum = portMatch ? portMatch[1] : lldpData.portId;
               }
             } else if (cdp && cdp.deviceId) {
-              // Similar para CDP
               const nameParts = cdp.deviceId.split('-').map(p => p.trim());
               switchName = nameParts[nameParts.length - 1] || cdp.deviceId;
-              
               if (cdp.portId) {
                 const portMatch = cdp.portId.match(/(\d+)(?:\/\d+)*$/);
                 portNum = portMatch ? portMatch[1] : cdp.portId;
               }
             }
           }
-          
-          const connectedTo = (switchName && portNum) ? `${switchName}/Port ${portNum}` : (switchName || '-');
-          
-          // Detectar velocidad del puerto desde LLDP/CDP
-          let wiredSpeed = '1000 Mbps'; // Valor por defecto
+          const connectedTo = (switchName && portNum) ? `${switchName}/Port ${portNum}` : (switchName || '-')
+          let wiredSpeed = '1000 Mbps';
           if (port) {
             const { lldp: lldpData } = port;
             if (lldpData && lldpData.portSpeed) {
-              // Usar directamente el portSpeed de LLDP si está disponible
               wiredSpeed = lldpData.portSpeed;
             }
           }
-          
           return {
             serial: ap.serial,
             name: ap.name,
@@ -1284,7 +1327,6 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
             connectedTo: connectedTo,
             connectedPort: port?.cdp?.portId || port?.lldp?.portId || '-',
             wiredSpeed: wiredSpeed,
-            // Estadísticas wireless mejoradas
             connectionStats: stats ? {
               assoc: stats.assoc || 0,
               auth: stats.auth || 0,
@@ -1470,9 +1512,10 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
         // LLDP del switch para topología
         if (switches.length) {
           const lldpSnapshots = {};
+          const cachedLldpMapSwitches = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
           for (const sw of switches) {
             try {
-              const info = await getDeviceLldpCdp(sw.serial);
+              const info = cachedLldpMapSwitches[sw.serial] || await getDeviceLldpCdp(sw.serial);
               if (info) lldpSnapshots[sw.serial] = info;
             } catch (err) {
               console.warn(`LLDP del switch ${sw.serial} no disponible`);
@@ -1571,6 +1614,8 @@ app.get('/api/networks/:networkId/summary', async (req, res) => {
   const { networkId } = req.params;
   const startTime = Date.now();
   const { query = {} } = req;
+  // Parámetros de control
+  const forceLldpRefresh = (query.forceLldpRefresh || '').toString().toLowerCase() === 'true' || (query.forceLldpRefresh || '').toString() === '1';
   
   // Modo rápido: solo carga esencial (topology, devices, switches básicos)
   const quickMode = query.quick === 'true' || query.quick === '1';
@@ -2983,23 +3028,67 @@ app.get('/api/networks/:networkId/summary', async (req, res) => {
       return null;
     };
 
-    const lldpSnapshots = {};
-    // SIEMPRE obtener LLDP/CDP de switches para detectar conexiones con appliance
-    const devicesToScan = [...switches, ...accessPoints];
-    if (devicesToScan.length) {
-  console.info(`Obteniendo LLDP/CDP para ${devicesToScan.length} dispositivos (switches + APs)...`);
-      for (const device of devicesToScan) {
-        try {
-          const info = await withRetries(() => getDeviceLldpCdp(device.serial), { label: `LLDP/CDP ${device.serial}`, maxAttempts: 4, baseDelay: 700 });
-          if (info) {
-            lldpSnapshots[device.serial] = info;
+    // Optimización LLDP/CDP: reutilizar caché por network, paralelizar por lotes y límite de concurrencia
+    let lldpSnapshots = {};
+    // Intentar reutilizar caché por network si existe (permitir bypass con forceLldpRefresh)
+    const cachedLldp = !forceLldpRefresh && getFromCache(cache.lldpByNetwork, networkId, 'lldp');
+    if (forceLldpRefresh) {
+      console.info(`Bypass caché LLDP/CDP solicitado para ${networkId} (forceLldpRefresh)`);
+    }
+    if (cachedLldp) {
+      console.info(`Usando caché LLDP/CDP para ${networkId} (${Object.keys(cachedLldp).length} entradas)`);
+      lldpSnapshots = { ...cachedLldp };
+    } else {
+      const lldpCache = {};
+      const devicesToScan = [...switches, ...accessPoints];
+      const CONCURRENCY_LIMIT = 8; // Puedes ajustar este valor
+      async function getLldpCdpWithCache(serial) {
+        if (lldpCache[serial]) return lldpCache[serial];
+        const info = await withRetries(() => getDeviceLldpCdp(serial), { label: `LLDP/CDP ${serial}`, maxAttempts: 4, baseDelay: 700 });
+        if (info) lldpCache[serial] = info;
+        return info;
+      }
+      async function parallelLldpCdp(devices, limit = CONCURRENCY_LIMIT) {
+        const results = {};
+        let idx = 0;
+        while (idx < devices.length) {
+          const batch = devices.slice(idx, idx + limit);
+          const promises = batch.map(device => getLldpCdpWithCache(device.serial)
+            .then(info => ({ serial: device.serial, info }))
+            .catch(error => ({ serial: device.serial, error })));
+          const settled = await Promise.allSettled(promises);
+          for (const result of settled) {
+            if (result.status === 'fulfilled') {
+              const { serial, info, error } = result.value;
+              if (info) {
+                lldpSnapshots[serial] = info;
+              } else if (error) {
+                const status = error?.response?.status;
+                const message = error?.response?.data || error?.message;
+                const detail = [status, message].filter(Boolean).join(' ');
+                console.warn(`LLDP/CDP no disponible para ${serial}: ${detail}`);
+              }
+            } else {
+              const { serial } = result.reason || {};
+              console.warn(`LLDP/CDP no disponible para ${serial}: ${result.reason}`);
+            }
           }
-        } catch (error) {
-          const status = error?.response?.status;
-          const message = error?.response?.data || error?.message;
-          const detail = [status, message].filter(Boolean).join(' ');
-          console.warn(`LLDP/CDP no disponible para ${device.serial}: ${detail}`);
+          idx += limit;
         }
+      }
+      if (devicesToScan.length) {
+        console.info(`Obteniendo LLDP/CDP para ${devicesToScan.length} dispositivos (switches + APs) en paralelo (límite ${CONCURRENCY_LIMIT})...`);
+        await parallelLldpCdp(devicesToScan, CONCURRENCY_LIMIT);
+      }
+
+      // Guardar snapshot en caché si obtuvimos datos
+      try {
+        if (Object.keys(lldpSnapshots).length) {
+          setInCache(cache.lldpByNetwork, networkId, lldpSnapshots, 'lldp');
+          console.info(`Caché LLDP/CDP guardada para ${networkId} (${Object.keys(lldpSnapshots).length} entradas)`);
+        }
+      } catch (e) {
+        console.warn('Error guardando caché LLDP/CDP:', e?.message || e);
       }
     }
 
@@ -3649,6 +3738,10 @@ app.get('/api/networks/:networkId/summary', async (req, res) => {
 
     if (!hasValidMerakiTopology) {
   console.info(`Topología Meraki incompleta para ${networkId}, intentando reconstrucción vía LLDP`);
+      const cachedLldpMap = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
+      // Incluir elementos cacheados primero
+      Object.keys(cachedLldpMap).forEach((s) => { if (!lldpSnapshots[s]) lldpSnapshots[s] = cachedLldpMap[s]; });
+
       const missingDevices = devices.filter((device) => !lldpSnapshots[device.serial]);
       const lldpResults = missingDevices.length
         ? await Promise.allSettled(missingDevices.map((device) => getDeviceLldpCdp(device.serial).catch(() => null)))
@@ -4210,6 +4303,7 @@ app.get('/api/networks/:networkId/summary', async (req, res) => {
 // ANTERIOR: Endpoint por sección específica (será deprecado o simplificado)
 app.get('/api/networks/:networkId/:section', async (req, res) => {
   const { networkId, section } = req.params;
+  const forceLldpRefresh = (req.query.forceLldpRefresh || '').toString().toLowerCase() === 'true' || (req.query.forceLldpRefresh || '').toString() === '1';
   try {
     if (section === 'topology') {
       if (networkId === 'NETWORK_ID') return res.status(400).json({ error: 'Reemplaza NETWORK_ID por el ID real de la red (L_...).'});
@@ -4278,7 +4372,8 @@ app.get('/api/networks/:networkId/:section', async (req, res) => {
         
         // Intentar encontrar vecino (switch) vía LLDP/CDP del MX para enlazarlo
         try {
-          const lldp = await getDeviceLldpCdp(mx.serial);
+          const cachedLldpMap = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
+          const lldp = cachedLldpMap[mx.serial] || await getDeviceLldpCdp(mx.serial);
           const gTmp = require('./transformers').toGraphFromLldpCdp({ [mx.serial]: lldp });
           if (Array.isArray(gTmp.links) && gTmp.links.length) {
             const nodeIds = new Set(graph.nodes.map(n => n.id));
@@ -4307,8 +4402,11 @@ app.get('/api/networks/:networkId/:section', async (req, res) => {
         try {
           const devices = await getNetworkDevices(networkId);
           const map = {};
+          const cachedLldpMap = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
           for (const d of devices) {
-            try { map[d.serial] = await getDeviceLldpCdp(d.serial); } catch {}
+            try {
+              map[d.serial] = cachedLldpMap[d.serial] || await getDeviceLldpCdp(d.serial);
+            } catch {}
           }
           const g2 = toGraphFromLldpCdp(map, statusMap);
           if (g2?.links?.length) graph = g2;
@@ -4442,12 +4540,13 @@ app.get('/api/networks/:networkId/:section', async (req, res) => {
       }
 
       if (section === 'access_points') {
-        // Enriquecer APs con datos de conexión (paralelo sin límite)
+  // Enriquecer APs con datos de conexión (paralelo sin límite)
+  const cachedLldpMapSection = (!forceLldpRefresh && getFromCache(cache.lldpByNetwork, networkId, 'lldp')) || {};
         const apPromises = filtered.map(async (ap) => {
           ap.wiredSpeed = '-';
           ap.connectedTo = '-';
           try {
-            const lldpData = await getDeviceLldpCdp(ap.serial);
+            const lldpData = cachedLldpMapSection[ap.serial] || await getDeviceLldpCdp(ap.serial);
             if (lldpData && lldpData.ports) {
               const portData = Object.values(lldpData.ports)[0];
               if (portData) {

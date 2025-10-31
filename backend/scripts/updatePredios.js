@@ -51,14 +51,14 @@ function formatCsvRow(predio) {
 
 function dedupePrediosCsv() {
   if (!fs.existsSync(CSV_PATH)) {
-    console.log('No existe archivo CSV para depurar');
+    console.info('No existe archivo CSV para depurar');
     return;
   }
 
   const content = fs.readFileSync(CSV_PATH, 'utf8');
   const lines = content.split('\n').filter((line) => line.trim().length);
   if (lines.length < 2) {
-    console.log('El CSV no contiene datos para deduplicar');
+    console.info('El CSV no contiene datos para deduplicar');
     return;
   }
 
@@ -103,14 +103,14 @@ function dedupePrediosCsv() {
 
   fs.writeFileSync(CSV_PATH, `${CSV_HEADER}\n${output}\n`);
 
-  console.log('Deduplicación completada');
-  console.log(`   • Filas originales: ${lines.length - 1}`);
-  console.log(`   • Filas deduplicadas: ${ordered.length}`);
+  console.info('Deduplicación completada');
+  console.info(`   • Filas originales: ${lines.length - 1}`);
+  console.info(`   • Filas deduplicadas: ${ordered.length}`);
   if (duplicatesByNetwork) {
-    console.log(`   • Duplicados por network_id eliminados: ${duplicatesByNetwork}`);
+    console.info(`   • Duplicados por network_id eliminados: ${duplicatesByNetwork}`);
   }
   if (duplicatesByCode) {
-    console.log(`   • Advertencia: códigos repetidos detectados: ${duplicatesByCode}`);
+    console.warn(`   • Advertencia: códigos repetidos detectados: ${duplicatesByCode}`);
   }
 }
 
@@ -119,7 +119,7 @@ function dedupePrediosCsv() {
  */
 function loadExistingCSV() {
   if (!fs.existsSync(CSV_PATH)) {
-    console.log('No existe CSV previo, creando nuevo...');
+    console.info('No existe CSV previo, creando nuevo...');
     return new Map();
   }
 
@@ -142,7 +142,7 @@ function loadExistingCSV() {
     }
   }
 
-  console.log(`CSV existente cargado: ${existing.size} predios`);
+  console.info(`CSV existente cargado: ${existing.size} predios`);
   return existing;
 }
 
@@ -151,12 +151,12 @@ function loadExistingCSV() {
  */
 async function updateOrganization(orgId) {
   try {
-  console.log(`\nActualizando organización: ${orgId}`);
+  console.info(`\nActualizando organización: ${orgId}`);
     
     const existing = loadExistingCSV();
     const networks = await getNetworks(orgId);
     
-    console.log(`   → ${networks.length} redes encontradas`);
+    console.info(`   → ${networks.length} redes encontradas`);
     
     // Identificar cambios
     const newNetworks = [];
@@ -170,11 +170,11 @@ async function updateOrganization(orgId) {
       }
     }
     
-    console.log(`   → ${newNetworks.length} redes nuevas`);
-    console.log(`   → ${updatedNetworks.length} redes existentes`);
+  console.info(`   → ${newNetworks.length} redes nuevas`);
+  console.info(`   → ${updatedNetworks.length} redes existentes`);
     
     if (newNetworks.length === 0 && updatedNetworks.length === 0) {
-  console.log('   No hay cambios que procesar');
+  console.info('   No hay cambios que procesar');
       return;
     }
     
@@ -199,14 +199,14 @@ async function updateOrganization(orgId) {
         `${p.network_id},${p.predio_code},"${p.predio_name}",${p.organization_id},${p.region},${p.estado}`
       ).join('\n');
       
-      fs.appendFileSync(CSV_PATH, `${content}\n`);
-  console.log(`   ${newNetworks.length} nuevos predios añadidos al CSV`);
+    fs.appendFileSync(CSV_PATH, `${content}\n`);
+  console.info(`   ${newNetworks.length} nuevos predios añadidos al CSV`);
     }
     
   // Por hacer: actualizar redes modificadas (requiere regenerar CSV completo)
     if (updatedNetworks.length > 0) {
-  console.log(`   ${updatedNetworks.length} redes existentes podrían haber cambiado`);
-  console.log('   Para actualizar nombres/regiones, ejecuta regeneración completa');
+  console.info(`   ${updatedNetworks.length} redes existentes podrían haber cambiado`);
+  console.info('   Para actualizar nombres/regiones, ejecuta regeneración completa');
     }
     
   } catch (error) {
@@ -219,7 +219,7 @@ async function updateOrganization(orgId) {
  */
 async function checkNewOrganizations() {
   try {
-    console.log('\nVerificando nuevas organizaciones...');
+  console.info('\nVerificando nuevas organizaciones...');
     
     const existing = loadExistingCSV();
     const existingOrgs = new Set();
@@ -232,16 +232,16 @@ async function checkNewOrganizations() {
     const newOrgs = allOrgs.filter(org => !existingOrgs.has(org.id));
     
     if (newOrgs.length === 0) {
-  console.log('   No hay organizaciones nuevas');
+  console.info('   No hay organizaciones nuevas');
       return;
     }
     
-  console.log(`   ${newOrgs.length} organizaciones nuevas encontradas:`);
-    newOrgs.forEach(org => console.log(`      → ${org.name} (${org.id})`));
+  console.info(`   ${newOrgs.length} organizaciones nuevas encontradas:`);
+    newOrgs.forEach(org => console.info(`      → ${org.name} (${org.id})`));
     
-  console.log('\nPara cargar estas organizaciones, ejecuta:');
+  console.info('\nPara cargar estas organizaciones, ejecuta:');
     newOrgs.forEach(org => {
-      console.log(`   node scripts/updatePredios.js ${org.id}`);
+      console.info(`   node scripts/updatePredios.js ${org.id}`);
     });
     
   } catch (error) {
@@ -264,10 +264,10 @@ function showStats() {
   const stats = fs.statSync(CSV_PATH);
   const totalPredios = lines.length - 1; // Excluir header
   
-  console.log('\nEstadísticas actuales:');
-  console.log(`   • Total predios: ${totalPredios}`);
-  console.log(`   • Última modificación: ${stats.mtime.toLocaleString()}`);
-  console.log(`   • Tamaño archivo: ${Math.round(stats.size / 1024)} KB`);
+  console.info('\nEstadísticas actuales:');
+  console.info(`   • Total predios: ${totalPredios}`);
+  console.info(`   • Última modificación: ${stats.mtime.toLocaleString()}`);
+  console.info(`   • Tamaño archivo: ${Math.round(stats.size / 1024)} KB`);
   
   // Contar organizaciones únicas
   const orgs = new Set();
@@ -278,7 +278,7 @@ function showStats() {
     }
   });
   
-  console.log(`   • Organizaciones: ${orgs.size}`);
+  console.info(`   • Organizaciones: ${orgs.size}`);
 }
 
 /**
@@ -288,7 +288,7 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
   
-  console.log('Actualizador de Predios CSV\n');
+  console.info('Actualizador de Predios CSV\n');
   
   const passiveCommands = new Set([undefined, 'stats', 'dedupe']);
 
@@ -304,7 +304,7 @@ async function main() {
       await checkNewOrganizations();
     } else if (command === 'full') {
       // Regeneración completa
-  console.log('Iniciando regeneración completa...');
+  console.info('Iniciando regeneración completa...');
       const { loadAllPredios } = require('./loadAllPredios');
       await loadAllPredios();
     } else if (command === 'dedupe') {
@@ -314,15 +314,15 @@ async function main() {
       await updateOrganization(command);
     } else {
       // Mostrar ayuda
-  console.log('Uso del script:');
-      console.log('');
-      console.log('  node scripts/updatePredios.js stats           # Mostrar estadísticas');
-      console.log('  node scripts/updatePredios.js check           # Verificar nuevas organizaciones');
-      console.log('  node scripts/updatePredios.js [org_id]        # Actualizar organización específica');
-      console.log('  node scripts/updatePredios.js full            # Regeneración completa');
-      console.log('  node scripts/updatePredios.js dedupe          # Eliminar duplicados del CSV');
-      console.log('');
-  console.log('Estadísticas actuales:');
+  console.info('Uso del script:');
+    console.info('');
+    console.info('  node scripts/updatePredios.js stats           # Mostrar estadísticas');
+    console.info('  node scripts/updatePredios.js check           # Verificar nuevas organizaciones');
+    console.info('  node scripts/updatePredios.js [org_id]        # Actualizar organización específica');
+    console.info('  node scripts/updatePredios.js full            # Regeneración completa');
+    console.info('  node scripts/updatePredios.js dedupe          # Eliminar duplicados del CSV');
+    console.info('');
+  console.info('Estadísticas actuales:');
       showStats();
     }
     

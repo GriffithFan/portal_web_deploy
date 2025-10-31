@@ -4,6 +4,121 @@
   100% { transform: rotate(360deg); }
 }
 
+/* Enhanced sidebar and tile animations */
+/* Sidebar root (desktop) — transitions handle width/padding/content opacity */
+.app-sidebar {
+  width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 12px;
+  box-shadow: 0 8px 30px rgba(15,23,42,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  transition: width 480ms cubic-bezier(.2,.9,.2,1), padding 380ms cubic-bezier(.2,.9,.2,1), box-shadow 380ms ease;
+  will-change: width, transform, box-shadow;
+  overflow: visible;
+}
+.app-sidebar.collapsed {
+  width: 64px;
+  padding: 12px 6px;
+  box-shadow: 0 6px 20px rgba(15,23,42,0.04);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e6eefc;
+}
+
+.sidebar-toggle-btn {
+  background: #f1f5f9;
+  border: 1px solid #e6eefc;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 220ms ease, border-color 220ms ease, transform 320ms ease;
+}
+.sidebar-toggle-btn:active { transform: scale(.98); }
+.sidebar-toggle-btn:hover { background: #eef2f7; border-color: #dbe8fb; }
+.toggle-icon { transition: transform 420ms cubic-bezier(.2,.9,.2,1); }
+.app-sidebar.collapsed .toggle-icon { transform: rotate(180deg); }
+
+.sidebar-items { display: flex; flex-direction: column; gap: 6px; }
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background 320ms ease, transform 320ms cubic-bezier(.2,.9,.2,1), box-shadow 320ms ease, color 260ms ease;
+  position: relative;
+  overflow: hidden;
+}
+.sidebar-item:hover { background: #f8fafc; color: #1e293b; transform: translateX(6px); }
+.sidebar-item:active { transform: translateX(2px) scale(.995); box-shadow: inset 0 2px 8px rgba(2,6,23,0.04); }
+.sidebar-item.active {
+  background: linear-gradient(135deg,#4a90e2 0%,#357ab8 100%);
+  color: #fff;
+  box-shadow: 0 8px 26px rgba(53,122,184,0.22);
+}
+.sidebar-item.collapsed { justify-content: center; gap: 0; padding: 10px 6px; }
+.sidebar-item-label { display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity 260ms ease, transform 260ms ease; }
+.app-sidebar.collapsed .sidebar-item-label { opacity: 0; transform: translateX(-8px); width: 0; height: 0; pointer-events: none; }
+
+/* stronger focus ring for keyboard users */
+.sidebar-item:focus-visible { outline: none; box-shadow: 0 6px 24px rgba(15,23,42,0.12); }
+
+/* tactile feedback on touch devices for sidebar items */
+.sidebar-item::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%,-50%);
+  background: rgba(2,6,23,0.04);
+  border-radius: 50%;
+  transition: width 220ms ease, height 220ms ease, opacity 220ms ease;
+  pointer-events: none;
+}
+.sidebar-item:active::after { width: 180px; height: 180px; opacity: 1; transition: width 180ms ease, height 180ms ease, opacity 320ms ease; }
+
+/* Mobile drawer enter animations */
+@keyframes backdropFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drawerEnter { from { transform: translateX(-8%) scale(.996); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
+.mobile-drawer-backdrop { animation: backdropFade 220ms ease both; }
+.mobile-drawer-content { animation: drawerEnter 300ms cubic-bezier(.2,.9,.2,1) both; }
+
+/* Tiles: subtle 3D tilt on hover, improved breathe timing */
+@keyframes tileIn { 0% { opacity: 0; transform: translateY(10px) rotateX(3deg) scale(.995); } 60% { transform: translateY(-4px) rotateX(1deg) scale(1.002);} to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); } }
+@keyframes tileBreathe { 0% { transform: scale(1); box-shadow: 0 6px 18px rgba(2,6,23,0.06);} 50% { transform: scale(1.01); box-shadow: 0 12px 36px rgba(2,6,23,0.08);} to { transform: scale(1); box-shadow: 0 6px 18px rgba(2,6,23,0.06);} }
+.mobile-section-tile { will-change: transform, box-shadow; animation: tileIn .28s cubic-bezier(.2,.9,.2,1) both, tileBreathe 8s ease-in-out .72s infinite; transform-origin: center; }
+.mobile-section-tile:hover { transform: perspective(800px) translateY(-6px) scale(1.02) rotateX(1deg); box-shadow: 0 14px 40px rgba(2,6,23,0.12); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-section-tile { animation: tileIn .26s cubic-bezier(.2,.9,.2,1) both; }
+  .mobile-drawer-content, .mobile-drawer-backdrop { animation: none; }
+}
+
 .login-container {
   max-width: 350px;
   margin: 60px auto 0 auto;
@@ -291,6 +406,94 @@ html, body {
 
 /* Responsive: mobile-first adjustments */
 @media (max-width: 900px) {
+  /* Aggressive mobile overrides: ensure no parent panels or pseudo-elements
+     render a white card behind the tiles. Use higher-specificity selectors
+     and explicit properties (background-image, background-color, box-shadow)
+     to override any compiled rules or dynamically-injected styles. */
+  body .dashboard-container .mobile-section-tiles-wrapper,
+  body .dashboard-container .mobile-section-tiles-wrapper::before,
+  body .dashboard-container .mobile-section-tiles-wrapper::after,
+  body .dashboard-container,
+  body .mobile-topology-graph,
+  body .mobile-topology-graph::before,
+  body .mobile-topology-graph::after {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Ensure direct children don't reintroduce backgrounds */
+  body .dashboard-container > *,
+  body .dashboard-container > *::before,
+  body .dashboard-container > *::after,
+  body .mobile-section-tiles-wrapper > *,
+  body .mobile-section-tiles-wrapper > *::before,
+  body .mobile-section-tiles-wrapper > *::after {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Force tiles and their contents to remain visible and prevent clipping */
+  body .mobile-section-tiles-wrapper,
+  body .mobile-section-tiles,
+  body .mobile-section-tile {
+    overflow: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Specific override for the DOM node the inspector reported (hide ghost text)
+     This targets the exact path you pasted and only on mobile so desktop is
+     not affected. Using display:none keeps it from rendering under the tiles. */
+  @media (max-width: 900px) {
+    /* Hide the three ghost text nodes the inspector showed */
+    #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(1) > div:nth-child(2) > div:nth-child(3),
+    #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(3),
+    #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(4) > div:nth-child(2) > div:nth-child(3) {
+      display: none !important;
+      color: transparent !important;
+      text-shadow: none !important;
+    }
+  }
+  /* Ensure the page panel behind the tiles is transparent on mobile so
+     there is no separate white card behind the mobile tiles. This overrides
+     any compiled desktop styles that set a white dashboard background. */
+  .dashboard-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  /* Make sure the topology graph doesn't render its own white card behind
+     the tiles and that it sits cleanly on the page background. */
+  .mobile-topology-graph {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Allow tiles to overflow slightly (for shadows) but prevent parent
+     white panels from clipping them. Also ensure tiles themselves don't
+     allow internal content to escape their bounds. */
+  .mobile-section-tiles {
+    overflow: visible !important;
+  }
+  .mobile-section-tile {
+    overflow: visible !important;
+    box-shadow: 0 8px 22px rgba(2,6,23,0.06) !important; /* keep subtle card shadow */
+  }
+
+  /* Guard against numbers or badges escaping the tile bounds by ensuring
+     text wraps and the tile respects box-sizing. */
+  .mobile-section-tile * {
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
   /* Force minimal topbar: hide desktop search/brand and show only hamburger + magnifier */
   .topbar-brand { display: none !important; }
   .topbar-search-form, .topbar-search-wrapper, .topbar-input, .search-submit { display: none !important; }
@@ -328,7 +531,7 @@ html, body {
   /* Push main dashboard content below the fixed topbar on small screens.
      Use a slightly smaller reserve to avoid too much whitespace. */
   .dashboard-container {
-    margin-top: 65px; /* reserve space equal to approximate topbar height */
+    margin-top: 28px; /* reserve space reduced further so tiles sit closer to topbar */
   }
 
   .mobile-search-bar {
@@ -486,13 +689,13 @@ html, body {
   .mobile-section-tiles {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
     margin: 6px auto 8px auto;
     /* Center the grid inside the white panel */
-    max-width: 520px;
+  max-width: 760px;
     justify-content: center;
     /* Reserve vertical space but reduce it to avoid big white bands */
-    min-height: 156px; /* 2 rows * 72px + gap */
+    min-height: 156px; /* restore enough vertical reserve for two rows */
     align-content: start; /* align to top so tiles sit near the top of the panel */
     justify-items: center; /* ensure individual tiles are centered within each grid cell */
     align-items: start;
@@ -516,9 +719,9 @@ html, body {
     align-items: center; /* center content horizontally for a compact mobile look */
     gap: 6px;
     text-align: left;
-    height: 100px; /* slightly smaller fixed height */
+    height: 100px; /* restore comfortable height so content doesn't shrink */
     width: 100%;
-    max-width: 240px; /* keep tiles compact */
+    max-width: 320px; /* slightly wider tiles for better readability */
     box-sizing: border-box;
     overflow: hidden; /* avoid shadows/content protruding */
     animation: tileIn 220ms cubic-bezier(.2,.9,.2,1) both;
@@ -600,15 +803,55 @@ html, body {
   /* wrapper that visually matches the white rounded panel where tiles previously lived */
   .mobile-section-tiles-wrapper {
     display: block;
-    max-width: 720px;
-    margin: 8px auto 6px auto;
+    /* Use full width inside the container to avoid horizontal overflow and
+       switch to sticky positioning so tiles remain stable while the page scrolls. */
+    width: 100%;
+    max-width: none;
+    margin: 8px 0 12px 0; /* small vertical spacing before the graph */
     background: #ffffff;
-    border-radius: 12px;
-    padding: 10px 10px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    border-radius: 12px 12px 0 0; /* rounded top corners only to avoid double-card looking edges */
+    padding: 12px; /* inner padding for content */
+    box-shadow: none; /* avoid double-card shadow */
     box-sizing: border-box;
-    position: relative;
-    overflow: hidden; /* prevent cards/shadows from bleeding out */
+    overflow: visible; /* allow tile shadows to render without being clipped */
+    position: sticky; /* keep tiles visible while scrolling */
+    top: 56px; /* sit under the topbar (matches mobile topbar height) */
+    z-index: 1700; /* keep tiles above the graph */
+  }
+
+  /* gentle breathing / pulse animation for tiles (mobile) */
+  @keyframes tileBreathe {
+    0% { transform: scale(1); box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
+    50% { transform: scale(1.008); box-shadow: 0 10px 30px rgba(2,6,23,0.08); }
+    100% { transform: scale(1); box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
+  }
+
+  .mobile-section-tile {
+    will-change: transform, box-shadow;
+    animation: tileIn 220ms cubic-bezier(.2,.9,.2,1) both, tileBreathe 6s ease-in-out 400ms infinite;
+    position: relative; /* for pseudo-element touch effects */
+  }
+
+  /* Touch feedback: subtle light overlay ripple when tapping tiles */
+  .mobile-section-tile::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 140%;
+    height: 140%;
+    transform: translate(-50%, -50%) scale(0.7);
+    background: radial-gradient(circle at center, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 35%, transparent 60%);
+    opacity: 0;
+    border-radius: 12px;
+    pointer-events: none;
+    transition: opacity 220ms ease, transform 300ms ease;
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-section-tile { animation: tileIn 220ms cubic-bezier(.2,.9,.2,1) both; }
+    .mobile-section-tile .tile-stat:nth-child(1) .tile-stat-label::before { animation: none; }
   }
 
   /* Hide the empty search placeholder while mobile tiles are visible */
@@ -626,7 +869,9 @@ html, body {
   .mobile-device-item {
     width: 100%;
     background: transparent;
-    border-radius: 10px;
+    border-radius: 12px;
+    /* add subtle separation so each device looks like a card */
+    padding: 0; /* padding applied on the inner button */
   }
   .mobile-device-button {
     width: 100%;
@@ -635,25 +880,78 @@ html, body {
     justify-content: space-between;
     gap: 12px;
     padding: 12px 14px;
-    border-radius: 10px;
-    background: #ffffff;
-    border: 1px solid #e6eefc;
-    box-shadow: 0 1px 2px rgba(2,6,23,0.04);
+    border-radius: 12px;
+    background: #ffffff; /* stronger contrast: white card */
+    border: 1px solid #e6eef7;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.06);
     cursor: pointer;
     -webkit-tap-highlight-color: rgba(0,0,0,0);
     touch-action: manipulation;
     user-select: none;
-    transition: transform 140ms ease, box-shadow 140ms ease;
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 160ms ease, background 160ms ease;
+    position: relative; /* contain ripple */
+    overflow: hidden; /* ensure ripple doesn't bleed */
   }
   .mobile-device-button:active {
     transform: translateY(2px);
     box-shadow: 0 1px 4px rgba(2,6,23,0.06) inset;
   }
+
+  /* Ripple overlay for device list items */
+  .mobile-device-button::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 120%;
+    height: 120%;
+    transform: translate(-50%, -50%) scale(0.2);
+    background: rgba(2,6,23,0.06);
+    opacity: 0;
+    border-radius: 12px;
+    pointer-events: none;
+    transition: transform 260ms ease, opacity 200ms ease;
+  }
+  .mobile-device-button:active::after,
+  .mobile-device-button.touch-pressed::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    transition-duration: 120ms;
+  }
+
+  /* stronger selected highlight when tooltip/modal is open (uses wrapper .tooltip-open) */
+  .tooltip-open .mobile-device-button {
+    border-color: #2563eb;
+    background: linear-gradient(90deg, rgba(37,99,235,0.06), rgba(37,99,235,0.02));
+    box-shadow: 0 8px 28px rgba(37,99,235,0.12), 0 2px 6px rgba(2,6,23,0.04);
+    transform: translateY(-2px);
+  }
+
+  /* accent bar on the left for the selected item for better affordance */
+  .tooltip-open .mobile-device-button::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #2563eb;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.12);
+  }
+
+  /* Focus visible for accessibility */
+  .mobile-section-tile:focus-visible, .mobile-device-button:focus-visible {
+    outline: none;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+    transform: translateY(-4px) scale(1.01);
+  }
   .mobile-device-button:focus { outline: none; box-shadow: 0 8px 24px rgba(15,23,42,0.08); }
 
   .mobile-section-tile-title {
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
     color: #fff;
     line-height: 1.1;
     margin: 0;
@@ -662,11 +960,65 @@ html, body {
   }
 
   .mobile-section-tile-count {
-    font-size: 13px;
+    font-size: 12px;
     color: rgba(255,255,255,0.95);
     opacity: 0.95;
     text-align: center;
     width: 100%;
+  }
+
+  /* Small stat row inside mobile tiles (value + label) */
+  .tile-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0 6px;
+    box-sizing: border-box;
+  }
+  .tile-stat-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.98);
+    line-height: 1;
+  }
+  .tile-stat-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.92);
+    opacity: 0.95;
+  }
+
+  /* Status dot decorators for the first (Online) and second (Offline) stats */
+  .mobile-section-tile .tile-stat:nth-child(1) .tile-stat-label::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981; /* green */
+    margin-right: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px rgba(16,185,129,0.35);
+    transform-origin: center;
+    animation: statusDotPulse 1600ms infinite ease-in-out;
+  }
+  .mobile-section-tile .tile-stat:nth-child(2) .tile-stat-label::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444; /* red */
+    margin-right: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px rgba(239,68,68,0.28);
+  }
+
+  @keyframes statusDotPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.18); opacity: 0.9; }
+    100% { transform: scale(1); opacity: 1; }
   }
 
   /* Icono pequeño a la izquierda de cada item móvil */
@@ -691,6 +1043,140 @@ html, body {
     text-overflow: ellipsis;
   }
 
+  /* Mobile topology compact list */
+  .mobile-topology-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 2px 2px 2px;
+  }
+
+  .mobile-topology-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e6eefc;
+    box-shadow: 0 1px 2px rgba(2,6,23,0.04);
+    cursor: pointer;
+  }
+
+  /* Mobile graph wrapper: allow horizontal pan and pinch-to-zoom gestures */
+  .mobile-topology-graph-wrapper {
+    width: 100%;
+    overflow: hidden;
+    padding: 6px 0 12px 0;
+  }
+  .mobile-topology-graph {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pinch-zoom; /* allow horizontal pan and pinch-to-zoom */
+    overscroll-behavior-x: contain; /* keep horizontal pan from scrolling the whole page */
+    background: #ffffff; /* stable white card so it doesn't visually break */
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.06);
+    min-height: 240px; /* reserve space so layout doesn't jump */
+    max-height: 60vh;
+  }
+  /* Inner container sets a minimum width so the graph can be scrolled horizontally on mobile */
+  .mobile-topology-graph-inner {
+    width: max(1000px, 100%); /* ensure inner area can overflow horizontally when graph is wide */
+    display: inline-block;
+    vertical-align: top;
+  }
+
+  /* Encourage SVG inside the graph to preserve its aspect and be scrollable horizontally */
+  .mobile-topology-graph {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pinch-zoom; /* allow horizontal pan and pinch-to-zoom */
+    overscroll-behavior-x: contain; /* keep horizontal pan from scrolling the whole page */
+    background: transparent; /* allow the graph to render naturally */
+    padding: 6px 0;
+    min-height: 220px; /* reserve space so layout doesn't jump */
+    max-height: 70vh;
+  }
+  .mobile-topology-graph-inner {
+    width: 100%;
+    min-width: auto; /* do not force large fixed widths that break layout */
+    display: block;
+  }
+
+  /* Small visual scrollbar for hinting horizontal scroll on mobile */
+  .mobile-topology-graph::-webkit-scrollbar { height: 8px; }
+  .mobile-topology-graph::-webkit-scrollbar-thumb { background: rgba(2,6,23,0.06); border-radius: 6px; }
+  .mobile-appliance-icon { width: 44px; height: 44px; border-radius: 10px; display:flex; align-items:center; justify-content:center; background:#f1f5f9; }
+  .mobile-appliance-title { font-weight: 700; color: #0f172a; font-size: 14px; }
+  .mobile-appliance-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .mobile-appliance-meta { display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
+  .mobile-appliance-meta .meta-item { font-size: 12px; color: #475569; }
+  .mobile-appliance-right { flex: 0 0 80px; display:flex; align-items:center; justify-content:center; }
+  .mobile-appliance-status { padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; text-transform: capitalize; }
+
+  /* Ensure the estado badge is positioned below WAN badges and ports on mobile */
+  .mobile-appliance-right { margin-top: 12px !important; align-self: flex-start !important; }
+  .mobile-appliance-status-label { font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+
+  /* Mobile appliance small port badges and WAN badge */
+  .mobile-appliance-ports {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .ap-port-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 11px;
+    color: #fff;
+    background: #94a3b8; /* default: unused (gray) */
+    box-shadow: 0 4px 12px rgba(2,6,23,0.06);
+  }
+  .ap-port-badge.used { background: #10b981; }
+  .ap-port-badge.unused { background: #94a3b8; opacity: 0.95; }
+  .mobile-appliance-wan {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .ap-wan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
+    color: #fff;
+    background: #64748b; /* default unknown */
+  }
+  .ap-wan-badge.active { background: #059669; }
+  .ap-wan-badge.inactive { background: #ef4444; }
+  /* Estado row: placed below ports/WAN and aligned left */
+  .mobile-appliance-status-row {
+    margin-top: 16px; /* increased space to separate from WAN and ports */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .mobile-appliance-status-label { font-size: 13px; color: #0f172a; font-weight: 700; }
+  .mobile-appliance-status { padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
   /* Make topbar vertically larger on mobile for clearer touch targets */
   .topbar {
     height: 72px !important;
@@ -1221,17 +1707,6 @@ html, body {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 16px;
 }
-.dashboard-sidebar {
-  width: 260px;
-}
-
-@media (max-width: 900px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-  .dashboard-sidebar {
-    display: none; /* Hide sidebar on small screens to maximize content area */
-  }
   /* Make header controls (TopBar) provide section switching in small screens if needed */
   .summary-chip {
     padding: 8px 10px !important;
@@ -1250,7 +1725,7 @@ html, body {
     padding: 10px 14px !important;
     font-size: 14px !important;
   }
-}
+
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -1459,5 +1934,307 @@ h1 {
     box-shadow: 0 6px 18px rgba(2,6,23,0.10) !important;
   }
   .mobile-hamburger, .mobile-search-toggle { top: 50% !important; transform: translateY(-50%) !important; }
-  .dashboard-container { margin-top: 56px !important; }
+  /* use a smaller reserved space so tiles don't appear pushed down */
+  .dashboard-container { margin-top: 24px !important; }
+}
+
+/* Make the parent dashboard panel visually transparent on mobile so only the
+   mobile-section-tiles-wrapper renders as the white card. This avoids the
+   "double white card" effect while preserving desktop appearance. */
+@media (max-width: 900px) {
+  .dashboard-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding-left: 12px !important; /* keep inner spacing similar to before */
+    padding-right: 12px !important;
+  }
+}
+
+/* Make topology graph occupy most of the viewport height on mobile and be pannable/zoomable */
+@media (max-width: 900px) {
+  .mobile-topology-graph {
+    min-height: 78vh; /* occupy most of vertical space */
+    max-height: calc(100vh - 88px); /* leave room for topbar/tiles */
+    overflow: auto; /* allow pan in both directions */
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Let the SVG inside scale to fill the available height so details are larger */
+  .mobile-topology-graph-inner svg {
+    height: 74vh !important;
+    width: auto !important;
+    max-width: none !important;
+    display: block;
+    margin: 0 auto;
+  }
+}
+
+/* Additional override to further increase mobile graph footprint and contain scrolling/panning.
+   Placed at the end to ensure it overrides earlier mobile rules when needed. */
+@media (max-width: 900px) {
+  .mobile-topology-graph {
+    min-height: calc(100vh - 120px) !important; /* occupy most of vertical space */
+    max-height: calc(100vh - 88px) !important; /* leave room for topbar/tiles */
+    overflow: auto !important; /* allow pan in both directions */
+    touch-action: pan-x pan-y pinch-zoom !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important; /* keep panning inside the graph from scrolling the page */
+    z-index: 1400 !important; /* sit under the tiles wrapper */
+  }
+
+  .mobile-topology-graph-inner svg {
+    height: calc(100vh - 140px) !important; /* make the svg taller so nodes are larger */
+    width: auto !important;
+    max-width: none !important;
+    display: block;
+    margin: 0 auto;
+    pointer-events: auto !important;
+  }
+}
+
+/* Ensure desktop sidebar / collapsed app-sidebar doesn't show on small screens */
+@media (max-width: 900px) {
+  /* Ajustes estéticos adicionales para las tarjetas móviles: mayor separación, mejor tipografía
+     y distribución interna más clara sin tocar el layout de desktop. */
+
+  .mobile-section-tiles {
+    gap: 18px !important; /* más separación entre tarjetas */
+    margin: 12px auto 10px auto !important; /* un poco más de aire vertical alrededor */
+    padding: 6px 6px 8px 6px !important; /* espacio interior ligero dentro del grid */
+  }
+
+  .mobile-section-tile {
+    padding: 14px !important; /* más espacio interior para respirar */
+    height: 120px !important; /* mayor altura para evitar contenido apretado */
+    border-radius: 14px !important; /* ligeramente más redondeado */
+    align-items: flex-start !important; /* alinear contenido hacia arriba para consistencia */
+    text-align: left !important; /* títulos alineados a la izquierda para facilidad de lectura */
+    gap: 10px !important; /* separación interna entre fila de icono/titulo y stats */
+  }
+
+  /* Icono más grande y con fondo sutil para mejor jerarquía visual */
+  .mobile-section-tile-icon {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 10px !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #fff !important;
+    flex: 0 0 48px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Título y conteo: tamaño más legible y espacio entre ellos */
+  .mobile-section-tile-title {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    line-height: 1.12 !important;
+    margin: 0 !important;
+    text-align: left !important;
+    width: auto !important;
+  }
+  .mobile-section-tile-count {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: rgba(255,255,255,0.98) !important;
+  }
+
+  /* Estadísticas: separaciones internas y tipografía más clara */
+  .tile-stat { padding: 0 8px !important; }
+  .tile-stat-value { font-size: 16px !important; font-weight: 800 !important; }
+  .tile-stat-label { font-size: 12px !important; opacity: 0.95 !important; }
+
+  /* Wrapper blanco donde viven las tiles: suavizar bordes y padding */
+  .mobile-section-tiles-wrapper {
+    padding: 10px !important; /* un poco más de padding interior */
+    margin: 10px 0 14px 0 !important; /* separación superior e inferior equilibrada */
+    border-radius: 14px !important;
+  }
+
+  /* Ajustes para la lista de dispositivos (tarjetas blancas) */
+  .mobile-device-button {
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+  }
+  .mobile-device-icon { width: 44px !important; height: 44px !important; }
+  .mobile-device-subline { font-size: 11px !important; color: #94a3b8 !important; margin-top: 4px !important; }
+
+  /* Incrementar grosor visual de la barra accent cuando está seleccionado */
+  .tooltip-open .mobile-device-button::before { width: 5px !important; }
+
+  /* Reduce la animación intrusiva en tarjetas cuando el usuario prefiere menos movimiento */
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-section-tile { animation: none !important; }
+  }
+
+  /* Finalmente, seguir ocultando la barra lateral de desktop en mobile */
+  .app-sidebar { display: none !important; }
+}
+
+/* Ajustes finales: reducir el espacio exterior y el radio del wrapper de tiles para mobile
+   (override que tiene prioridad y no afecta desktop). */
+@media (max-width: 900px) {
+  /* Make the white wrapper bigger (more lateral & vertical space) while
+     keeping internal tiles slightly smaller so the overall composition breathes.
+     All rules are mobile-only to avoid touching desktop. */
+  .mobile-section-tiles-wrapper {
+   /* Make the wrapper feel tight under the topbar. Remove white background
+     and shadow so it doesn't look like a separate card behind the tiles. */
+    padding: 14px 12px !important;
+    margin: 8px auto 14px auto !important;
+    border-radius: 10px !important;
+   /* center the wrapper within the page using auto margins and cap its width
+     so left/right gutters remain equal regardless of other topbar content */
+   max-width: min(96vw, 720px) !important;
+   width: auto !important;
+    position: sticky !important;
+   top: calc(56px + 8px) !important; /* sit just under the topbar */
+    z-index: 1700 !important;
+    min-height: 220px !important; /* smaller so it doesn't push content down too much */
+    box-sizing: border-box !important;
+  /* center horizontally using auto margins */
+  left: auto !important;
+  transform: none !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+   background: transparent !important; /* remove white panel */
+   box-shadow: none !important; /* remove drop shadow */
+  }
+
+  /* Add a very subtle translucent mask behind the tiles to hide any
+     underlying duplicated text/artifacts but without drawing a solid white box.
+     The tiles themselves are elevated above this mask. */
+  .mobile-section-tiles-wrapper {
+    position: sticky !important; /* ensure ::before positions correctly */
+  }
+  .mobile-section-tiles-wrapper::before {
+    /* Cover the entire wrapper to hide any underlying labels/artifacts
+       coming from the graph. Use the app's light background color so this
+       does not look like a strong white card; it's more of a seamless mask. */
+    content: '';
+    position: absolute;
+    inset: 0; /* cover full wrapper */
+    border-radius: 10px;
+    background: #f1f5f9 !important; /* match surrounding page tone */
+    pointer-events: none;
+    z-index: 100000 !important; /* sit above the graph so underlying labels are hidden */
+  }
+
+  /* Ensure tiles are on top of the mask and don't let internal pieces escape */
+  .mobile-section-tiles > .mobile-section-tile {
+    position: relative !important;
+    z-index: 100001 !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure the graph sits under the mask */
+  .mobile-topology-graph {
+    z-index: 90000 !important;
+    position: relative !important;
+  }
+
+  /* Prevent internal text from overflowing; allow wrapping and normal flow */
+  .mobile-section-tile .tile-stat, .mobile-section-tile .tile-stat * {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  /* Pulsation animation for each tile (mobile only). Subtle, staggered, and
+     non-intrusive. */
+  @keyframes mobileTilePulse {
+    0% { transform: translateY(0) scale(1); box-shadow: 0 8px 22px rgba(2,6,23,0.06); }
+    50% { transform: translateY(-3px) scale(1.01); box-shadow: 0 14px 32px rgba(2,6,23,0.09); }
+    100% { transform: translateY(0) scale(1); box-shadow: 0 8px 22px rgba(2,6,23,0.06); }
+  }
+
+  /* Apply a very gentle ambient pulse with staggered delays to each tile */
+  .mobile-section-tiles > .mobile-section-tile {
+    animation: mobileTilePulse 6.5s ease-in-out infinite;
+  }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(1) { animation-delay: 0s; }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(2) { animation-delay: 0.18s; }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(3) { animation-delay: 0.36s; }
+  .mobile-section-tiles > .mobile-section-tile:nth-child(4) { animation-delay: 0.56s; }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-section-tiles > .mobile-section-tile { animation: none !important; }
+  }
+
+  .mobile-section-tiles {
+    width: 100% !important;
+    max-width: none !important;
+  gap: 24px !important; /* slightly larger gap */
+    margin: 0 auto !important;
+  }
+
+  /* Suavizar la sombra del wrapper para que sea menos pesado visualmente */
+  .mobile-topology-graph, .mobile-section-tiles-wrapper {
+    box-shadow: 0 8px 20px rgba(2,6,23,0.06) !important;
+  }
+
+  /* Reducir ligeramente el tamaño interior de cada tile para que no paresca gigante */
+  .mobile-section-tile {
+    padding: 12px 10px !important; /* give a bit more inner breathing room */
+    min-height: 88px !important; /* ensure readable minimum but allow growth */
+    height: auto !important; /* avoid fixed heights that clip contents */
+    border-radius: 10px !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+    gap: 6px !important;
+    /* responsive two-up max width inside the panel */
+    max-width: calc((96vw - 32px - 24px) / 2) !important;
+    box-sizing: border-box !important;
+    overflow: visible !important; /* prevent inner text/icon cropping */
+  }
+
+  .mobile-section-tile-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+    flex: 0 0 36px !important;
+  }
+
+  .mobile-section-tile-title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1.15 !important;
+    white-space: normal !important; /* allow wrapping */
+    overflow: visible !important;
+    text-overflow: clip !important;
+    width: auto !important;
+    display: block !important;
+    flex: 1 1 auto !important;
+  }
+  .mobile-section-tile-count { font-size: 14px !important; }
+
+  /* Force sizes with higher priority in case a bundled CSS overrides them */
+  .mobile-section-tile-title { font-size: 13px !important; }
+  .mobile-section-tile-count { font-size: 16px !important; }
+  .tile-stat-value { font-size: 14px !important; }
+
+  /* Ajuste del container general para que el contenido quede más centrado */
+  .dashboard-container {
+   /* restore small inner padding so header icons and the body content align
+     visually (prevents content from appearing shifted left) */
+   padding-left: 12px !important;
+   padding-right: 12px !important;
+  }
+}
+
+/* Hide a specific ghost text node observed in the topology that bleeds through the mobile tiles
+   (selector provided by user). Kept mobile-only and highly specific to avoid touching desktop. */
+@media (max-width: 900px) {
+  #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(3) > div:nth-child(2) > div:nth-child(3) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
 }

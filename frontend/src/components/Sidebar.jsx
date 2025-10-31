@@ -58,88 +58,42 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
   const items = Array.isArray(sections) && sections.length ? sections : defaultSections;
   
   return (
-    <div style={{
-      width: collapsed ? '60px' : '260px',
-      background: '#fff',
-      borderRadius: '12px',
-      padding: collapsed ? '12px 6px' : '16px 12px',
-      boxShadow: '0 2px 16px rgba(44,62,80,0.1)',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-      position: 'relative'
-    }}>
+    <div className={"app-sidebar" + (collapsed ? ' collapsed' : '')}>
       {/* Header con Network info y botón de colapsar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        minHeight: '32px',
-        marginBottom: collapsed ? '8px' : '12px',
-        paddingBottom: collapsed ? '8px' : '12px',
-        borderBottom: '1px solid #e2e8f0'
-      }}>
+      <div className="sidebar-header">
         {/* Network info */}
         {!collapsed && selectedNetwork && (
           <div style={{ flex: 1, marginRight: '8px' }}>
             <div style={{
               fontSize: '11px',
-              fontWeight: '600',
+              fontWeight: '700',
               color: '#64748b',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
-              marginBottom: '4px'
+              marginBottom: '6px'
             }}>
-              Network
+              Predio
             </div>
             <div style={{
               fontSize: '15px',
-              fontWeight: '600',
+              fontWeight: '700',
               color: '#1e293b'
             }}>
-              {(() => {
-                // Prioridad: predio_code > predioCode > extraer de nombre si es numérico > id
-                const code = selectedNetwork.predio_code || selectedNetwork.predioCode;
-                if (code) return code;
-                
-                // Intentar extraer número de 6 dígitos del nombre
-                const name = selectedNetwork.name || '';
-                const match = name.match(/\b\d{6}\b/);
-                if (match) return match[0];
-                
-                // Fallback al ID
-                return selectedNetwork.id;
-              })()}
+              {/* Mostrar nombre del predio si existe, si no mostrar predio_code o id */}
+              {selectedNetwork.name || selectedNetwork.predio_code || selectedNetwork.predioCode || selectedNetwork.id}
             </div>
+            {selectedNetwork.name && (
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{selectedNetwork.id}</div>
+            )}
           </div>
         )}
         
         {/* Botón para colapsar/expandir */}
         <button
+          type="button"
+          className="sidebar-toggle-btn"
           onClick={() => setCollapsed(!collapsed)}
-          style={{
-            background: '#f1f5f9',
-            border: '1px solid #e2e8f0',
-            borderRadius: '6px',
-            width: '32px',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            flexShrink: 0
-          }}
           title={collapsed ? 'Expandir menú' : 'Contraer menú'}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#e2e8f0';
-            e.currentTarget.style.borderColor = '#cbd5e1';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#f1f5f9';
-            e.currentTarget.style.borderColor = '#e2e8f0';
-          }}
         >
           <svg 
             width="16" 
@@ -150,10 +104,7 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
             strokeWidth="2" 
             strokeLinecap="round" 
             strokeLinejoin="round"
-            style={{
-              transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.3s ease'
-            }}
+            className="toggle-icon"
           >
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
@@ -161,48 +112,17 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
       </div>
       
       {/* Items del menú */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div className="sidebar-items">
         {items.map(s => {
           const isActive = section === s.k;
           const Icon = s.IconComponent;
           return (
             <button 
               key={s.k} 
+              type="button"
               onClick={() => setSection(s.k)}
               title={collapsed ? s.t : ''}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: collapsed ? '0' : '12px',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                width: '100%',
-                padding: collapsed ? '10px 6px' : '12px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: isActive 
-                  ? 'linear-gradient(135deg, #4a90e2 0%, #357ab8 100%)' 
-                  : 'transparent',
-                color: isActive ? '#fff' : '#475569',
-                cursor: 'pointer',
-                fontWeight: isActive ? '600' : '500',
-                fontSize: '14px',
-                transition: 'all 0.2s ease',
-                boxShadow: isActive ? '0 2px 8px rgba(74, 144, 226, 0.3)' : 'none',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = '#f8fafc';
-                  e.currentTarget.style.color = '#1e293b';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#475569';
-                }
-              }}
+              className={"sidebar-item" + (isActive ? ' active' : '') + (collapsed ? ' collapsed' : '')}
             >
               <span style={{ 
                 display: 'flex',
@@ -215,15 +135,7 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
               }}>
                 {Icon && <Icon />}
               </span>
-              {!collapsed && (
-                <span style={{
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}>
-                  {s.t}
-                </span>
-              )}
+              <span className="sidebar-item-label">{s.t}</span>
             </button>
           );
         })}
