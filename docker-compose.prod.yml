@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    image: ghcr.io/GriffithFan/portal-meraki-backend:latest
+  image: ghcr.io/griffithfan/portal-meraki-backend:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -48,7 +48,7 @@ services:
       - portal-network
 
   frontend:
-    image: ghcr.io/GriffithFan/portal-meraki-frontend:latest
+  image: ghcr.io/griffithfan/portal-meraki-frontend:latest
     restart: unless-stopped
     ports:
       - "80:5173" # Servir la app en el puerto 80 del host
