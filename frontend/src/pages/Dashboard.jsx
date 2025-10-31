@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+/* eslint-disable no-unused-vars */
+// Algunas utilidades permanecen definidas para mantenimiento/depuración y pueden no usarse siempre.
 import TopBar from '../components/TopBar';
 import SimpleGraph from '../components/SimpleGraph';
 import Sidebar from '../components/Sidebar';
@@ -1101,6 +1103,7 @@ const SwitchCard = ({ sw }) => {
 
 export default function Dashboard({ onLogout }) {
   const [selectedNetwork, setSelectedNetwork] = useState(null);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [section, setSection] = useState('topology');
   const [summaryData, setSummaryData] = useState(null); // Estado único para todos los datos
   const [loadedSections, setLoadedSections] = useState(new Set()); // Track de secciones cargadas
@@ -1112,6 +1115,26 @@ export default function Dashboard({ onLogout }) {
   const [switchesTab, setSwitchesTab] = useState('list'); // 'list' o 'ports'
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
   const hasAppliedPreferredRef = useRef(false);
+
+  // Track window width to enable mobile-specific rendering without affecting desktop
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }
+    return undefined;
+  }, []);
+
+  const isMobile = windowWidth <= 900;
+
+  // Counts used in mobile section tiles (fall back to 0)
+  const mobileCounts = {
+    topology: summaryData?.topology?.nodes?.length || 0,
+    switches: Array.isArray(summaryData?.devices) ? summaryData.devices.filter(d => (d.model || '').toLowerCase().startsWith('ms')).length : 0,
+    access_points: Array.isArray(summaryData?.devices) ? summaryData.devices.filter(d => (d.model || '').toLowerCase().startsWith('mr')).length : 0,
+    appliance_status: Array.isArray(summaryData?.applianceStatus) ? summaryData.applianceStatus.length : 0,
+  };
 
   const availableSections = useMemo(() => {
     if (!summaryData) return DEFAULT_SECTIONS;
@@ -1589,7 +1612,48 @@ export default function Dashboard({ onLogout }) {
             </div>
           );
         }
+        // Mobile optimized list
+        if (isMobile) {
+          const mobileList = sortData(switchesData, sortConfig.key, sortConfig.direction);
+          return (
+            <div>
+              <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Switches</h2>
+              <div className="mobile-device-list">
+                {mobileList.map((sw) => {
+                  const statusColor = getStatusColor(sw.status);
+                  const subline = sw.lanIp || sw.connectedTo || sw.serial || '';
+                  const swTooltip = sw.tooltipInfo ? (
+                    <div>
+                      <div className="tooltip-title">{sw.tooltipInfo.name}</div>
+                      <div className="tooltip-row"><span className="tooltip-label">Modelo</span><span className="tooltip-value">{sw.tooltipInfo.model}</span></div>
+                    </div>
+                  ) : null;
 
+                  return (
+                    <div key={sw.serial} className="mobile-device-item">
+                      <Tooltip content={swTooltip || "Switch"} position="auto" modalOnMobile={true}>
+                        <button className="mobile-device-button" style={{ display: 'flex', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                            <div className="mobile-device-icon"><SwitchIcon /></div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sw.name || sw.serial}</div>
+                              <div className="mobile-device-subline">{subline}</div>
+                            </div>
+                            <div style={{ marginLeft: 8, flex: '0 0 auto' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', background: normalizeReachability(sw.status) === 'connected' ? '#d1fae5' : '#fee2e2' }}>
+                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusColor }} />
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, overflow: 'visible' }}>
             <h2 style={{ 
@@ -1877,6 +1941,43 @@ export default function Dashboard({ onLogout }) {
 
         // Forzar vista de tabla siempre (sin tarjetas de wireless)
         const hasWireless = false; // Cambiado a false para siempre mostrar tabla
+        // Mobile optimized list for APs
+        if (isMobile) {
+          const mobileAps = sortData(accessPoints, sortConfig.key, sortConfig.direction);
+          return (
+            <div>
+              <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Wireless</h2>
+              <div className="mobile-device-list">
+                {mobileAps.map((d) => {
+                  const statusColor = getStatusColor(d.status);
+                  const subline = d.lanIp || d.connectedTo || d.serial || '';
+                  const apTooltip = d.tooltipInfo || null;
+
+                  return (
+                    <div key={d.serial} className="mobile-device-item">
+                      <Tooltip content={apTooltip} position="auto" modalOnMobile={true}>
+                        <button className="mobile-device-button" style={{ display: 'flex', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                            <div className="mobile-device-icon"><WifiIcon /></div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name || d.serial}</div>
+                              <div className="mobile-device-subline">{subline}</div>
+                            </div>
+                            <div style={{ marginLeft: 8, flex: '0 0 auto' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', background: normalizeReachability(d.status) === 'connected' ? '#d1fae5' : '#fee2e2' }}>
+                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusColor }} />
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
 
         if (!hasWireless) {
           return (
@@ -2269,6 +2370,24 @@ export default function Dashboard({ onLogout }) {
           overflow: 'visible',
           boxSizing: 'border-box'
         }}>
+          {isMobile && (
+            <div className="mobile-section-tiles-wrapper">
+              <div className="mobile-section-tile-row">
+                {availableSections.map((item) => {
+                  const IconComp = item.IconComponent || TopologyIcon;
+                  return (
+                    <button key={item.k} className="mobile-section-tile" onClick={() => setSection(item.k)} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                      <div className="mobile-section-tile-icon"><IconComp /></div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                        <div className="mobile-section-tile-title">{item.t}</div>
+                        <div className="mobile-section-tile-count">{mobileCounts[item.k] ?? ''}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {error && <div style={{ color: '#e74c3c', marginBottom: 10 }}>{error}</div>}
           
           <div style={{ 
