@@ -2363,7 +2363,9 @@ export default function Dashboard({ onLogout }) {
         maxWidth: '100vw',
         boxSizing: 'border-box'
       }}>
-        <Sidebar section={section} setSection={setSection} sections={availableSections} selectedNetwork={selectedNetwork} />
+        <div className="dashboard-sidebar">
+          <Sidebar section={section} setSection={setSection} sections={availableSections} selectedNetwork={selectedNetwork} />
+        </div>
         <main className="dashboard-container" style={{ 
           width: '100%', 
           maxWidth: '100%',
