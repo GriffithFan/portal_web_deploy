@@ -19,7 +19,10 @@ const ApplianceHistoricalCharts = ({ networkId, token }) => {
         
         if (response.ok) {
           const result = await response.json();
+          console.log('Datos historicos recibidos:', result);
           setData(result);
+        } else {
+          console.error('Error en respuesta:', response.status, response.statusText);
         }
       } catch (error) {
         console.error('Error cargando datos historicos:', error);
@@ -45,10 +48,14 @@ const ApplianceHistoricalCharts = ({ networkId, token }) => {
       );
     }
 
+    console.log('Renderizando connectivity con', data.connectivity.length, 'puntos');
     const points = data.connectivity;
     const chartHeight = 60;
     const chartWidth = 100;
-    const maxLatency = Math.max(...points.map(p => p.latencyMs || 0), 1);
+    
+    // Encontrar el timestamp key correcto
+    const firstPoint = points[0];
+    const tsKey = firstPoint.ts || firstPoint.startTs || firstPoint.timestamp || firstPoint.time;
     
     return (
       <div style={{ position: 'relative', height: chartHeight + 40, marginBottom: '20px' }}>
@@ -62,7 +69,8 @@ const ApplianceHistoricalCharts = ({ networkId, token }) => {
           
           {points.map((point, idx) => {
             const x = (idx / (points.length - 1)) * chartWidth + '%';
-            const isConnected = point.lossPercent === 0 || point.lossPercent == null;
+            const lossPercent = point.lossPercent || point.loss || 0;
+            const isConnected = lossPercent === 0 || lossPercent == null;
             const y = isConnected ? 5 : chartHeight - 5;
             
             return (
@@ -99,9 +107,10 @@ const ApplianceHistoricalCharts = ({ networkId, token }) => {
             const idx = Math.floor((points.length - 1) * pct / 100);
             const point = points[idx];
             if (!point) return null;
+            const timestamp = point.ts || point.startTs || point.timestamp || point.time;
             return (
               <span key={pct}>
-                {formatTimestamp(point.ts || point.startTs)}
+                {formatTimestamp(timestamp)}
               </span>
             );
           })}
@@ -111,6 +120,10 @@ const ApplianceHistoricalCharts = ({ networkId, token }) => {
   };
 
   const renderUplinkUsageChart = () => {
+    console.log('=== UPLINK USAGE DEBUG ===');
+    console.log('data.uplinkUsage:', data.uplinkUsage);
+    console.log('Length:', data.uplinkUsage?.length);
+    
     if (!data.uplinkUsage || data.uplinkUsage.length === 0) {
       return (
         <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>

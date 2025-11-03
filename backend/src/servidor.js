@@ -4916,24 +4916,32 @@ app.get('/api/networks/:networkId/appliance/historical', async (req, res) => {
     const timespan = parseInt(req.query.timespan) || 86400;
     const resolution = parseInt(req.query.resolution) || 300;
     
+    console.log(`[HISTORICAL] Request for network ${networkId}, timespan: ${timespan}s, resolution: ${resolution}s`);
+    
     const devices = await getNetworkDevices(networkId);
     const mxDevice = devices.find(d => (d.model || '').toLowerCase().startsWith('mx'));
     
     if (!mxDevice) {
+      console.log(`[HISTORICAL] No MX device found for network ${networkId}`);
       return res.json({ connectivity: [], uplinkUsage: [] });
     }
+    
+    console.log(`[HISTORICAL] Found MX device: ${mxDevice.serial} (${mxDevice.model})`);
 
     const [lossLatency, uplinkUsage] = await Promise.allSettled([
       getDeviceLossAndLatencyHistory(mxDevice.serial, { timespan, resolution }),
       getNetworkApplianceUplinksUsageHistory(networkId, { timespan, resolution })
     ]);
+    
+    console.log(`[HISTORICAL] Loss/Latency status: ${lossLatency.status}, points: ${lossLatency.value?.length || 0}`);
+    console.log(`[HISTORICAL] Uplink Usage status: ${uplinkUsage.status}, points: ${uplinkUsage.value?.length || 0}`);
 
     res.json({
       connectivity: lossLatency.status === 'fulfilled' ? (lossLatency.value || []) : [],
       uplinkUsage: uplinkUsage.status === 'fulfilled' ? (uplinkUsage.value || []) : []
     });
   } catch (error) {
-    console.error('Error /appliance/historical', error.response?.data || error.message);
+    console.error('[HISTORICAL] Error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Error obteniendo datos historicos del appliance' });
   }
 });
