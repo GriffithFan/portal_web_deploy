@@ -239,6 +239,17 @@ async function getAppliancePerformance(networkId, timespan = 3600) {
   return data;
 }
 
+async function getDeviceAppliancePerformance(serial, params = {}) {
+  try {
+    // Parámetros: t0, t1, timespan
+    const { data } = await client.get(`/devices/${serial}/appliance/performance`, { params });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching device appliance performance for ${serial}:`, error.message);
+    return null;
+  }
+}
+
 async function getApplianceUplinks(networkId) {
   const { data } = await client.get(`/networks/${networkId}/appliance/uplinks`);
   return data;
@@ -654,6 +665,7 @@ module.exports = {
   getOrganizationUplinksStatuses,
   // Nuevos endpoints para appliance detallado
   getAppliancePerformance,
+  getDeviceAppliancePerformance,
   getApplianceUplinks,
   getDeviceUplink,
   getApplianceClientSecurity,

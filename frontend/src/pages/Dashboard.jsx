@@ -952,6 +952,12 @@ const SwitchCard = ({ sw }) => {
         <span className="tooltip-label">Serial</span>
         <span className="tooltip-value">{sw.tooltipInfo.serial}</span>
       </div>
+      {sw.tooltipInfo.mac && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">MAC</span>
+          <span className="tooltip-value">{sw.tooltipInfo.mac}</span>
+        </div>
+      )}
       <div className="tooltip-row">
         <span className="tooltip-label">Firmware</span>
         <span className="tooltip-value">{sw.tooltipInfo.firmware || 'N/A'}</span>
@@ -1802,6 +1808,12 @@ export default function Dashboard({ onLogout }) {
                               <span className="tooltip-label">Serial</span>
                               <span className="tooltip-value">{sw.tooltipInfo.serial}</span>
                             </div>
+                            {sw.tooltipInfo.mac && (
+                              <div className="tooltip-row">
+                                <span className="tooltip-label">MAC</span>
+                                <span className="tooltip-value">{sw.tooltipInfo.mac}</span>
+                              </div>
+                            )}
                             <div className="tooltip-row">
                               <span className="tooltip-label">Firmware</span>
                               <span className="tooltip-value">{sw.tooltipInfo.firmware || 'N/A'}</span>
@@ -1999,6 +2011,9 @@ export default function Dashboard({ onLogout }) {
                       {d.tooltipInfo.serial && (
                         <div className="tooltip-row"><span className="tooltip-label">Serial</span><span className="tooltip-value">{d.tooltipInfo.serial}</span></div>
                       )}
+                      {d.tooltipInfo.mac && (
+                        <div className="tooltip-row"><span className="tooltip-label">MAC</span><span className="tooltip-value">{d.tooltipInfo.mac}</span></div>
+                      )}
                       {d.tooltipInfo.firmware && (
                         <div className="tooltip-row"><span className="tooltip-label">Firmware</span><span className="tooltip-value">{d.tooltipInfo.firmware}</span></div>
                       )}
@@ -2008,10 +2023,10 @@ export default function Dashboard({ onLogout }) {
                       {d.tooltipInfo.signalQuality != null && (
                         <div className="tooltip-row"><span className="tooltip-label">Calidad señal</span><span className="tooltip-value">{d.tooltipInfo.signalQuality}%</span></div>
                       )}
-                      {d.tooltipInfo.clients != null && (
+                      {!isMobile && d.tooltipInfo.clients != null && (
                         <div className="tooltip-row"><span className="tooltip-label">Clientes</span><span className="tooltip-value">{d.tooltipInfo.clients}</span></div>
                       )}
-                      {d.tooltipInfo.microDrops > 0 && (
+                      {!isMobile && d.tooltipInfo.microDrops > 0 && (
                         <div className="tooltip-row"><span className="tooltip-label">Microcortes</span><span className={`tooltip-badge error`}>{d.tooltipInfo.microDrops}</span></div>
                       )}
                       {d.tooltipInfo.connectedTo && d.tooltipInfo.connectedTo !== '-' && (
@@ -2305,9 +2320,7 @@ export default function Dashboard({ onLogout }) {
                         <div className="mobile-appliance-title">{appliance.device?.model || appliance.device?.name}</div>
                         <div className="mobile-appliance-sub">{appliance.device?.name || appliance.device?.serial}</div>
                         <div className="mobile-appliance-meta">
-                          <span className="meta-item">IP: <strong>{activeUplink.ip || '-'}</strong></span>
-                          <span className="meta-item">Loss: <strong>{activeUplink.loss != null ? `${activeUplink.loss}%` : '-'}</strong></span>
-                          <span className="meta-item">Lat: <strong>{activeUplink.latency != null ? `${activeUplink.latency}ms` : '-'}</strong></span>
+                          {appliance.device?.mac && <span className="meta-item">MAC: <strong>{appliance.device.mac}</strong></span>}
                         </div>
 
                         {/* Ports: show full ordered sequence; highlight those in use */}
@@ -2479,37 +2492,14 @@ export default function Dashboard({ onLogout }) {
                       </div>
                     </div>
                   </div>
-
-                  {/* Gráfica de conectividad */}
-                  {historySeries && (
-                    <div style={{ marginTop: 8 }}>
-                      <h4 style={{ 
-                        margin: '0 0 12px 0', 
-                        fontSize: 15, 
-                        fontWeight: 600, 
-                        color: '#475569',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8
-                      }}>
-                        Historial de conectividad - {activeUplink.interface}
-                      </h4>
-                      <ConnectivityGraph 
-                        uplinkHistory={[historySeries]}
-                        deviceName={`${appliance.device.name} - ${activeUplink.interface}`}
-                        showFilters={true}
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Graficos historicos del appliance */}
-                  <ApplianceHistoricalCharts 
-                    networkId={selectedNetwork} 
-                    token={token}
-                  />
                 </div>
               );
             })}
+            
+            {/* Graficas historicas del appliance - Connectivity y Client usage */}
+            <ApplianceHistoricalCharts 
+              networkId={typeof selectedNetwork === 'object' ? selectedNetwork?.id : selectedNetwork}
+            />
           </div>
         );
       }
