@@ -59,12 +59,11 @@ npm install --production
 
 echo -e "${YELLOW}6. Configurando variables de entorno...${NC}"
 if [ ! -f ".env" ]; then
-    echo -e "${YELLOW}Copiando template .env...${NC}"
-    cp .env.example .env
-    echo -e "${RED}IMPORTANTE: Edita el archivo .env con tus claves reales:${NC}"
-    echo "nano $PROJECT_DIR/backend/.env"
-    echo -e "${RED}Presiona Enter cuando hayas configurado el .env...${NC}"
-    read -p ""
+    echo -e "${YELLOW}Usando configuración de producción...${NC}"
+    cp .env.production .env
+    echo -e "${GREEN}Variables de entorno configuradas para producción${NC}"
+else
+    echo -e "${GREEN}Archivo .env ya existe, manteniéndolo${NC}"
 fi
 
 echo -e "${YELLOW}7. Instalando dependencias del frontend...${NC}"
