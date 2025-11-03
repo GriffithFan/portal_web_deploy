@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar';
 import AppliancePortsMatrix from '../components/AppliancePortsMatrix';
 import ConnectivityGraph from '../components/ConnectivityGraph';
 import Tooltip from '../components/Tooltip';
+import ApplianceHistoricalCharts from '../components/ApplianceHistoricalCharts';
 
 // Iconos para el Sidebar
 const TopologyIcon = () => (
@@ -2500,6 +2501,12 @@ export default function Dashboard({ onLogout }) {
                       />
                     </div>
                   )}
+                  
+                  {/* Graficos historicos del appliance */}
+                  <ApplianceHistoricalCharts 
+                    networkId={selectedNetwork} 
+                    token={token}
+                  />
                 </div>
               );
             })}

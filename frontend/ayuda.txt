@@ -1,0 +1,255 @@
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/{clientId}/usageHistory',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/usageHistories?clients=',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/{clientId}/trafficHistory',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/{clientId}/trafficHistory',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/bandwidthUsageHistory',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/applicationUsage?clients=',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/devices/{serial}/clients',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/{clientId}/trafficHistory',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/organizations/{organizationId}/summary/top/networks/byStatus',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/bandwidthUsageHistory',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = { "Accept": "application/json" }
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/secureConnect/v1/organizations/{organizationId}/reports/totalRequests?to=&from=',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});
+
+
+var request = require('request');
+
+headers = {
+    "Authorization": "Bearer 75dd5334bef4d2bc96f26138c163c0a3fa0b5ca6",
+    "Accept": "application/json"
+}
+body = null;
+var options = {
+    method: 'GET',
+    url: 'https://api.meraki.com/api/v1/networks/{networkId}/clients/usageHistories?clients=',
+    headers,
+    body,
+};
+
+request(options, function (error, response) { 
+    if (error) throw new Error(error);
+    console.log(response.body);
+});

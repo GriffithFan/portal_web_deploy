@@ -4909,6 +4909,35 @@ app.get('/api/networks/:networkId/appliance/connectivityMonitoringDestinations',
   }
 });
 
+// Endpoint para datos historicos del appliance (connectivity + bandwidth usage)
+app.get('/api/networks/:networkId/appliance/historical', async (req, res) => {
+  try {
+    const { networkId } = req.params;
+    const timespan = parseInt(req.query.timespan) || 86400;
+    const resolution = parseInt(req.query.resolution) || 300;
+    
+    const devices = await getNetworkDevices(networkId);
+    const mxDevice = devices.find(d => (d.model || '').toLowerCase().startsWith('mx'));
+    
+    if (!mxDevice) {
+      return res.json({ connectivity: [], uplinkUsage: [] });
+    }
+
+    const [lossLatency, uplinkUsage] = await Promise.allSettled([
+      getDeviceLossAndLatencyHistory(mxDevice.serial, { timespan, resolution }),
+      getNetworkApplianceUplinksUsageHistory(networkId, { timespan, resolution })
+    ]);
+
+    res.json({
+      connectivity: lossLatency.status === 'fulfilled' ? (lossLatency.value || []) : [],
+      uplinkUsage: uplinkUsage.status === 'fulfilled' ? (uplinkUsage.value || []) : []
+    });
+  } catch (error) {
+    console.error('Error /appliance/historical', error.response?.data || error.message);
+    res.status(500).json({ error: 'Error obteniendo datos historicos del appliance' });
+  }
+});
+
 // Extras: wireless SSIDs list y por número
 app.get('/api/networks/:networkId/wireless/ssids', async (req, res) => {
   try {
