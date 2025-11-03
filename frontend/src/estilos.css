@@ -1427,11 +1427,14 @@ html, body {
     gap: 20px;
   }
 
-  /* Volver al ancho de búsqueda previo en desktop para evitar cambios visuales */
-  .topbar-search-form { max-width: 500px !important; flex: 0 0 auto; }
+  /* CRÍTICO: Forzar visibilidad de elementos del topbar en desktop */
+  .topbar-brand { display: flex !important; min-width: 140px; }
+  .topbar-search-form { display: flex !important; max-width: 500px !important; flex: 0 0 auto; }
+  .topbar-search-wrapper { display: flex !important; }
+  .topbar-input { display: block !important; }
+  .search-submit { display: inline-flex !important; }
 
   /* Asegurar que el brand y las acciones mantengan el espaciado original */
-  .topbar-brand { min-width: 140px; }
   .topbar-actions { margin-left: 12px; }
 
   /* Input visual igual al inline previo */
@@ -1441,11 +1444,9 @@ html, body {
     color: #fff;
   }
 
-  /* Mostrar el botón de búsqueda en desktop */
-  .search-submit { display: inline-flex !important; }
-
-  /* Ocultar el toggle móvil en desktop */
+  /* Ocultar elementos móviles en desktop */
   .mobile-search-toggle { display: none !important; }
+  .mobile-hamburger { display: none !important; }
 }
 
 /* Desktop: botón de búsqueda redondo fusionado con la barra */
