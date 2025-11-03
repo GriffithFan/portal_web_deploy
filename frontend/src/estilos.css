@@ -1376,38 +1376,13 @@ html, body {
 /* By default (without media queries) keep mobile elements hidden to be explicit */
 /* Do not globally hide mobile elements here; the desktop media query will hide them on large screens. */
 
-/* TopBar specific fixes to avoid clipped search input and improve mobile visuals */
+/* TopBar BASE rules (aplicables a todos los tamaños) */
 .topbar {
   position: relative;
-  z-index: 1200; /* keep it above other content */
-  overflow: visible !important; /* ensure rounded corners / shadows are visible */
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
+  z-index: 1200;
+  overflow: visible !important;
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-/* Make the form and search area flexible so the input can grow on desktop
-   and shrink on small screens without being cropped. */
-.topbar form { display: flex; align-items: center; flex: 1 1 auto; max-width: 100%; }
-.topbar-search-form { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; max-width: 920px; }
-.topbar-search-form input[type="text"], .topbar input[type="text"] {
-  box-sizing: border-box;
-  line-height: 1.2;
-  min-height: 38px;
-  border-radius: 12px !important;
-  padding: 8px 44px 8px 12px !important; /* espacio para botón a la derecha */
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 220px; /* evita quedar extremadamente estrecho en desktop */
-}
-.topbar-search-form button[type="submit"] {
-  z-index: 1250;
-  width: 40px;
-  height: 36px;
-  margin-left: 6px;
-  flex: 0 0 auto;
 }
 
 /* Desktop-specific stronger caps to avoid accidental shrink on wide layouts */
@@ -1418,49 +1393,160 @@ html, body {
 /* Restaurar apariencia original del TopBar para desktop (no tocar móvil) */
 @media (min-width: 901px) {
   .topbar {
-    padding: 6px 24px !important;
-    background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    justify-content: space-between;
-    gap: 20px;
+    padding: 8px 24px !important;
+    background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+    justify-content: space-between !important;
+    gap: 20px !important;
+    height: auto !important;
+    position: relative !important;
   }
 
   /* CRÍTICO: Forzar visibilidad de elementos del topbar en desktop */
-  .topbar-brand { display: flex !important; min-width: 140px; }
-  .topbar-search-form { display: flex !important; max-width: 500px !important; flex: 0 0 auto; }
-  .topbar-search-wrapper { display: flex !important; }
-  .topbar-input { display: block !important; }
-  .search-submit { display: inline-flex !important; }
+  .topbar-brand { 
+    display: flex !important; 
+    align-items: center !important;
+    gap: 10px !important;
+    min-width: 140px !important;
+    color: #fff !important;
+  }
+  
+  .topbar-brand-icon {
+    display: flex !important;
+    width: 28px !important;
+    height: 28px !important;
+    background: linear-gradient(135deg, #4a90e2 0%, #357ab8 100%) !important;
+    border-radius: 6px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: bold !important;
+    font-size: 15px !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+    color: #fff !important;
+  }
+  
+  .topbar-brand-title {
+    display: block !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    letter-spacing: 0.5px !important;
+    color: #fff !important;
+  }
+  
+  .topbar-search-form { 
+    display: flex !important; 
+    align-items: center !important;
+    gap: 8px !important;
+    max-width: 500px !important; 
+    flex: 1 1 auto !important;
+  }
+  
+  .topbar-search-wrapper { 
+    display: flex !important; 
+    position: relative !important;
+    width: 100% !important;
+    align-items: center !important;
+  }
+  
+  .topbar-input { 
+    display: block !important;
+    width: 100% !important;
+    padding: 10px 50px 10px 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    background: rgba(255,255,255,0.15) !important;
+    backdrop-filter: blur(10px) !important;
+    color: #fff !important;
+    font-size: 14px !important;
+    outline: none !important;
+    transition: all 0.15s ease !important;
+    box-sizing: border-box !important;
+  }
+  
+  .topbar-input::placeholder {
+    color: rgba(255,255,255,0.6) !important;
+  }
+  
+  .topbar-input:focus {
+    background: rgba(255,255,255,0.25) !important;
+    border-color: rgba(255,255,255,0.4) !important;
+    box-shadow: 0 4px 18px rgba(2,6,23,0.16) !important;
+  }
+  
+  .search-submit { 
+    display: inline-flex !important;
+    position: absolute !important;
+    right: 6px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%) !important;
+    box-shadow: 0 4px 12px rgba(37,99,235,0.2) !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: transform 0.12s ease !important;
+  }
+  
+  .search-submit:hover {
+    transform: translateY(-50%) scale(1.05) !important;
+    box-shadow: 0 6px 16px rgba(37,99,235,0.3) !important;
+  }
+  
+  .search-submit svg {
+    stroke: #fff !important;
+    width: 18px !important;
+    height: 18px !important;
+  }
 
   /* Asegurar que el brand y las acciones mantengan el espaciado original */
-  .topbar-actions { margin-left: 12px; }
-
-  /* Input visual igual al inline previo */
-  .topbar-input {
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
+  .topbar-actions { 
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-left: auto !important;
+  }
+  
+  .topbar-logout {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 8px 14px !important;
+    background: rgba(255,255,255,0.1) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+  
+  .topbar-logout:hover {
+    background: rgba(255,255,255,0.15) !important;
+    border-color: rgba(255,255,255,0.3) !important;
   }
 
   /* Ocultar elementos móviles en desktop */
   .mobile-search-toggle { display: none !important; }
   .mobile-hamburger { display: none !important; }
+  .mobile-section-select { display: none !important; }
 }
 
 /* Desktop: botón de búsqueda redondo fusionado con la barra */
+/* ESTAS REGLAS ESTÁN CONSOLIDADAS EN EL @media (min-width: 901px) DE ARRIBA */
+/*
 @media (min-width: 901px) {
   .topbar-search-wrapper { position: relative; }
-
-  /* Hacer que el input tenga bordes grandes (pill) y espacio a la derecha para el botón */
   .topbar-input {
     border-radius: 999px !important;
-    padding-right: 56px !important; /* espacio para botón circular */
+    padding-right: 56px !important;
     transition: box-shadow 0.12s ease, background 0.12s ease;
   }
-
-  /* Botón circular: sobresale ligeramente sobre la entrada para efecto "fusionado" */
   .search-submit {
     position: absolute;
     right: 8px;
@@ -1478,18 +1564,15 @@ html, body {
     border: none;
     cursor: pointer;
   }
-
   .search-submit svg { stroke: #fff; }
-
-  /* Hover / focus states para refinar la fusión visual */
   .search-submit:hover { transform: translateY(-50%) scale(1.03); }
   .topbar-input:focus { box-shadow: 0 4px 18px rgba(2,6,23,0.16); }
-
-  /* Asegurar que el contenedor no corte la sombra del botón */
   .topbar-search-form { overflow: visible; }
 }
+*/
 
-/* TopBar children styling (brand, search wrapper, buttons) */
+/* TopBar children styling - ESTAS REGLAS AHORA ESTÁN EN EL @media QUERY */
+/*
 .topbar-brand {
   display: flex;
   align-items: center;
@@ -1529,6 +1612,8 @@ html, body {
   outline: none;
   transition: all 0.15s ease;
 }
+*/
+/*
 .topbar-input:focus {
   background: rgba(255,255,255,0.25);
   border-color: rgba(255,255,255,0.4);
@@ -1574,6 +1659,7 @@ html, body {
   background: rgba(239,68,68,0.95);
   border-color: rgba(239,68,68,1);
 }
+*/
 
 /* Mobile toggle visibility rules (kept similar to previous behavior) */
 @media (max-width: 480px) {
