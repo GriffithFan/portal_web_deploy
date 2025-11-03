@@ -1593,20 +1593,32 @@ export default function Dashboard({ onLogout }) {
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <span>Topología</span>
-              {topology?.nodes && topology.nodes.length > 0 && (
-                <span style={{ 
-                  fontSize: '14px', 
-                  fontWeight: '500', 
-                  color: '#475569',
-                  background: '#f1f5f9',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1'
-                }}>
-                  {topology.nodes.length} dispositivo{topology.nodes.length !== 1 ? 's' : ''}
-                </span>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {topology?.nodes && topology.nodes.length > 0 && (
+                  <span style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#047857',
+                    background: '#d1fae5',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 4px rgba(16, 185, 129, 0.6)'
+                    }}></span>
+                    {topology.nodes.length} Dispositivo{topology.nodes.length !== 1 ? 's' : ''} en Línea
+                  </span>
+                )}
+                <span>Topología</span>
+              </div>
             </h2>
             {topology?.nodes && topology.nodes.length > 0 ? (
               <SimpleGraph graph={topology} devices={devices} />
@@ -2412,10 +2424,8 @@ export default function Dashboard({ onLogout }) {
                   {/* Header del appliance */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, paddingBottom: 16, borderBottom: '2px solid #e2e8f0' }}>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: '1.2em', color: '#1e293b' }}>{appliance.device.model} ({appliance.device.name || appliance.device.mac})</h3>
+                      <h3 style={{ margin: 0, fontSize: '1.2em', color: '#1e293b' }}>{appliance.device.name || appliance.device.mac}</h3>
                       <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-                        <span>Serial: <b>{appliance.device.serial}</b> · </span>
-                        <span>MAC: <b>{appliance.device.mac}</b> · </span>
                         <span>LAN IP: <b>{appliance.device.lanIp || '-'}</b></span>
                       </div>
                     </div>
@@ -2449,46 +2459,95 @@ export default function Dashboard({ onLogout }) {
                       })()}
                     </div>
 
-                    {/* Card del WAN activo */}
-                    <div style={{ border: '1px solid #cbd5e1', borderRadius: 10, padding: 16, background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1e293b' }}>{activeUplink.interface}</h4>
+                    {/* Card del WAN activo - Optimizado */}
+                    <div style={{ border: '1px solid #cbd5e1', borderRadius: 10, padding: 14, background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 10, height: 'fit-content', maxWidth: '420px' }}>
+                      {/* Título WAN Interface */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1e293b' }}>{activeUplink.interface}</h4>
                         <span style={{ 
                           background: color, 
                           color: '#fff', 
-                          padding: '4px 12px', 
+                          padding: '3px 10px', 
                           borderRadius: 999, 
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: 600
                         }}>
                           {statusNormalized === 'connected' ? 'active' : 'not connected'}
                         </span>
                       </div>
                       
-                      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 12px', fontSize: 13 }}>
-                        <span style={{ color: '#64748b' }}>IP:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.ip || '-'}</span>
+                      {/* Información del dispositivo */}
+                      <div style={{ padding: '10px', background: '#ffffff', borderRadius: 6, border: '1px solid #e2e8f0', marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dispositivo</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 8px', fontSize: 12 }}>
+                          <span style={{ color: '#64748b' }}>Modelo:</span>
+                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{appliance.device.model || '-'}</span>
+                          
+                          <span style={{ color: '#64748b' }}>Serial:</span>
+                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{appliance.device.serial || '-'}</span>
+                          
+                          <span style={{ color: '#64748b' }}>MAC:</span>
+                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{appliance.device.mac || '-'}</span>
+                        </div>
+                      </div>
+
+                      {/* Información WAN - Solo campos con datos */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 10px', fontSize: 12 }}>
+                        {activeUplink.ip && (
+                          <>
+                            <span style={{ color: '#64748b' }}>IP:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.ip}</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>Public IP:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.publicIp || '-'}</span>
+                        {activeUplink.publicIp && (
+                          <>
+                            <span style={{ color: '#64748b' }}>Public IP:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.publicIp}</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>Gateway:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.gateway || '-'}</span>
+                        {activeUplink.gateway && (
+                          <>
+                            <span style={{ color: '#64748b' }}>Gateway:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.gateway}</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>DNS:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{dnsLabel}</span>
+                        {dnsLabel && dnsLabel !== '-' && (
+                          <>
+                            <span style={{ color: '#64748b' }}>DNS:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{dnsLabel}</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>Loss:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.loss != null ? `${activeUplink.loss}%` : '-'}</span>
+                        {activeUplink.loss != null && (
+                          <>
+                            <span style={{ color: '#64748b' }}>Loss:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.loss}%</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>Latency:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.latency != null ? `${activeUplink.latency} ms` : '-'}</span>
+                        {activeUplink.latency != null && (
+                          <>
+                            <span style={{ color: '#64748b' }}>Latency:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.latency} ms</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>Jitter:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.jitter != null ? `${activeUplink.jitter} ms` : '-'}</span>
+                        {activeUplink.jitter != null && (
+                          <>
+                            <span style={{ color: '#64748b' }}>Jitter:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.jitter} ms</span>
+                          </>
+                        )}
                         
-                        <span style={{ color: '#64748b' }}>Tipo:</span>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.connectionType || '-'}</span>
+                        {activeUplink.connectionType && (
+                          <>
+                            <span style={{ color: '#64748b' }}>Tipo:</span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{activeUplink.connectionType}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
