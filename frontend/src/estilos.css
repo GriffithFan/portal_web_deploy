@@ -487,10 +487,8 @@ html, body {
     box-sizing: border-box !important;
     overflow: visible !important;
   }
-  /* Force minimal topbar: hide desktop search/brand and show only hamburger + magnifier */
-  .topbar-brand { display: none !important; }
-  .topbar-search-form, .topbar-search-wrapper, .topbar-input, .search-submit { display: none !important; }
-  .mobile-search-toggle { display: inline-flex !important; }
+  /* ELIMINADO: React controla qué elementos mostrar según windowWidth */
+  /* Las reglas de display: none aquí estaban interfiriendo con el renderizado condicional de React */
 
   /* Ensure the topbar becomes taller and icons vertically centered for better touch targets */
   .topbar { height: 65px !important; padding-left: 14px !important; padding-right: 14px !important; transition: height 220ms ease, padding 220ms ease, box-shadow 220ms ease; }
