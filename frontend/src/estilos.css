@@ -449,19 +449,17 @@ html, body {
   /* Specific override for the DOM node the inspector reported (hide ghost text)
      This targets the exact path you pasted and only on mobile so desktop is
      not affected. Using display:none keeps it from rendering under the tiles. */
-  @media (max-width: 900px) {
-    /* Hide the three ghost text nodes the inspector showed */
-    #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(1) > div:nth-child(2) > div:nth-child(3),
-    #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(3),
-    #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(4) > div:nth-child(2) > div:nth-child(3) {
-      display: none !important;
-      color: transparent !important;
-      text-shadow: none !important;
-    }
+  #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(1) > div:nth-child(2) > div:nth-child(3),
+  #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(3),
+  #root > div > div:nth-child(3) > main > div.mobile-section-tiles-wrapper > div > div:nth-child(4) > div:nth-child(2) > div:nth-child(3) {
+    display: none !important;
+    color: transparent !important;
+    text-shadow: none !important;
   }
+} /* CIERRE DEL @media (max-width: 900px) que abrió en línea 408 */
 
-  /* === MOBILE-ONLY RULES: ALL WRAPPED IN @media (max-width: 900px) === */
-  @media (max-width: 900px) {
+/* === MOBILE-ONLY RULES: ALL WRAPPED IN @media (max-width: 900px) === */
+@media (max-width: 900px) {
 
   /* Make sure the topology graph doesn't render its own white card behind
      the tiles and that it sits cleanly on the page background. */
