@@ -1392,6 +1392,8 @@ html, body {
 
 /* Restaurar apariencia original del TopBar para desktop (no tocar móvil) */
 @media (min-width: 901px) {
+  /* MÁXIMA PRIORIDAD: Selector más específico para sobrescribir reglas móviles */
+  body .topbar,
   .topbar {
     padding: 8px 24px !important;
     background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%) !important;
@@ -1405,6 +1407,7 @@ html, body {
   }
 
   /* CRÍTICO: Forzar visibilidad de elementos del topbar en desktop */
+  body .topbar-brand,
   .topbar-brand { 
     display: flex !important; 
     align-items: center !important;
@@ -1413,6 +1416,7 @@ html, body {
     color: #fff !important;
   }
   
+  body .topbar-brand-icon,
   .topbar-brand-icon {
     display: flex !important;
     width: 28px !important;
@@ -1427,6 +1431,7 @@ html, body {
     color: #fff !important;
   }
   
+  body .topbar-brand-title,
   .topbar-brand-title {
     display: block !important;
     font-weight: 700 !important;
@@ -1435,6 +1440,7 @@ html, body {
     color: #fff !important;
   }
   
+  body .topbar-search-form,
   .topbar-search-form { 
     display: flex !important; 
     align-items: center !important;
@@ -1443,6 +1449,7 @@ html, body {
     flex: 1 1 auto !important;
   }
   
+  body .topbar-search-wrapper,
   .topbar-search-wrapper { 
     display: flex !important; 
     position: relative !important;
@@ -1450,6 +1457,7 @@ html, body {
     align-items: center !important;
   }
   
+  body .topbar-input,
   .topbar-input { 
     display: block !important;
     width: 100% !important;
@@ -1465,16 +1473,19 @@ html, body {
     box-sizing: border-box !important;
   }
   
+  body .topbar-input::placeholder,
   .topbar-input::placeholder {
     color: rgba(255,255,255,0.6) !important;
   }
   
+  body .topbar-input:focus,
   .topbar-input:focus {
     background: rgba(255,255,255,0.25) !important;
     border-color: rgba(255,255,255,0.4) !important;
     box-shadow: 0 4px 18px rgba(2,6,23,0.16) !important;
   }
   
+  body .search-submit,
   .search-submit { 
     display: inline-flex !important;
     position: absolute !important;
@@ -1494,11 +1505,13 @@ html, body {
     transition: transform 0.12s ease !important;
   }
   
+  body .search-submit:hover,
   .search-submit:hover {
     transform: translateY(-50%) scale(1.05) !important;
     box-shadow: 0 6px 16px rgba(37,99,235,0.3) !important;
   }
   
+  body .search-submit svg,
   .search-submit svg {
     stroke: #fff !important;
     width: 18px !important;
@@ -1506,6 +1519,7 @@ html, body {
   }
 
   /* Asegurar que el brand y las acciones mantengan el espaciado original */
+  body .topbar-actions,
   .topbar-actions { 
     display: flex !important;
     align-items: center !important;
@@ -1513,6 +1527,7 @@ html, body {
     margin-left: auto !important;
   }
   
+  body .topbar-logout,
   .topbar-logout {
     display: flex !important;
     align-items: center !important;
@@ -1526,14 +1541,20 @@ html, body {
     transition: all 0.15s ease !important;
   }
   
+  body .topbar-logout:hover,
   .topbar-logout:hover {
     background: rgba(255,255,255,0.15) !important;
     border-color: rgba(255,255,255,0.3) !important;
   }
 
   /* Ocultar elementos móviles en desktop */
+  body .mobile-search-toggle,
   .mobile-search-toggle { display: none !important; }
+  
+  body .mobile-hamburger,
   .mobile-hamburger { display: none !important; }
+  
+  body .mobile-section-select,
   .mobile-section-select { display: none !important; }
 }
 
