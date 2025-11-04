@@ -8,6 +8,8 @@ import AppliancePortsMatrix from '../components/AppliancePortsMatrix';
 import ConnectivityGraph from '../components/ConnectivityGraph';
 import Tooltip from '../components/Tooltip';
 import ApplianceHistoricalCharts from '../components/ApplianceHistoricalCharts';
+import { SkeletonTable, SkeletonDeviceList, SkeletonTopology } from '../components/ui/SkeletonLoaders';
+import { LoadingOverlay } from '../components/ui/LoadingOverlay';
 
 // Iconos para el Sidebar
 const TopologyIcon = () => (
@@ -1509,7 +1511,7 @@ export default function Dashboard({ onLogout }) {
   // El useEffect ya no es necesario para cargar secciones, ahora es síncrono
   
   const renderSection = () => {
-    if (loading) return <div className="loading">Cargando datos del predio…</div>;
+    if (loading) return <LoadingOverlay isLoading={true} message="Cargando datos del predio..." variant="blur" />;
   if (!selectedNetwork) return <div className="empty-predio">Busca un predio en la barra superior…</div>;
     if (!summaryData) return <div>No hay datos disponibles para este predio.</div>;
 
@@ -1525,34 +1527,24 @@ export default function Dashboard({ onLogout }) {
       return [d.serial, raw];
     }));
 
-    // Mostrar spinner si esta sección está cargándose
+    // Mostrar skeleton loader si esta sección está cargándose
     if (sectionLoading === section) {
-      return (
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          padding: '60px 20px',
-          gap: '16px'
-        }}>
-          <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            border: '4px solid #e5e7eb', 
-            borderTop: '4px solid #2563eb', 
-            borderRadius: '50%', 
-            animation: 'spin 0.8s linear infinite' 
-          }} />
-          <div style={{ 
-                  fontSize: '14px', 
-                  color: '#64748b', 
-                  fontWeight: '500' 
-                }}>
-                  Cargando {section === 'topology' ? 'topología' : section === 'switches' ? 'switches' : section === 'access_points' ? 'puntos de acceso' : 'estado de appliances'}...
-                </div>
-        </div>
-      );
+      // Determinar qué skeleton mostrar según la sección
+      if (section === 'topology') {
+        return <SkeletonTopology />;
+      } else if (section === 'switches' || section === 'access_points' || section === 'appliance_status') {
+        return (
+          <div className="animate-fadeIn">
+            {section === 'switches' || section === 'access_points' ? (
+              <SkeletonDeviceList count={5} />
+            ) : (
+              <SkeletonTable rows={4} columns={5} />
+            )}
+          </div>
+        );
+      } else {
+        return <SkeletonTable rows={5} columns={4} />;
+      }
     }
 
     switch (section) {

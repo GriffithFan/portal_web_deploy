@@ -2,10 +2,37 @@
 
 API REST desarrollada en Node.js + Express para comunicación con Cisco Meraki Dashboard API.
 
-```markdown
-# Backend — API del Portal Meraki
+## 🔒 Seguridad
 
-Descripción
+El backend implementa múltiples capas de seguridad:
+
+- **Rate Limiting**: Protección contra ataques de fuerza bruta y DoS
+  - Limiter general: 1000 req/15min por IP
+  - Limiter de auth: 10 intentos/15min
+  - Limiter de datos: 100 req/5min
+  - Limiter de escritura: 50 ops/15min
+
+- **Headers de Seguridad (Helmet)**: CSP, HSTS, protección XSS
+- **Validación de Inputs**: Sanitización contra XSS e inyección
+- **Protección CSRF**: Header `X-Requested-With` requerido en operaciones de escritura
+- **Detección de Requests Sospechosos**: Logging automático de patrones de ataque
+- **CORS Restrictivo**: Lista blanca de dominios en producción
+
+📖 **Documentación completa:** Ver [`SEGURIDAD.md`](./SEGURIDAD.md)
+
+## 📝 Logging
+
+Sistema de logging profesional con Winston:
+
+- **Niveles**: error, warn, info, http, debug
+- **Rotación Automática**: Logs diarios con límites de tamaño
+- **Formatos**: Colorizado en desarrollo, JSON en producción
+- **Categorías Separadas**: application, error, http, security, exceptions
+- **Retención**: 14-180 días según categoría
+
+📖 **Documentación completa:** Ver [`LOGGING.md`](./LOGGING.md)
+
+## Descripción
 - Servicio REST responsable de orquestar y normalizar las llamadas al Meraki Dashboard API. Expone endpoints consumibles por el frontend y por herramientas internas de diagnóstico.
 
 Estructura relevante

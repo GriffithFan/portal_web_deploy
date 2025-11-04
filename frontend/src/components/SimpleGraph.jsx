@@ -73,23 +73,29 @@ const computeNodeLabels = (node = {}) => {
     }
   }
 
+  // Mostrar serial y MAC debajo de TODOS los dispositivos
   let secondary = null;
+  let tertiary = null;
   
-  // Solo mostrar serial/MAC para UTM/Appliances
-  if (isZ3Utm) {
-    if (mac && mac !== primary) {
-      // Z3/UTM: mostrar MAC
-      secondary = mac;
-    } else if (serial && serial !== primary) {
-      // Si no hay MAC, mostrar serial
-      secondary = serial;
+  // No mostrar info adicional para nodos externos (Internet)
+  if (node.kind !== 'external') {
+    // Priorizar Serial primero, luego MAC
+    if (serial && serial !== primary && !looksLikeSerial(primary)) {
+      secondary = `S: ${serial}`;
+      // Si también hay MAC, mostrarla en tercera línea
+      if (mac && mac !== primary && mac !== serial) {
+        tertiary = `M: ${mac}`;
+      }
+    } else if (mac && mac !== primary) {
+      // Si no hay serial o el primary ya es el serial, mostrar MAC
+      secondary = `M: ${mac}`;
     }
   }
-  // Para todos los demás dispositivos (switches, APs, etc.), no mostrar secondary
 
   if (secondary === primary) secondary = null;
+  if (tertiary === primary || tertiary === secondary) tertiary = null;
 
-  return { primary, secondary };
+  return { primary, secondary, tertiary };
 };
 
 const classifyKind = (node = {}) => {
@@ -324,30 +330,35 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   const totalDevices = nodeMap.size;
   const apCount = Array.from(nodeMap.values()).filter(n => n.kind === 'ap').length;
   
-  // Factor de escala balanceado: pequeñas más compactas, grandes más amplias
+  // Factor de escala y espaciado optimizado basado en APs (más crítico que switches)
   let scaleFactor = 1.0;
   let yGap = 75;
   
-  if (totalDevices <= 10) {
-    // Redes pequeñas: elementos aún más pequeños
+  if (apCount <= 4) {
+    // Redes pequeñas (<=4 APs): compactas como 602360
     scaleFactor = 0.65;
     yGap = 50;
-  } else if (totalDevices <= 30) {
-    // Redes medianas: aún más compacto
-    scaleFactor = 0.7;
-    yGap = 48;
-  } else if (totalDevices <= 60) {
-    // Redes grandes: un poco más grandes
+  } else if (apCount <= 12) {
+    // Redes medianas (5-12 APs): más espaciado - caso 613074 con 10 APs
+    scaleFactor = 0.85;
+    yGap = 120;  // Incrementado para separar bien 10 APs
+  } else if (apCount <= 20) {
+    // Redes medianas-grandes (13-20 APs): espaciado generoso - caso con 17 APs
     scaleFactor = 1.0;
-    yGap = 80;
+    yGap = 140;
+  } else if (apCount <= 40) {
+    // Redes grandes (21-40 APs): mucho espaciado
+    scaleFactor = 1.2;
+    yGap = 180;
+  } else if (apCount <= 60) {
+    // Redes muy grandes (41-60 APs): máximo espaciado
+    scaleFactor = 1.3;
+    yGap = 220;
   } else {
-    // Redes muy grandes: elementos más grandes para legibilidad
-    scaleFactor = 1.1;
-    yGap = 85;
+    // Redes enormes (>60 APs): ultra espaciado
+    scaleFactor = 1.5;
+    yGap = 270;
   }
-  
-  // Ajuste adicional por cantidad de APs
-  if (apCount > 40) yGap = Math.max(yGap, 90);
 
   const assignY = (id) => {
     const node = nodeMap.get(id);
@@ -593,8 +604,8 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   });
 
   const paddingLeft = 30;
-  const paddingRight = 100;
-  const paddingTop = 50;
+  const paddingRight = 250;  // Aumentado de 100 a 250 para dar espacio a etiquetas de APs de la derecha
+  const paddingTop = 150;  // Aumentado de 50 a 150 para dar espacio a las etiquetas
   const paddingBottom = 50;
 
   // Normalizar: mover todo para que minX quede en paddingLeft
@@ -685,6 +696,8 @@ const buildLayout = (graph, deviceMap = new Map()) => {
     viewBoxX: minX - paddingLeft,  // Comenzar viewBox desde donde están los elementos
     viewBoxY: minY - paddingTop,   // Comenzar viewBox desde donde están los elementos
     scaleFactor: scaleFactor, // Factor de escala para elementos visuales
+    apCount: apCount, // Cantidad de APs para ajustar espaciado de etiquetas
+    totalDevices: totalDevices, // Total de dispositivos
   };
 };
 
@@ -768,6 +781,9 @@ export default function SimpleGraph({ graph, devices = [] }) {
     return null;
   }
 
+  // Extraer valores del layout para usar en renderizado
+  const { apCount = 0, totalDevices = 0 } = layout;
+
   const viewBox = `${layout.viewBoxX || 0} ${layout.viewBoxY || 0} ${layout.width} ${layout.height}`;
 
   return (
@@ -790,42 +806,102 @@ export default function SimpleGraph({ graph, devices = [] }) {
         const isExternal = node.kind === 'external';
         
         // Todos los labels centrados arriba del icono (excepto external que va a la izquierda)
-          let textAnchor = 'middle';
-          let labelX = 0;
-          let primaryY = -32;  // Más cerca del dispositivo (era -40)
-          let secondaryY = primaryY + 28; // Separación entre nombre y serial
-
-          // Aplicar factor de escala dinámico a fuentes - Aumentado más
-          const baseScale = layout.scaleFactor || 1.0;
-          const primaryFontSize = Math.round(24 * baseScale);  // Aumentado de 22 a 24
-          let secondaryFontSize = Math.round(20 * baseScale); // Aumentado de 18 a 20
-
-          // Ajuste de posición para redes pequeñas y medianas
-          const isAppliance = node.kind === 'appliance' || node.kind === 'gateway';
-          if (baseScale < 0.95 && !isAppliance) {
-            // Red pequeña/mediana: acercar el label aún más
-            primaryY = -18;
-            secondaryY = primaryY + 18;
-          }
-
-          // Para UTM/Appliance: dejar como estaba originalmente
-          if (isAppliance) {
-            primaryY = -40;  // Valor original
-            secondaryY = primaryY + 24;
-            secondaryFontSize = Math.round(23 * baseScale); // MAC aumentado de 21 a 23
-          }
-
-          if (isExternal) {
-            textAnchor = 'end';
-            labelX = -28;
-            primaryY = -8;
-            secondaryY = primaryY + 16;
-          }
+        let textAnchor = 'middle';
+        let labelX = 0;
         
-        const { primary, secondary } = computeNodeLabels(node);
+        // Aplicar factor de escala dinámico a fuentes
+        const baseScale = layout.scaleFactor || 1.0;
+        const totalDevices = layout.nodes.length;
+        
+        // Calcular espaciado dinámico basado en cantidad de APs
+        let primaryY = -32;
+        let secondaryY = -8;
+        let tertiaryY = 8;
+        
+        // Ajustar espaciado según cantidad de APs para mantener etiquetas arriba del dispositivo
+        if (apCount <= 4) {
+          // Redes pequeñas (<=4 APs): valores por defecto compactos - caso 602360
+          primaryY = -32;
+          secondaryY = -8;
+          tertiaryY = 8;
+        } else if (apCount <= 8) {
+          // Redes medianas pequeñas (5-8 APs): separación suave
+          primaryY = -60;
+          secondaryY = -35;
+          tertiaryY = -10;
+        } else if (apCount <= 12) {
+          // Redes medianas (9-12 APs): más separación - caso 613074 con 9-10 APs
+          primaryY = -65;
+          secondaryY = -40;
+          tertiaryY = -15;
+        } else if (apCount <= 20) {
+          // Redes medianas-grandes (13-20 APs): perfecto para 17 APs - caso 603005
+          primaryY = -70;
+          secondaryY = -45;
+          tertiaryY = -20;
+        } else if (apCount <= 30) {
+          // Redes grandes (21-30 APs): más separación
+          primaryY = -85;
+          secondaryY = -55;
+          tertiaryY = -25;
+        } else if (apCount <= 40) {
+          // Redes grandes (31-40 APs): gran separación
+          primaryY = -95;
+          secondaryY = -65;
+          tertiaryY = -35;
+        } else if (apCount <= 60) {
+          // Redes muy grandes (41-60 APs): máxima separación
+          primaryY = -110;
+          secondaryY = -75;
+          tertiaryY = -40;
+        } else {
+          // Redes enormes (>60 APs): ultra separación
+          primaryY = -125;
+          secondaryY = -90;
+          tertiaryY = -55;
+        }
+        
+        // Fuentes adaptativas basadas en cantidad de APs
+        let primaryFontSize = 20;
+        let secondaryFontSize = 16;
+        let tertiaryFontSize = 16;
+        
+        if (apCount > 60) {
+          primaryFontSize = 24;
+          secondaryFontSize = 20;
+          tertiaryFontSize = 20;
+        } else if (apCount > 40) {
+          primaryFontSize = 23;
+          secondaryFontSize = 19;
+          tertiaryFontSize = 19;
+        } else if (apCount > 20) {
+          primaryFontSize = 22;
+          secondaryFontSize = 18;
+          tertiaryFontSize = 18;
+        } else if (apCount > 12) {
+          primaryFontSize = 21;
+          secondaryFontSize = 17;
+          tertiaryFontSize = 17;
+        }
+        
+        // Aplicar escala base
+        primaryFontSize = Math.round(primaryFontSize * baseScale);
+        secondaryFontSize = Math.round(secondaryFontSize * baseScale);
+        tertiaryFontSize = Math.round(tertiaryFontSize * baseScale);
+
+        if (isExternal) {
+          textAnchor = 'end';
+          labelX = -28;
+          primaryY = -8;
+          secondaryY = primaryY + 16;
+          tertiaryY = secondaryY + 16;
+        }
+        
+        const { primary, secondary, tertiary } = computeNodeLabels(node);
         const showPrimary = !isExternal && Boolean(primary);
         const showSecondary = !isExternal && Boolean(secondary);
-        const titleParts = [primary, secondary, node.status].filter(Boolean);
+        const showTertiary = !isExternal && Boolean(tertiary);
+        const titleParts = [primary, secondary, tertiary, node.status].filter(Boolean);
 
         return (
           <g key={node.id} transform={`translate(${node.x},${node.y})`}>
@@ -835,7 +911,7 @@ export default function SimpleGraph({ graph, devices = [] }) {
                 x={labelX}
                 y={primaryY}
                 fontSize={primaryFontSize}
-                fontWeight="400"
+                fontWeight="500"
                 fill="#1e293b"
                 textAnchor={textAnchor}
               >
@@ -847,11 +923,23 @@ export default function SimpleGraph({ graph, devices = [] }) {
                 x={labelX}
                 y={secondaryY}
                 fontSize={secondaryFontSize}
-                fontWeight="300"
-                fill="#64748b"
+                fontWeight="400"
+                fill="#475569"
                 textAnchor={textAnchor}
               >
                 {secondary}
+              </text>
+            )}
+            {showTertiary && (
+              <text
+                x={labelX}
+                y={tertiaryY}
+                fontSize={tertiaryFontSize}
+                fontWeight="400"
+                fill="#64748b"
+                textAnchor={textAnchor}
+              >
+                {tertiary}
               </text>
             )}
             <title>{titleParts.length ? titleParts.join('\n') : node.status || 'unknown'}</title>

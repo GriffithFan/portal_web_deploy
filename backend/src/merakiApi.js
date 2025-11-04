@@ -636,6 +636,17 @@ async function getOrgApplianceUplinksStatusesOverview(organizationId) {
   }
 }
 
+// Nuevo endpoint: Estado de puertos ethernet de APs wireless
+async function getOrgWirelessDevicesEthernetStatuses(organizationId, params = {}) {
+  try {
+    const { data } = await client.get(`/organizations/${organizationId}/wireless/devices/ethernet/statuses`, { params });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching wireless devices ethernet statuses:`, error.message);
+    return [];
+  }
+}
+
 module.exports = {
   getOrganizations,
   getNetworks,
@@ -708,5 +719,7 @@ module.exports = {
   getNetworkApplianceTrafficShapingUplinkSelection,
   getOrgApplianceUplinksUsageByNetwork,
   getNetworkApplianceUplinksUsageHistory,
-  getOrgApplianceUplinksStatusesOverview
+  getOrgApplianceUplinksStatusesOverview,
+  // Wireless ethernet statuses
+  getOrgWirelessDevicesEthernetStatuses
 };

@@ -1,0 +1,183 @@
+/* Animación de skeleton loader */
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Skeleton básico */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0px,
+    #e0e0e0 40px,
+    #f0f0f0 80px
+  );
+  background-size: 200px 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Skeleton para líneas de texto */
+.skeleton-text-line {
+  margin-bottom: 8px;
+}
+
+.skeleton-text-line:last-child {
+  margin-bottom: 0;
+}
+
+/* Skeleton Card */
+.skeleton-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Skeleton Table */
+.skeleton-table {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.skeleton-table-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.skeleton-table-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.skeleton-table-row:last-child {
+  border-bottom: none;
+}
+
+/* Skeleton Device */
+.skeleton-device {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.skeleton-device:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Skeleton Device List */
+.skeleton-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Skeleton Chart */
+.skeleton-chart {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* Skeleton Topology */
+.skeleton-topology {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 40px;
+  min-height: 400px;
+}
+
+/* Skeleton Dashboard */
+.skeleton-dashboard {
+  padding: 20px;
+}
+
+/* Skeleton Metric */
+.skeleton-metric {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+/* Dark mode support (preparado para futura implementación) */
+@media (prefers-color-scheme: dark) {
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      #2a2a2a 0px,
+      #3a3a3a 40px,
+      #2a2a2a 80px
+    );
+  }
+
+  .skeleton-card,
+  .skeleton-table,
+  .skeleton-device,
+  .skeleton-chart,
+  .skeleton-topology,
+  .skeleton-metric {
+    background: #1f1f1f;
+    border-color: #3a3a3a;
+  }
+
+  .skeleton-table-header {
+    background: #2a2a2a;
+    border-bottom-color: #3a3a3a;
+  }
+
+  .skeleton-table-row {
+    border-bottom-color: #2a2a2a;
+  }
+}
+
+/* Animaciones suaves para transiciones */
+.skeleton-card,
+.skeleton-device,
+.skeleton-chart {
+  transition: all 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .skeleton-card,
+  .skeleton-chart,
+  .skeleton-topology {
+    padding: 16px;
+  }
+
+  .skeleton-table-header,
+  .skeleton-table-row {
+    padding: 12px;
+    gap: 8px;
+  }
+}

@@ -3,8 +3,11 @@ const path = require('path');
 // Cargar .env desde la carpeta del backend SIEMPRE, antes de importar módulos que leen process.env
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
+// Winston Logger
+const { logger, expressLogger, logSecurity, logError, logAdmin } = require('./config/logger');
+
 const { validarTecnico, listarTecnicos, agregarTecnico, eliminarTecnico } = require('./usuario');
-const { getOrganizations, getNetworks, getNetworkDevices, getNetworkTopology, getNetworkTopologyLinkLayer, getNetworkTopologyNetworkLayer, getApplianceStatuses, getOrganizationDevicesStatuses, getNetworkInfo, getOrgSwitchPortsTopologyDiscoveryByDevice, getNetworkApplianceConnectivityMonitoringDestinations, getNetworkWirelessSSIDs, getNetworkWirelessSSID, getOrgWirelessDevicesRadsecAuthorities, getOrgWirelessSignalQualityByNetwork, getOrgWirelessSignalQualityByDevice, getOrgWirelessSignalQualityByClient, getNetworkWirelessSignalQualityHistory, getDeviceLldpCdp, getNetworkSwitchPortsStatuses, getDeviceSwitchPortsStatuses, getOrgApplianceUplinksStatuses, getOrgTopAppliancesByUtilization, getOrgDevicesUplinksAddressesByDevice, getOrganizationUplinksStatuses, getAppliancePerformance, getDeviceAppliancePerformance, getApplianceUplinks, getDeviceUplink, getApplianceClientSecurity, getOrganizationApplianceSecurityIntrusion, getApplianceTrafficShaping, getNetworkClientsBandwidthUsage, getNetworkApplianceSecurityMalware, getAppliancePorts, getDeviceAppliancePortsStatuses, getOrgApplianceUplinksLossAndLatency, getOrgApplianceUplinksUsageByDevice, getDeviceSwitchPorts, getNetworkSwitchAccessControlLists, getOrgSwitchPortsBySwitch, getNetworkSwitchStackRoutingInterfaces, getNetworkCellularGatewayConnectivityMonitoringDestinations, getDeviceWirelessConnectionStats, getNetworkWirelessConnectionStats, getNetworkWirelessLatencyStats, getDeviceWirelessLatencyStats, getNetworkWirelessFailedConnections, getDeviceLossAndLatencyHistory, getOrgDevicesUplinksLossAndLatency, getOrgWirelessDevicesPacketLossByClient, getOrgWirelessDevicesPacketLossByDevice, getNetworkApplianceConnectivityMonitoringDests, getNetworkAppliancePortsConfig, getOrgApplianceUplinkStatuses, getNetworkApplianceVlans, getNetworkApplianceVlan, getNetworkApplianceSettings, getOrgApplianceSdwanInternetPolicies, getOrgUplinksStatuses, getDeviceApplianceUplinksSettings, getNetworkApplianceTrafficShapingUplinkSelection, getOrgApplianceUplinksUsageByNetwork, getNetworkApplianceUplinksUsageHistory, getOrgApplianceUplinksStatusesOverview } = require('./merakiApi');
+const { getOrganizations, getNetworks, getNetworkDevices, getNetworkTopology, getNetworkTopologyLinkLayer, getNetworkTopologyNetworkLayer, getApplianceStatuses, getOrganizationDevicesStatuses, getNetworkInfo, getOrgSwitchPortsTopologyDiscoveryByDevice, getNetworkApplianceConnectivityMonitoringDestinations, getNetworkWirelessSSIDs, getNetworkWirelessSSID, getOrgWirelessDevicesRadsecAuthorities, getOrgWirelessSignalQualityByNetwork, getOrgWirelessSignalQualityByDevice, getOrgWirelessSignalQualityByClient, getNetworkWirelessSignalQualityHistory, getDeviceLldpCdp, getNetworkSwitchPortsStatuses, getDeviceSwitchPortsStatuses, getOrgApplianceUplinksStatuses, getOrgTopAppliancesByUtilization, getOrgDevicesUplinksAddressesByDevice, getOrganizationUplinksStatuses, getAppliancePerformance, getDeviceAppliancePerformance, getApplianceUplinks, getDeviceUplink, getApplianceClientSecurity, getOrganizationApplianceSecurityIntrusion, getApplianceTrafficShaping, getNetworkClientsBandwidthUsage, getNetworkApplianceSecurityMalware, getAppliancePorts, getDeviceAppliancePortsStatuses, getOrgApplianceUplinksLossAndLatency, getOrgApplianceUplinksUsageByDevice, getDeviceSwitchPorts, getNetworkSwitchAccessControlLists, getOrgSwitchPortsBySwitch, getNetworkSwitchStackRoutingInterfaces, getNetworkCellularGatewayConnectivityMonitoringDestinations, getDeviceWirelessConnectionStats, getNetworkWirelessConnectionStats, getNetworkWirelessLatencyStats, getDeviceWirelessLatencyStats, getNetworkWirelessFailedConnections, getDeviceLossAndLatencyHistory, getOrgDevicesUplinksLossAndLatency, getOrgWirelessDevicesPacketLossByClient, getOrgWirelessDevicesPacketLossByDevice, getNetworkApplianceConnectivityMonitoringDests, getNetworkAppliancePortsConfig, getOrgApplianceUplinkStatuses, getNetworkApplianceVlans, getNetworkApplianceVlan, getNetworkApplianceSettings, getOrgApplianceSdwanInternetPolicies, getOrgUplinksStatuses, getDeviceApplianceUplinksSettings, getNetworkApplianceTrafficShapingUplinkSelection, getOrgApplianceUplinksUsageByNetwork, getNetworkApplianceUplinksUsageHistory, getOrgApplianceUplinksStatusesOverview, getOrgWirelessDevicesEthernetStatuses } = require('./merakiApi');
 const { toGraphFromLinkLayer, toGraphFromDiscoveryByDevice, toGraphFromLldpCdp, buildTopologyFromLldp } = require('./transformers');
 const { findPredio, searchPredios, getNetworkIdForPredio, getPredioInfoForNetwork, refreshCache, getStats } = require('./prediosManager');
 const { warmUpFrequentPredios, getTopPredios } = require('./warmCache');
@@ -12,13 +15,31 @@ const { startPrediosAutoRefresh, syncPrediosCsv, getLastRunSummary } = require('
 const express = require('express');
 const cors = require('cors');
 const rutas = require('./rutas');
+const {
+  configurarHelmet,
+  limiterGeneral,
+  limiterAuth,
+  limiterDatos,
+  limiterEscritura,
+  sanitizarInputs,
+  prevenirParameterPollution,
+  validarFormatoIds,
+  logRequestsSospechosos
+} = require('./middleware/security');
 
 const app = express();
 const puerto = process.env.PUERTO || 3000;
 const host = process.env.HOST || '0.0.0.0'; // Para hosting remoto
 
-// Trust proxy para Cloudflare
-app.set('trust proxy', true);
+// Trust proxy configurado de forma segura para Cloudflare
+// Especificar número de proxies en lugar de 'true' para mayor seguridad
+// Cloudflare usa 1 proxy, ajustar según infraestructura
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
+
+// ========== MIDDLEWARES DE SEGURIDAD ==========
+
+// 1. Helmet - Headers de seguridad
+app.use(configurarHelmet());
 
 // Configuración de CORS para acceso remoto
 const corsOptions = {
@@ -51,17 +72,29 @@ const corsOptions = {
   credentials: true
 };
 
+// 2. CORS
 app.use(cors(corsOptions));
-app.use(express.json());
 
-// Middleware de logging para producción
-    if (process.env.NODE_ENV === 'production') {
-  app.use((req, res, next) => {
-    const realIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
-    console.debug(`${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${realIp}`);
-    next();
-  });
-}
+// 3. Body parser
+app.use(express.json({ limit: '10mb' })); // Limitar tamaño de payload
+
+// 4. Logging de requests sospechosos
+app.use(logRequestsSospechosos);
+
+// 5. Sanitización de inputs
+app.use(sanitizarInputs);
+
+// 6. Prevención de parameter pollution
+app.use(prevenirParameterPollution);
+
+// 7. Validación de formato de IDs
+app.use(validarFormatoIds);
+
+// 8. Rate limiting general para toda la API
+app.use('/api', limiterGeneral);
+
+// 9. Logging de HTTP requests con Winston
+app.use(expressLogger());
 
 app.use('/api', rutas);
 
@@ -540,7 +573,7 @@ function composeWirelessMetrics({
 }
 
 // Endpoint para login de técnicos (mover después de inicializar 'app')
-app.post('/api/login', (req, res) => {
+app.post('/api/login', limiterAuth, (req, res) => {
   const { username, password } = req.body;
   if (validarTecnico(username, password)) {
     res.json({ success: true });
@@ -549,7 +582,7 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', limiterAuth, (req, res) => {
   const { key } = req.body || {};
   if (!process.env.ADMIN_KEY) {
     return res.status(500).json({ success: false, message: 'ADMIN_KEY no configurada' });
@@ -575,7 +608,7 @@ app.get('/api/tecnicos', requireAdmin, (req, res) => {
   res.json(listarTecnicos());
 });
 
-app.post('/api/tecnicos', requireAdmin, (req, res) => {
+app.post('/api/tecnicos', requireAdmin, limiterEscritura, (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
   const r = agregarTecnico(username, password);
@@ -583,7 +616,7 @@ app.post('/api/tecnicos', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/tecnicos/:username', requireAdmin, (req, res) => {
+app.delete('/api/tecnicos/:username', requireAdmin, limiterEscritura, (req, res) => {
   const { username } = req.params;
   const r = eliminarTecnico(username);
   if (!r.ok) return res.status(404).json({ error: r.error });
@@ -602,7 +635,7 @@ function isAdmin(req) {
 }
 
 // LLDP + Topología (diagnóstico de conectividad)
-app.get('/api/debug/topology/:networkId', async (req, res) => {
+app.get('/api/debug/topology/:networkId', requireAdmin, limiterDatos, async (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'No autorizado (x-admin-key o adminKey requerido)' });
   const { networkId } = req.params;
   
@@ -813,7 +846,7 @@ app.get('/api/debug/snapshot/:networkId', async (req, res) => {
 });
 
 // Admin: invalidar caché (por kind y/o networkId)
-app.post('/api/cache/clear', requireAdmin, (req, res) => {
+app.post('/api/cache/clear', requireAdmin, limiterEscritura, (req, res) => {
   try {
     const networkId = (req.body && req.body.networkId) || req.query.networkId || null;
     const kind = ((req.body && req.body.kind) || req.query.kind || 'lldp').toString();
@@ -1107,7 +1140,7 @@ app.get('/api/resolve-network', async (req, res) => {
 });
 
 // Endpoint para carga por sección (lazy)
-app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
+app.get('/api/networks/:networkId/section/:sectionKey', limiterDatos, async (req, res) => {
   const { networkId, sectionKey } = req.params;
   const { query = {} } = req;
   const startTime = Date.now();
@@ -1249,6 +1282,26 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
         
   console.debug(`Total de APs encontrados: ${accessPoints.length}`);
         
+        // Obtener estado de ethernet de todos los APs wireless desde la organización
+        let wirelessEthernetStatuses = [];
+        if (orgId) {
+          try {
+            const params = { 'networkIds[]': networkId };
+            wirelessEthernetStatuses = await getOrgWirelessDevicesEthernetStatuses(orgId, params);
+            console.log(`\n✓ Obtenidos ${wirelessEthernetStatuses.length} wireless ethernet statuses`);
+            if (wirelessEthernetStatuses.length > 0) {
+              wirelessEthernetStatuses.forEach(status => {
+                const speed = status.ports?.[0]?.linkNegotiation?.speed || '?';
+                const duplex = status.ports?.[0]?.linkNegotiation?.duplex || '?';
+                const poeStandard = status.ports?.[0]?.poe?.standard || 'N/A';
+                console.log(`  • ${status.serial}: ${speed} Mbps ${duplex} duplex (PoE: ${poeStandard})`);
+              });
+            }
+          } catch (err) {
+            console.warn('No se pudo obtener wireless ethernet statuses:', err.message);
+          }
+        }
+        
         // Obtener estadísticas de conexión wireless a nivel de red
         let networkWirelessStats = null;
         try {
@@ -1312,12 +1365,21 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
           }
           const connectedTo = (switchName && portNum) ? `${switchName}/Port ${portNum}` : (switchName || '-')
           let wiredSpeed = '1000 Mbps';
-          if (port) {
+          
+          // PRIORIDAD 1: Buscar en wireless ethernet statuses (más confiable, incluye APs offline)
+          const ethernetStatus = wirelessEthernetStatuses.find(s => s.serial === ap.serial);
+          if (ethernetStatus?.ports?.[0]?.linkNegotiation?.speed) {
+            const speedMbps = ethernetStatus.ports[0].linkNegotiation.speed;
+            const duplex = ethernetStatus.ports[0].linkNegotiation.duplex || 'full';
+            wiredSpeed = `${speedMbps} Mbps, ${duplex} duplex`;
+          } else if (port) {
+            // PRIORIDAD 2: Intentar obtener velocidad desde LLDP/CDP del AP
             const { lldp: lldpData } = port;
             if (lldpData && lldpData.portSpeed) {
               wiredSpeed = lldpData.portSpeed;
             }
           }
+          
           return {
             serial: ap.serial,
             name: ap.name,
@@ -1611,7 +1673,7 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
 });
 
 // Endpoint de resumen de datos, centralizado y optimizado
-app.get('/api/networks/:networkId/summary', async (req, res) => {
+app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
   const { networkId } = req.params;
   const startTime = Date.now();
   const { query = {} } = req;
@@ -4878,7 +4940,7 @@ app.get('/api/networks/:networkId/:section', async (req, res) => {
 });
 
 // Topology vía discovery-by-device (fallback alternativo)
-app.get('/api/networks/:networkId/topology_discovery', async (req, res) => {
+app.get('/api/networks/:networkId/topology_discovery', limiterDatos, async (req, res) => {
   try {
     const { networkId } = req.params;
     let orgId;
@@ -5164,7 +5226,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Endpoint para limpiar caché (admin only)
-app.delete('/api/cache', requireAdmin, (req, res) => {
+app.delete('/api/cache', requireAdmin, limiterEscritura, (req, res) => {
   cache.networksByOrg.clear();
   cache.networkById.clear();
   cache.devicesStatuses.clear();
@@ -5204,7 +5266,7 @@ app.get('/api/predios/stats', requireAdmin, (req, res) => {
   }
 });
 
-app.post('/api/predios/refresh', requireAdmin, (req, res) => {
+app.post('/api/predios/refresh', requireAdmin, limiterEscritura, (req, res) => {
   try {
     const predios = refreshCache();
     const uniqueCount = Array.from(predios.keys()).filter(k => k.startsWith('L_')).length;
@@ -5219,7 +5281,7 @@ app.post('/api/predios/refresh', requireAdmin, (req, res) => {
   }
 });
 
-app.post('/api/predios/sync', requireAdmin, async (req, res) => {
+app.post('/api/predios/sync', requireAdmin, limiterEscritura, async (req, res) => {
   try {
     const summary = await syncPrediosCsv({ force: req.body?.force === true });
     res.json(summary);
@@ -5230,7 +5292,7 @@ app.post('/api/predios/sync', requireAdmin, async (req, res) => {
 });
 
 // Endpoint con Server-Sent Events para sincronización con progreso en tiempo real
-app.post('/api/predios/sync-stream', requireAdmin, async (req, res) => {
+app.post('/api/predios/sync-stream', requireAdmin, limiterEscritura, async (req, res) => {
   // Configurar SSE
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -5423,27 +5485,32 @@ app.get('/api/predios/:code', (req, res) => {
 });
 
 // Manejadores de errores globales
+// Captura de errores no manejados
 process.on('uncaughtException', (error) => {
-  console.error('Error no capturado:', error);
-  console.error(error.stack);
+  logError('Error no capturado', error, { type: 'uncaughtException' });
+  // Winston ya maneja las excepciones no capturadas
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Promesa rechazada no manejada:', reason);
+  logger.error('Promesa rechazada no manejada', {
+    reason: reason instanceof Error ? reason.message : reason,
+    stack: reason instanceof Error ? reason.stack : undefined,
+    type: 'unhandledRejection'
+  });
 });
 
 app.listen(puerto, host, () => {
-  console.info(`Portal Meraki iniciado en http://${host}:${puerto}`);
-  console.info(`Entorno: ${process.env.NODE_ENV || 'development'}`);
-  console.info(`Acceso remoto habilitado en: http://${host === '0.0.0.0' ? 'tu-ip-servidor' : host}:${puerto}`);
-  console.info(`Sistema CSV optimizado para 20,000+ predios`);
+  logger.info(`Portal Meraki iniciado en http://${host}:${puerto}`);
+  logger.info(`Entorno: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Acceso remoto habilitado en: http://${host === '0.0.0.0' ? 'tu-ip-servidor' : host}:${puerto}`);
+  logger.info(`Sistema CSV optimizado para 20,000+ predios`);
   
   // Cargar estadísticas del CSV al iniciar
   try {
   const stats = getStats();
-  console.info(`Predios cargados: ${stats.total} en ${Object.keys(stats.porOrganizacion).length} organizaciones`);
+  logger.info(`Predios cargados: ${stats.total} en ${Object.keys(stats.porOrganizacion).length} organizaciones`);
   } catch (error) {
-  console.info(`CSV no cargado. Ejecuta: npm run load-predios`);
+  logger.warn(`CSV no cargado. Ejecuta: npm run load-predios`);
   }
   
   startPrediosAutoRefresh();
@@ -5451,23 +5518,23 @@ app.listen(puerto, host, () => {
   // Warm-up cache inicial (después de 10 segundos para no bloquear el inicio)
   if (process.env.ENABLE_WARM_CACHE !== 'false') {
     setTimeout(() => {
-  console.info(`Iniciando warm-up cache de predios frecuentes...`);
+  logger.info(`Iniciando warm-up cache de predios frecuentes...`);
       warmUpFrequentPredios(cache).catch(err => {
-        console.error('Error en warm-up inicial:', err.message);
+        logError('Error en warm-up inicial', err);
       });
     }, 10000);
     
     // Programar warm-up cada 5 minutos
     setInterval(() => {
-  console.info(`Re-warming cache de predios frecuentes...`);
+  logger.debug(`Re-warming cache de predios frecuentes...`);
       warmUpFrequentPredios(cache).catch(err => {
-        console.error('Error en warm-up periódico:', err.message);
+        logError('Error en warm-up periódico', err);
       });
     }, 5 * 60 * 1000);
     
-  console.info(`Warm cache habilitado (cada 5 minutos)`);
+  logger.info(`Warm cache habilitado (cada 5 minutos)`);
   }
 }).on('error', (err) => {
-  console.error('Error al iniciar el servidor:', err);
+  logError('Error al iniciar el servidor', err);
   process.exit(1);
 });

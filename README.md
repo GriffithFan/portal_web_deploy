@@ -1,206 +1,293 @@
-﻿# Portal Meraki# Portal Meraki
+﻿# 🌐 Portal Meraki
 
+Portal web empresarial para monitoreo y diagnóstico de redes Cisco Meraki. Diseñado para equipos técnicos (NOC/soporte) que necesitan visibilidad operativa clara de infraestructura de red.
 
+## ✨ Características Principales
 
-Una aplicación web completa para monitorear redes Cisco Meraki, construida con React y Node.js.Portal web empresarial de monitoreo Cisco Meraki para técnicos de redes.
+- 📊 **Dashboard en Tiempo Real**: Monitoreo de estado de dispositivos y redes
+- 📱 **Interfaz Móvil Optimizada**: UX adaptativa para tablets y smartphones
+- 🔌 **Topología Visual**: Visualización interactiva de conectividad de red
+- 📡 **Análisis Wireless**: Métricas de APs, conexiones fallidas, y calidad de señal
+- 🔐 **Gestión de Appliances**: Estado de MX, uplinks, VPN, y configuración de puertos
+- 👥 **Administración de Técnicos**: Panel para gestión de usuarios (límite: 40 cuentas)
+- 📈 **Históricos y Métricas**: Análisis de tendencias y patrones de conectividad
 
-
-
-## 🚀 Deployment en Ubuntu VPS## Despliegue en Producción (Hostinger + EasyPanel)
-
-
-
-Este proyecto está optimizado para deployment directo en servidores Ubuntu usando PM2 y Nginx.**Guía completa**: [HOSTINGER_EASYPANEL_SETUP.md](./HOSTINGER_EASYPANEL_SETUP.md)
-
-
-
-### Estructura del Proyecto### Setup Rápido
-
-``````bash
-
-portal-meraki-deploy/# 1. Instalar EasyPanel en VPS Hostinger
-
-├── backend/                 # API Node.jscurl -sSL https://get.easypanel.io | sh
-
-│   ├── src/                # Código fuente
-
-│   ├── ecosystem.config.js # Configuración PM2# 2. Configurar .env con tu Meraki API Key
-
-│   └── .env.example       # Variables de entornoMERAKI_API_KEY=tu_api_key_aqui
-
-├── frontend/              # Aplicación React
-
-│   ├── src/              # Código fuente# 3. Deploy desde EasyPanel UI o Docker Compose
-
-│   └── dist/             # Build de produccióndocker-compose up -d
-
-└── deploy-ubuntu.sh      # Script de deployment```
+## 🏗️ Arquitectura
 
 ```
+Portal Meraki
+├── Frontend (React 18 + Vite)
+│   ├── Componentes responsivos
+│   ├── Visualización D3-style
+│   └── Build optimizado
+├── Backend (Node.js + Express)
+│   ├── API RESTful
+│   ├── Cache LLDP/CDP inteligente
+│   └── Integración Meraki API v1
+└── Infraestructura
+    ├── PM2 (gestión de procesos)
+    ├── Nginx (reverse proxy + SSL)
+    └── Ubuntu 22.04 LTS
+```
 
-```markdown
+## 🚀 Despliegue Rápido
 
-### Requisitos# Portal Meraki — Panel técnico para técnicos de redes
+### Prerequisitos
 
 - Ubuntu 22.04+ LTS
-
-- Dominio apuntando al servidorAplicación para diagnóstico y monitoreo de infraestructuras gestionadas con Cisco Meraki. Está pensada para equipos técnicos (NOC/soporte) que necesitan un resumen operativo claro de redes, topología y estado de appliances.
-
+- Dominio configurado (DNS A record)
 - Acceso root al VPS
 
-Guía rápida — despliegue
-
-### Deployment Rápido
-
-1) Preparar variables de entorno en `backend/.env.production` o `.env`.
-
-1. **Copia el proyecto al VPS:**2) Construir y levantar con Docker Compose:
+### Instalación
 
 ```bash
+# 1. Clonar repositorio
+cd /root
+git clone https://github.com/GriffithFan/portal_web_deploy.git portal-meraki-deploy
+cd portal-meraki-deploy
 
-scp -r portal-meraki-deploy root@tu-servidor-ip:/home/```bash
+# 2. Dar permisos de ejecución
+chmod +x *.sh
 
-```docker-compose up -d --build
+# 3. Ejecutar deploy automático
+./deploy-ubuntu.sh
 
+# 4. Configurar SSL (después del deploy)
+certbot --nginx -d tu-dominio.com -d www.tu-dominio.com
 ```
 
-2. **Ejecuta el script de deployment:**
+El script `deploy-ubuntu.sh` automáticamente:
+- ✅ Instala Node.js 20, PM2, Nginx
+- ✅ Configura variables de entorno desde `.env.production`
+- ✅ Construye frontend optimizado
+- ✅ Configura Nginx con proxy reverso
+- ✅ Inicia backend con PM2
 
-```bash3) (Opcional) Cargar catálogo de predios:
-
-cd /home/portal-meraki-deploy
-
-chmod +x deploy-ubuntu.sh```bash
-
-sudo ./deploy-ubuntu.shdocker-compose exec portal-meraki node backend/scripts/loadAllPredios.js
-
-``````
-
-
-
-3. **Configura tus variables de entorno:**Desarrollo local
+## 🔄 Actualización
 
 ```bash
-
-nano /home/portal-meraki/backend/.env- Backend (API):
-
+cd /root/portal-meraki-deploy
+./update.sh
 ```
 
+Este script:
+1. Descarga cambios de GitHub
+2. Actualiza dependencias
+3. Reinicia backend (PM2)
+4. Reconstruye frontend
+5. Recarga Nginx
+
+**Guía completa**: [DEPLOY.md](./DEPLOY.md)
+
+## ⚙️ Configuración
+
+### Variables de Entorno (`backend/.env`)
+
 ```bash
+# Meraki API
+MERAKI_API_KEY=tu_api_key_aqui
+MERAKI_ORG_ID=                    # Opcional
 
-4. **Obtén certificado SSL:**cd backend
+# Administración
+ADMIN_KEY=clave_segura_admin
 
-```bashnpm ci
-
-certbot --nginx -d portalmeraki.info -d www.portalmeraki.infonpm run dev
-
-``````
-
-
-
-### Variables de Entorno Requeridas- Frontend (cliente):
-
-
-
-En `/home/portal-meraki/backend/.env`:```bash
-
-```bashcd frontend
-
-MERAKI_API_KEY=tu_api_key_aquinpm ci
-
-ADMIN_KEY=tu_clave_admin_seguranpm run dev
-
-NODE_ENV=production# Abre http://localhost:5173
-
-PUERTO=3000```
-
+# Servidor
+NODE_ENV=production
+PUERTO=3000
 HOST=127.0.0.1
 
-```Arquitectura
+# CORS
+CORS_ORIGINS=https://tu-dominio.com,http://tu-ip
 
-
-
-### Comandos Útiles- Backend: Node.js (Express)
-
-- Frontend: React (Vite)
-
-```bash- Orquestación local: Docker Compose
-
-# Ver estado de la aplicación
-
-sudo -u www-data pm2 statusVariables críticas
-
-
-
-# Ver logs en tiempo real- `MERAKI_API_KEY` — clave de Meraki Dashboard (no subir al repo).
-
-sudo -u www-data pm2 logs portal-meraki- `ADMIN_KEY` — clave para endpoints administrativos.
-
-- `MERAKI_ORG_ID` — ID de organización (opcional para limitar búsquedas).
-
-# Reiniciar aplicación
-
-sudo -u www-data pm2 restart portal-merakiEndpoints principales
-
-
-
-# Reiniciar Nginx- `POST /api/login` — autenticación técnicos.
-
-sudo systemctl restart nginx- `GET /api/resolve-network?q={codigo}` — resuelve código de predio.
-
-```- `GET /api/networks/{networkId}/summary` — resumen operativo.
-
-
-
-## 🛠️ Desarrollo LocalEstructura del repo
-
-
-
-### Backend- `/backend` — API, scripts y datos maestros (predios.csv)
-
-```bash- `/frontend` — cliente React
-
-cd backend- `docker-compose.yml` — orquestación local
-
-npm install
-
-npm run devNotas prácticas
-
+# Caché y Performance
+LLDP_CACHE_TTL_MS=600000
+ENABLE_WARM_CACHE=true
+UV_THREADPOOL_SIZE=16
 ```
 
-- No incluir instaladores o binarios grandes en el repositorio; usar Git LFS si son necesarios.
-
-### Frontend- Mantén la API key fuera del control de versiones (`.env` no versionado).
+### Configurar sin Editor de Texto
 
 ```bash
+# Usar script interactivo
+./config-env.sh
 
-cd frontendSi quieres, preparo un workflow CI/CD que construya el frontend y publique imágenes (Docker Hub, GitHub Packages o ACR). Dime el destino.
+# O manualmente con sed
+sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=nueva_key|' backend/.env
+pm2 restart portal-meraki-backend
+```
 
+## 🛠️ Desarrollo Local
+
+### Backend
+
+```bash
+cd backend
 npm install
+npm run dev
+# API en http://localhost:3000
+```
 
-npm run dev```
+### Frontend
 
-```Variables de entorno clave
+```bash
+cd frontend
+npm install
+npm run dev
+# UI en http://localhost:5173
+```
 
+## 📡 API Endpoints Principales
 
-## 📁 Características
+### Autenticación
+- `POST /api/login` - Login de técnicos
 
-- **Dashboard**: Monitoreo en tiempo real de redes Meraki
-- **Mobile UX**: Interfaz optimizada para dispositivos móviles
-- **Wireless**: Análisis de puntos de acceso y calidad de señal
-- **Topología**: Visualización de conectividad de red
-- **Administración**: Panel para gestión de técnicos
-
-## 🔧 API Endpoints
-
-- `POST /api/login` - Autenticación de técnicos
-- `GET /api/resolve-network?q={codigo}` - Resolución de códigos de predio
+### Resolución de Redes
+- `GET /api/resolve-network?q={codigo}` - Buscar predio por código
 - `GET /api/networks/{networkId}/summary` - Resumen operativo
-- `GET /api/predios` - Gestión de predios
-- `GET /api/health` - Health check
 
-## 📝 Notas
+### Secciones de Red
+- `GET /api/networks/{networkId}/section/switches` - Switches detallados
+- `GET /api/networks/{networkId}/section/access_points` - APs con métricas wireless
+- `GET /api/networks/{networkId}/section/appliances` - MX con uplinks y puertos
 
-- Mantén el archivo `.env` fuera del control de versiones
-- La aplicación incluye interfaz móvil optimizada
-- Configurado para funcionar con certificados SSL automáticos via Certbot
+### Administración
+- `GET /api/predios` - Catálogo de predios (requiere admin)
+- `GET /api/tecnicos` - Lista de técnicos (requiere admin)
+- `POST /api/tecnicos` - Crear técnico (requiere admin, máx 40)
+
+### Health Check
+- `GET /api/health` - Estado del servicio
+
+## 📊 Comandos Útiles
+
+### PM2 (Backend)
+
+```bash
+pm2 status                        # Ver estado
+pm2 logs portal-meraki-backend   # Ver logs
+pm2 restart portal-meraki-backend # Reiniciar
+pm2 monit                         # Monitor de recursos
+```
+
+### Nginx
+
+```bash
+systemctl status nginx      # Ver estado
+systemctl reload nginx      # Recargar config
+nginx -t                    # Verificar sintaxis
+tail -f /var/log/nginx/error.log  # Ver errores
+```
+
+### Git
+
+```bash
+git status                  # Ver cambios locales
+git pull origin main        # Actualizar desde GitHub
+git log --oneline -10       # Ver últimos commits
+```
+
+## 🐛 Troubleshooting
+
+### Backend no inicia
+
+```bash
+pm2 logs portal-meraki-backend --err
+netstat -tlnp | grep 3000
+pm2 restart portal-meraki-backend
+```
+
+### Frontend no se actualiza
+
+```bash
+cd frontend
+rm -rf dist
+npm run build
+systemctl reload nginx
+```
+
+### Variables no se aplican
+
+```bash
+cat backend/.env
+cp backend/.env.production backend/.env
+pm2 restart portal-meraki-backend
+```
+
+**Guía completa**: [DEPLOY.md](./DEPLOY.md)
+
+## 📁 Estructura del Proyecto
+
+```
+portal-meraki-deploy/
+├── backend/
+│   ├── src/
+│   │   ├── servidor.js          # Servidor Express principal
+│   │   ├── merakiApi.js         # Cliente API Meraki
+│   │   ├── auth.js              # Autenticación
+│   │   ├── prediosManager.js    # Gestión de predios
+│   │   └── controllers/         # Controladores MVC
+│   ├── data/
+│   │   └── predios.csv          # Catálogo de 32k+ predios
+│   ├── scripts/                 # Utilidades y ETL
+│   ├── ecosystem.config.js      # Config PM2
+│   └── .env.production          # Variables de producción
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx              # Componente principal
+│   │   ├── components/          # Componentes React
+│   │   │   ├── SimpleGraph.jsx  # Topología visual
+│   │   │   └── ...
+│   │   └── pages/               # Vistas de la app
+│   └── vite.config.js           # Config Vite
+├── deploy-ubuntu.sh             # Deploy inicial
+├── update.sh                    # Script de actualización
+├── config-env.sh                # Config .env interactiva
+├── nginx-portal-meraki.conf     # Config Nginx
+├── DEPLOY.md                    # Guía de despliegue
+└── PROGRESO.md                  # Historial de desarrollo
+```
+
+## � Seguridad
+
+- ✅ Certificado SSL automático (Let's Encrypt)
+- ✅ Headers de seguridad configurados en Nginx
+- ✅ API key nunca expuesta en frontend
+- ✅ Autenticación por token para técnicos
+- ✅ Límite de 40 cuentas de técnicos
+- ✅ Rate limiting en endpoints sensibles
+
+## 📈 Performance
+
+- ⚡ Cache LLDP/CDP con TTL de 10 minutos
+- ⚡ Warm cache de predios frecuentes
+- ⚡ Build optimizado de Vite con tree-shaking
+- ⚡ Compresión gzip en Nginx
+- ⚡ Lazy loading de componentes React
+- ⚡ Pool de threads UV expandido (16 workers)
+
+## 📝 Estado del Proyecto
+
+- ✅ **Tarea 1**: Históricos y Métricas (completada)
+- ✅ **Tarea 2**: Dashboard Optimizado (completada)
+- ✅ **Tarea 3**: Security & Validation (completada)
+- ✅ **Tarea 4**: Logging & Monitoring (completada)
+- ✅ **Tarea 5**: UX/UI Enhancements (completada)
+- ✅ **Tarea 6**: Refactorización MVC (95% completada)
+- 🔄 **Tarea 7**: PWA con Service Worker (pendiente)
+- 🔄 **Tarea 8**: Optimización de Rendimiento (pendiente)
+
+**Progreso detallado**: [PROGRESO.md](./PROGRESO.md)
+
+## 📞 Soporte y Documentación
+
+- **Repositorio**: [github.com/GriffithFan/portal_web_deploy](https://github.com/GriffithFan/portal_web_deploy)
+- **Guía de Despliegue**: [DEPLOY.md](./DEPLOY.md)
+- **Progreso del Proyecto**: [PROGRESO.md](./PROGRESO.md)
+
+## 📄 Licencia
+
+Proyecto privado para uso empresarial.
+
+---
+
+**Última actualización**: Noviembre 2025

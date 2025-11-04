@@ -1,0 +1,143 @@
+/* Estilos para LoadingOverlay y componentes relacionados */
+
+/* ===== LOADING OVERLAY ===== */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.loading-overlay--light {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.loading-overlay--dark {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.loading-overlay--blur {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-message {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.loading-overlay--dark .loading-message {
+  color: #e5e7eb;
+}
+
+/* ===== LOADING SPINNER ===== */
+.loading-spinner {
+  border: 4px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+/* ===== INLINE LOADER ===== */
+.inline-loader {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.progress-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-fill--indeterminate {
+  animation: progressBar 1.5s ease-in-out infinite;
+}
+
+.progress-percentage {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  min-width: 45px;
+  text-align: right;
+}
+
+/* ===== PULSING DOT ===== */
+.pulsing-dot {
+  display: inline-block;
+  border-radius: 50%;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  position: relative;
+}
+
+.pulsing-dot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.5;
+  animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* ===== DARK MODE ===== */
+@media (prefers-color-scheme: dark) {
+  .progress-bar-track {
+    background: #374151;
+  }
+
+  .progress-percentage {
+    color: #e5e7eb;
+  }
+}

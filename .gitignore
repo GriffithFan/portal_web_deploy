@@ -1,23 +1,53 @@
-# Node / general
+# Node.js
 node_modules/
-dist/
-.env
-*.log
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Ignore docker image tars and certs
-portal-meraki-*.tar
-deploy/nginx/certs/
-
-# Ignore editor folders
-/.vscode/
-.idea/
-node_modules/
+# Build outputs
 dist/
 build/
+.vite/
+
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Logs
+logs/
 *.log
-*.exe
-*.rar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
 .vscode/
-package-lock.json
-README.md
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker
+portal-meraki-*.tar
+*.tar.gz
+
+# Certificates (SSL)
+deploy/nginx/certs/
+*.pem
+*.key
+*.crt
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# PM2
+.pm2/
+
+# Coverage
+coverage/
+.nyc_output/
