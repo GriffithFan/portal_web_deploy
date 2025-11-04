@@ -1,17 +1,12 @@
 module.exports = {
   apps: [{
-    name: 'portal-meraki',
+    name: 'portal-meraki-backend',
     script: './src/servidor.js',
-    cwd: '/home/portal-meraki/backend',
+    cwd: '/root/portal-meraki-deploy/backend',
     instances: 1,
     exec_mode: 'fork',
     
     // Variables de entorno
-    env: {
-      NODE_ENV: 'development',
-      PUERTO: 3000,
-      HOST: '127.0.0.1'
-    },
     env_production: {
       NODE_ENV: 'production',
       PUERTO: 3000,
