@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
 /* eslint-disable no-unused-vars */
 // Algunas utilidades permanecen definidas para mantenimiento/depuración y pueden no usarse siempre.
 import TopBar from '../components/TopBar';
-import SimpleGraph from '../components/SimpleGraph';
 import Sidebar from '../components/Sidebar';
 import AppliancePortsMatrix from '../components/AppliancePortsMatrix';
-import ConnectivityGraph from '../components/ConnectivityGraph';
 import Tooltip from '../components/Tooltip';
-import ApplianceHistoricalCharts from '../components/ApplianceHistoricalCharts';
 import { SkeletonTable, SkeletonDeviceList, SkeletonTopology } from '../components/ui/SkeletonLoaders';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+
+// Lazy load componentes pesados para reducir bundle inicial
+const SimpleGraph = lazy(() => import('../components/SimpleGraph'));
+const ConnectivityGraph = lazy(() => import('../components/ConnectivityGraph'));
+const ApplianceHistoricalCharts = lazy(() => import('../components/ApplianceHistoricalCharts'));
 
 // Iconos para el Sidebar
 const TopologyIcon = () => (
@@ -1673,7 +1675,9 @@ export default function Dashboard({ onLogout }) {
                   <div className="mobile-topology-graph" role="region" aria-label="Topología - gráfico desplazable">
                     <div className="mobile-topology-graph-inner">
                       {/* Reuse the same SimpleGraph used on desktop; wrapping enables horizontal scroll/zoom on mobile */}
-                      <SimpleGraph graph={topology} devices={devices} />
+                      <Suspense fallback={<SkeletonTopology />}>
+                        <SimpleGraph graph={topology} devices={devices} />
+                      </Suspense>
                     </div>
                   </div>
                 </div>
@@ -1776,7 +1780,9 @@ export default function Dashboard({ onLogout }) {
             </h2>
             {topology?.nodes && topology.nodes.length > 0 ? (
               <div style={{ overflow: 'hidden' }}>
-                <SimpleGraph graph={topology} devices={devices} />
+                <Suspense fallback={<SkeletonTopology />}>
+                  <SimpleGraph graph={topology} devices={devices} />
+                </Suspense>
               </div>
             ) : (
               <div style={{ padding: '12px', color: '#57606a' }}>
@@ -2765,9 +2771,11 @@ export default function Dashboard({ onLogout }) {
             })}
             
             {/* Graficas historicas del appliance - Connectivity y Client usage */}
-            <ApplianceHistoricalCharts 
-              networkId={typeof selectedNetwork === 'object' ? selectedNetwork?.id : selectedNetwork}
-            />
+            <Suspense fallback={<LoadingOverlay isLoading={true} message="Cargando gráficos históricos..." />}>
+              <ApplianceHistoricalCharts 
+                networkId={typeof selectedNetwork === 'object' ? selectedNetwork?.id : selectedNetwork}
+              />
+            </Suspense>
           </div>
         );
       }
