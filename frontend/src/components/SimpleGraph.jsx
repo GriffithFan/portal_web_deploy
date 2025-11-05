@@ -606,7 +606,7 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   const paddingLeft = 30;
   const paddingRight = 250;  // Aumentado de 100 a 250 para dar espacio a etiquetas de APs de la derecha
   const paddingTop = 150;  // Aumentado de 50 a 150 para dar espacio a las etiquetas
-  const paddingBottom = 80;  // Espacio inferior suficiente para dispositivos en la parte baja
+  const paddingBottom = 120;  // Espacio inferior suficiente para dispositivos en la parte baja con etiquetas completas
 
   // Normalizar: mover todo para que minX quede en paddingLeft
   const shiftX = paddingLeft - minX;
