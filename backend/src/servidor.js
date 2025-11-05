@@ -29,6 +29,18 @@ const {
 
 const app = express();
 const puerto = process.env.PUERTO || 3000;
+
+// Utilidad: Procesar array en lotes con concurrencia limitada
+async function processInBatches(items, batchSize, processFn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(processFn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 const host = process.env.HOST || '0.0.0.0'; // Para hosting remoto
 
 // Trust proxy configurado de forma segura para Cloudflare
@@ -1311,22 +1323,47 @@ app.get('/api/networks/:networkId/section/:sectionKey', limiterDatos, async (req
         }
         
         const cachedLldpMap = getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {};
-        for (const ap of accessPoints) {
-          try {
-            const info = cachedLldpMap[ap.serial] || await getDeviceLldpCdp(ap.serial);
-            if (info) lldpSnapshots[ap.serial] = info;
-          } catch (err) {
-            console.warn(`LLDP no disponible para ${ap.serial}`);
+        
+        // Paralelizar consultas LLDP con concurrencia limitada (8 requests/lote)
+        // Evita rate limiting de Meraki API con predios grandes (45+ APs)
+        console.log(`Consultando LLDP/CDP para ${accessPoints.length} APs en lotes de 8...`);
+        const lldpResults = await processInBatches(
+          accessPoints,
+          8, // Lotes de 8 requests paralelos
+          async (ap) => {
+            try {
+              const info = cachedLldpMap[ap.serial] || await getDeviceLldpCdp(ap.serial);
+              if (info) return { serial: ap.serial, info };
+            } catch (err) {
+              console.warn(`LLDP no disponible para ${ap.serial}`);
+            }
+            return { serial: ap.serial, info: null };
           }
-          
-          // Obtener estadísticas de conexión del AP individual
-          try {
-            const connStats = await getDeviceWirelessConnectionStats(ap.serial, { timespan: 3600 });
-            if (connStats) wirelessStats[ap.serial] = connStats;
-          } catch (err) {
-            console.warn(`Wireless stats no disponibles para ${ap.serial}`);
+        );
+        
+        lldpResults.forEach(({ serial, info }) => {
+          if (info) lldpSnapshots[serial] = info;
+        });
+        
+        // Paralelizar estadísticas wireless con concurrencia limitada
+        console.log(`Consultando wireless stats para ${accessPoints.length} APs en lotes de 8...`);
+        const statsResults = await processInBatches(
+          accessPoints,
+          8,
+          async (ap) => {
+            try {
+              const connStats = await getDeviceWirelessConnectionStats(ap.serial, { timespan: 3600 });
+              if (connStats) return { serial: ap.serial, stats: connStats };
+            } catch (err) {
+              console.warn(`Wireless stats no disponibles para ${ap.serial}`);
+            }
+            return { serial: ap.serial, stats: null };
           }
-        }
+        );
+        
+        statsResults.forEach(({ serial, stats }) => {
+          if (stats) wirelessStats[serial] = stats;
+        });
         
         result.accessPoints = accessPoints.map(ap => {
           const lldp = lldpSnapshots[ap.serial];

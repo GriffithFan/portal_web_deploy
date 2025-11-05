@@ -4,6 +4,11 @@
   100% { transform: rotate(360deg); }
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* Enhanced sidebar and tile animations */
 /* Sidebar root (desktop) — transitions handle width/padding/content opacity */
 .app-sidebar {

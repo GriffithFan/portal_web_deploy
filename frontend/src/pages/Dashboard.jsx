@@ -1130,6 +1130,7 @@ export default function Dashboard({ onLogout }) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [switchesTab, setSwitchesTab] = useState('list'); // 'list' o 'ports'
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
+  const [loadingLLDP, setLoadingLLDP] = useState(false); // Estado de carga de datos LLDP
   const hasAppliedPreferredRef = useRef(false);
 
   // Track window width to enable mobile-specific rendering without affecting desktop
@@ -1212,17 +1213,15 @@ export default function Dashboard({ onLogout }) {
 
   // Cargar datos completos de APs con LLDP/CDP cuando se selecciona access_points
   useEffect(() => {
-    // useEffect para access_points: información de control suprimida en consola.
-    
     if (!selectedNetwork?.id) return;
     if (section !== 'access_points') return;
     
-    // Limpiar datos anteriores antes de cargar nuevos
-    setEnrichedAPs(null);
+    // No limpiar enrichedAPs aquí para mantener datos anteriores mientras carga
     
     const fetchEnrichedAPs = async () => {
+      setLoadingLLDP(true);
       try {
-    const url = `/api/networks/${selectedNetwork.id}/section/access_points`;
+        const url = `/api/networks/${selectedNetwork.id}/section/access_points`;
         
         const response = await fetch(url);
         if (response.ok) {
@@ -1237,7 +1236,9 @@ export default function Dashboard({ onLogout }) {
           console.error('Respuesta no OK:', response.status, response.statusText);
         }
       } catch (err) {
-  console.error('Error cargando datos completos de APs:', err);
+        console.error('Error cargando datos completos de APs:', err);
+      } finally {
+        setLoadingLLDP(false);
       }
     };
     
@@ -1387,9 +1388,17 @@ export default function Dashboard({ onLogout }) {
   useEffect(() => {
     if (!selectedNetwork?.id || !section || !summaryData) return;
     
+    // Access Points NO necesita loadSection, usa datos del summary directamente
+    // El enriquecimiento LLDP se hace en background con el otro useEffect
+    if (section === 'access_points') {
+      // Marcar como cargada para evitar spinner innecesario
+      setLoadedSections(prev => new Set(prev).add('access_points'));
+      return;
+    }
+    
     // Si la sección no está cargada, cargarla
     if (!loadedSections.has(section)) {
-  console.debug(`Sección '${section}' no cargada, iniciando carga...`);
+      console.debug(`Sección '${section}' no cargada, iniciando carga...`);
       loadSection(section);
     }
   }, [section, selectedNetwork, loadedSections, summaryData, loadSection]);
@@ -2137,18 +2146,37 @@ export default function Dashboard({ onLogout }) {
             };
           });
 
-  // Nota: comprobación de enrichedAPs (registro suprimido para consola)
-  if (enrichedAPs && enrichedAPs.length > 0) {
-          console.debug('Primer AP enriquecido:', enrichedAPs[0]);
-          console.debug('wirelessInsights devices:', wirelessDeviceSummaries.length);
-          if (wirelessDeviceSummaries.length > 0) {
-            console.debug('Primer wireless device completo:', JSON.stringify(wirelessDeviceSummaries[0], null, 2));
-          }
-        } else {
-          console.debug('enrichedAPs está vacío o null:', enrichedAPs);
+        if (!accessPoints.length) {
+          return (
+            <div style={{ padding: '12px', color: '#64748b' }}>
+              No se encontraron Access Points en este predio.
+            </div>
+          );
         }
+
+        // Badge de carga LLDP
+        const lldpBadge = loadingLLDP && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#1e40af',
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            Actualizando velocidades LLDP...
+          </div>
+        );
         
-  // Nota: comprobación de datos wireless en accessPoints
+  // Nota: comprobación de enrichedAPs (registro suprimido para consola)
         if (accessPoints.length > 0) {
           console.debug('Primer AP procesado:', accessPoints[0].name, accessPoints[0].serial);
           console.debug('Wireless data completo:', JSON.stringify(accessPoints[0].wireless, null, 2));
@@ -2169,7 +2197,10 @@ export default function Dashboard({ onLogout }) {
           const mobileAps = sortData(accessPoints, sortConfig.key, sortConfig.direction);
           return (
             <div>
-              <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Wireless</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Wireless</h2>
+                {lldpBadge}
+              </div>
               <div className="mobile-device-list">
                 {mobileAps.map((d) => {
                   const statusColor = getStatusColor(d.status);
@@ -2250,9 +2281,14 @@ export default function Dashboard({ onLogout }) {
                 paddingBottom: '12px',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center'
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
               }}>
-                <span>Wireless</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span>Wireless</span>
+                  {lldpBadge}
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => captureAndDownloadImage('Access Points')}
