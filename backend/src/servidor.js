@@ -1284,6 +1284,7 @@ app.get('/api/networks/:networkId/section/:sectionKey', limiterDatos, async (req
         
         // Obtener estado de ethernet de todos los APs wireless desde la organización
         let wirelessEthernetStatuses = [];
+        console.log(`[DEBUG] orgId para access_points: ${orgId}, networkId: ${networkId}`);
         if (orgId) {
           try {
             const params = { 'networkIds[]': networkId };
