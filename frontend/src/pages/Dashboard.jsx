@@ -1775,7 +1775,9 @@ export default function Dashboard({ onLogout }) {
               </div>
             </h2>
             {topology?.nodes && topology.nodes.length > 0 ? (
-              <SimpleGraph graph={topology} devices={devices} />
+              <div style={{ overflow: 'hidden' }}>
+                <SimpleGraph graph={topology} devices={devices} />
+              </div>
             ) : (
               <div style={{ padding: '12px', color: '#57606a' }}>
                 No hay datos de topología para este predio. El backend intentará construir una si hay datos de conexión.
