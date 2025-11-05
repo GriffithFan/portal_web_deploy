@@ -606,7 +606,7 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   const paddingLeft = 30;
   const paddingRight = 250;  // Aumentado de 100 a 250 para dar espacio a etiquetas de APs de la derecha
   const paddingTop = 150;  // Aumentado de 50 a 150 para dar espacio a las etiquetas
-  const paddingBottom = 50;
+  const paddingBottom = 20;  // Reducido de 50 a 20 para minimizar espacio blanco inferior
 
   // Normalizar: mover todo para que minX quede en paddingLeft
   const shiftX = paddingLeft - minX;
@@ -669,9 +669,10 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   });
 
   // Calcular ancho y alto real necesario desde las posiciones mínimas
-  // Restar minY para que el viewBox empiece donde están los elementos
+  // Como el viewBox ya comienza desde minY - paddingTop, solo necesitamos
+  // la diferencia de posiciones + paddingBottom para el espacio inferior
   width = maxX - minX + paddingLeft + paddingRight;
-  height = maxY - minY + paddingTop + paddingBottom;
+  height = maxY - minY + paddingBottom;
 
   layoutNodes.sort((a, b) => (a.level - b.level) || compare(a.id, b.id));
   const lookup = new Map(layoutNodes.map((node) => [node.id, node]));
@@ -789,10 +790,10 @@ export default function SimpleGraph({ graph, devices = [] }) {
   return (
     <svg 
       width="100%" 
-      height={layout.height} 
+      height="auto"
       viewBox={viewBox} 
       preserveAspectRatio="xMidYMin meet"
-      style={{ display: 'block' }}
+      style={{ display: 'block', maxHeight: `${layout.height}px` }}
     >
       <g fill="none" stroke="#cfd8dc" strokeWidth="2" strokeLinecap="round">
         {layout.links.map(({ source, target }) => {

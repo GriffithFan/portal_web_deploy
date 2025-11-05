@@ -10,6 +10,8 @@ import Tooltip from '../components/Tooltip';
 import ApplianceHistoricalCharts from '../components/ApplianceHistoricalCharts';
 import { SkeletonTable, SkeletonDeviceList, SkeletonTopology } from '../components/ui/SkeletonLoaders';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // Iconos para el Sidebar
 const TopologyIcon = () => (
@@ -111,7 +113,10 @@ const formatSpeedLabel = (port) => {
   return '-';
 };
 
-const formatWiredSpeed = (speedString) => {
+const formatWiredSpeed = (speedString, isEnriched = false) => {
+  // Si no hay datos enriquecidos aún, mostrar placeholder
+  if (!isEnriched) return '-';
+  
   if (!speedString) return '-';
   
   // Si ya viene en formato Meraki correcto, retornar tal cual
@@ -667,7 +672,7 @@ const ConnectivityBar = ({ ap, device }) => {
   );
 };
 
-const AccessPointCard = ({ ap, signalThreshold = 25 }) => {
+const AccessPointCard = ({ ap, signalThreshold = 25, isEnriched = false }) => {
   const statusColor = getStatusColor(ap.status);
   const wireless = ap.wireless || {};
   const summary = wireless.signalSummary || wireless.deviceAggregate || {};
@@ -699,7 +704,7 @@ const AccessPointCard = ({ ap, signalThreshold = 25 }) => {
             {ap.model} · {ap.serial}
           </p>
           <p className="modern-card-subtitle" style={{ marginTop: '2px', fontSize: '11px' }}>
-            LLDP: {ap.connectedTo || '-'} · {ap.wiredSpeed || '-'}
+            LLDP: {ap.connectedTo || '-'} · {formatWiredSpeed(ap.wiredSpeed, isEnriched)}
           </p>
         </div>
         <span 
@@ -1416,6 +1421,23 @@ export default function Dashboard({ onLogout }) {
       
       setSelectedNetwork(network);
       
+      // Guardar en predios recientes
+      try {
+        const recentPredios = JSON.parse(localStorage.getItem('recentPredios') || '[]');
+        const newPredio = {
+          id: network.predio_code || network.id,
+          name: network.predio_name || network.name || '',
+          timestamp: Date.now()
+        };
+        
+        // Evitar duplicados y mantener los últimos 10
+        const filtered = recentPredios.filter(p => p.id !== newPredio.id);
+        const updated = [newPredio, ...filtered].slice(0, 10);
+        localStorage.setItem('recentPredios', JSON.stringify(updated));
+      } catch (e) {
+        console.debug('No se pudo guardar en predios recientes', e);
+      }
+      
       // Cargar resumen completo (mantener para metadatos y flags)
       await loadSummary({ 
         networkId: network.id, 
@@ -1439,6 +1461,96 @@ export default function Dashboard({ onLogout }) {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+  };
+
+  // Funciones de captura y exportación
+  const captureAndDownloadImage = async (sectionName) => {
+    try {
+      // Pequeño delay para asegurar renderizado completo
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const element = document.body;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: true,
+        foreignObjectRendering: true,
+        removeContainer: true,
+        imageTimeout: 0,
+        onclone: (clonedDoc) => {
+          // Asegurar que los SVG se rendericen correctamente
+          const svgs = clonedDoc.querySelectorAll('svg');
+          svgs.forEach(svg => {
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            const bbox = svg.getBBox();
+            if (!svg.hasAttribute('width')) svg.setAttribute('width', bbox.width);
+            if (!svg.hasAttribute('height')) svg.setAttribute('height', bbox.height);
+          });
+        }
+      });
+      
+      const predioCode = selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown';
+      const fileName = `${sectionName} ${predioCode}.jpg`;
+      
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      }, 'image/jpeg', 0.95);
+    } catch (error) {
+      console.error('Error capturando imagen:', error);
+      alert('Error al generar la imagen. Por favor intenta nuevamente.');
+    }
+  };
+
+  const captureAndDownloadPDF = async (sectionName) => {
+    try {
+      // Pequeño delay para asegurar renderizado completo
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const element = document.body;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: true,
+        foreignObjectRendering: true,
+        removeContainer: true,
+        imageTimeout: 0,
+        onclone: (clonedDoc) => {
+          // Asegurar que los SVG se rendericen correctamente
+          const svgs = clonedDoc.querySelectorAll('svg');
+          svgs.forEach(svg => {
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            const bbox = svg.getBBox();
+            if (!svg.hasAttribute('width')) svg.setAttribute('width', bbox.width);
+            if (!svg.hasAttribute('height')) svg.setAttribute('height', bbox.height);
+          });
+        }
+      });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+      
+      const predioCode = selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown';
+      const fileName = `${sectionName} ${predioCode}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      alert('Error al generar el PDF. Por favor intenta nuevamente.');
+    }
   };
 
   const sortData = (data, key, direction) => {
@@ -1610,6 +1722,56 @@ export default function Dashboard({ onLogout }) {
                   </span>
                 )}
                 <span>Topología</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => captureAndDownloadImage('Topologia')}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Descargar como JPG"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  JPG
+                </button>
+                <button
+                  onClick={() => captureAndDownloadPDF('Topologia')}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Descargar como PDF"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  PDF
+                </button>
               </div>
             </h2>
             {topology?.nodes && topology.nodes.length > 0 ? (
@@ -2077,9 +2239,62 @@ export default function Dashboard({ onLogout }) {
                 fontSize: '20px', 
                 fontWeight: '600',
                 borderBottom: '2px solid #cbd5e1',
-                paddingBottom: '12px'
+                paddingBottom: '12px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}>
-                Wireless
+                <span>Wireless</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => captureAndDownloadImage('Access Points')}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#2563eb',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="Descargar como JPG"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    JPG
+                  </button>
+                  <button
+                    onClick={() => captureAndDownloadPDF('Access Points')}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="Descargar como PDF"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    PDF
+                  </button>
+                </div>
               </h2>
               <div style={{ 
                 display: 'flex', 
@@ -2215,7 +2430,7 @@ export default function Dashboard({ onLogout }) {
                             {d.serial}
                           </td>
                           <td style={{ textAlign: 'left', fontSize: '13px', color: '#1e293b', padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {formatWiredSpeed(d.wiredSpeed)}
+                            {formatWiredSpeed(d.wiredSpeed, enrichedAPs !== null)}
                           </td>
                           <td style={{ textAlign: 'left', fontSize: '13px', color: '#2563eb', fontWeight: '500', padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {d.connectedTo ? d.connectedTo.replace(/^.*?\s-\s/, '') : '-'}
@@ -2266,7 +2481,7 @@ export default function Dashboard({ onLogout }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18 }}>
               {accessPoints.map((ap) => (
-                <AccessPointCard key={ap.serial} ap={ap} />
+                <AccessPointCard key={ap.serial} ap={ap} isEnriched={enrichedAPs !== null} />
               ))}
             </div>
           </div>

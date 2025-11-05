@@ -1939,9 +1939,11 @@ html, body {
   position: absolute;
   inset: 0;
   background: rgba(0,0,0,0.45);
+  z-index: 1;
 }
 .mobile-search-content {
   position: relative;
+  z-index: 2;
   width: calc(100% - 40px);
   max-width: 720px;
   background: #fff;
