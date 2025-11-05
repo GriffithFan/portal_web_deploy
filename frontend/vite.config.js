@@ -1,9 +1,63 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // Archivo de configuración de Vite en español
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icon-192.svg', 'icon-512.svg'],
+      manifest: {
+        name: 'Portal Meraki',
+        short_name: 'Portal Meraki',
+        description: 'Portal de monitoreo y diagnóstico de redes Cisco Meraki',
+        theme_color: '#2563eb',
+        background_color: '#ffffff',
+        display: 'standalone',
+        start_url: '/',
+        icons: [
+          {
+            src: 'icon-192.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-512.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        // Cache conservador: Solo assets estáticos
+        runtimeCaching: [
+          {
+            // NO cachear llamadas API - siempre ir al servidor
+            urlPattern: /^.*\/api\/.*/i,
+            handler: 'NetworkOnly'
+          },
+          {
+            // Cachear assets estáticos con revalidación
+            urlPattern: /\.(js|css|html|ico|png|svg|jpg|jpeg|gif|woff|woff2|ttf|eot)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'static-resources',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 días
+              }
+            }
+          }
+        ],
+        // Limpiar caches antiguos
+        cleanupOutdatedCaches: true
+      }
+    })
+  ],
   server: {
     port: 5173,
     host: '0.0.0.0',  // Escuchar en todas las interfaces
