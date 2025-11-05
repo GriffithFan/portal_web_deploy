@@ -1,5 +1,97 @@
 # Changelog - Noviembre 2025
 
+## [2025-11-05] - Funcionalidad de Exportación y Optimización de Topología
+
+### ✨ Nuevas Funcionalidades
+
+#### Exportación de Capturas (Desktop)
+- **Botones JPG/PDF** en secciones Topología y Access Points
+- **Ubicación**: Esquina superior derecha de cada sección (solo desktop)
+- **Características**:
+  - Captura completa de página (incluye topbar y sidebar)
+  - Formato de archivo: `Topologia 613074.jpg` / `Access Points 613074.pdf`
+  - Usa código de predio en nombre de archivo
+  - Soporte mejorado para SVG con `foreignObjectRendering` y `onclone` callback
+- **Librerías agregadas**:
+  - `html2canvas` v1.4.1 - Captura de pantalla
+  - `jspdf` v2.5.2 - Generación de PDF
+- **Archivos modificados**:
+  - `frontend/src/pages/Dashboard.jsx` - Botones y funciones de captura
+  - `frontend/package.json` - Nuevas dependencias
+
+### 🎨 Optimizaciones de UI/UX
+
+#### Reducción de Espacio Blanco en Topología
+- **Problema**: Excesivo espacio blanco debajo del gráfico de topología
+- **Soluciones aplicadas**:
+  1. Cambio de `height={layout.height}` a `height="auto"` en SVG
+  2. Ajuste de cálculo de height: eliminado paddingTop duplicado
+  3. Wrapper con `overflow: hidden` para evitar líneas visuales
+  4. Ajuste de `paddingBottom`: 50px → 200px para balancear espacio vs visibilidad
+- **Resultado**: Menos espacio vacío sin cortar dispositivos inferiores
+- **Archivos modificados**:
+  - `frontend/src/components/SimpleGraph.jsx`
+
+#### Fixes de UX
+- ✅ Mobile: Icono de búsqueda funcionando (z-index corregido)
+- ✅ Mobile: Predios recientes guardándose en localStorage
+- ✅ Desktop/Mobile: Placeholder "-" mientras velocidades cargan
+- ✅ Topología: Dispositivos inferiores completamente visibles
+
+### 🔧 Mejoras Técnicas
+
+#### Gestión de Estados
+- `enrichedAPs` pasado como prop `isEnriched` a `AccessPointCard`
+- Placeholder dinámico en `formatWiredSpeed(speedString, isEnriched)`
+- localStorage para predios recientes: key `recentPredios`, max 10 items
+
+#### CSS Fixes
+- Mobile search modal z-index: backdrop=1, content=2
+- SimpleGraph wrapper con overflow:hidden
+
+### 📦 Dependencias Actualizadas
+
+```json
+{
+  "html2canvas": "^1.4.1",
+  "jspdf": "^2.5.2"
+}
+```
+
+### 🚀 Despliegue en VPS
+
+**Comandos ejecutados**:
+```bash
+cd ~/portal-meraki-deploy
+git reset --hard origin/main  # Forzar actualización
+cd frontend
+sudo rm -rf node_modules package-lock.json
+sudo npm install  # Reinstalar con nuevas dependencias
+sudo npm run build
+sudo systemctl reload nginx
+```
+
+### 🔍 Testing Realizado
+
+- ✅ Exportación JPG funciona en Topología
+- ✅ Exportación PDF funciona en Topología  
+- ✅ Exportación JPG funciona en Access Points
+- ✅ Exportación PDF funciona en Access Points
+- ✅ SVG de topología captura correctamente
+- ✅ Espacio blanco reducido sin cortar dispositivos
+- ✅ No hay líneas visuales extrañas
+- ✅ Predios grandes (17+ APs) se muestran completos
+
+### 📝 Commits
+
+1. `feat: agregar botones exportación JPG/PDF en Topología y Access Points (desktop) + reducir espacio blanco inferior topología` (a42e587)
+2. `fix: agregar overflow hidden al contenedor de SimpleGraph para evitar líneas visuales` (faa541c)
+3. `fix: ajustar paddingBottom a 80px para evitar corte de dispositivos en parte inferior` (1ddce9f)
+4. `fix: aumentar paddingBottom a 120px para mostrar completamente dispositivos inferiores` (2827c38)
+5. `fix: aumentar paddingBottom a 200px para asegurar visibilidad completa` (ce6074c)
+
+---
+
 ## [2025-11-04] - Mejoras en Topología y Velocidades Ethernet
 
 ### 🔧 Fixes Críticos

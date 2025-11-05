@@ -11,6 +11,7 @@ Portal web empresarial para monitoreo y diagnóstico de redes Cisco Meraki. Dise
 - 🔐 **Gestión de Appliances**: Estado de MX, uplinks, VPN, y configuración de puertos
 - 👥 **Administración de Técnicos**: Panel para gestión de usuarios (límite: 40 cuentas)
 - 📈 **Históricos y Métricas**: Análisis de tendencias y patrones de conectividad
+- 📸 **Exportación JPG/PDF**: Capturas de Topología y Access Points (desktop)
 
 ## 🏗️ Arquitectura
 
