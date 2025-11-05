@@ -1215,7 +1215,7 @@ export default function Dashboard({ onLogout }) {
     
     const fetchEnrichedAPs = async () => {
       try {
-    const url = `http://localhost:3000/api/networks/${selectedNetwork.id}/section/access_points`;
+    const url = `/api/networks/${selectedNetwork.id}/section/access_points`;
         
         const response = await fetch(url);
         if (response.ok) {
