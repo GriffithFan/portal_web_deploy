@@ -19,6 +19,12 @@ build/
 logs/
 *.log
 
+# Datos de usuarios (NO subir a Git - se pierden en git pull)
+backend/data/tecnicos.json
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+
 # OS files
 .DS_Store
 Thumbs.db
