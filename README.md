@@ -5,7 +5,7 @@ Portal web empresarial para monitoreo y diagnóstico de redes Cisco Meraki. Dise
 ## ✨ Características Principales
 
 - 📊 **Dashboard en Tiempo Real**: Monitoreo de estado de dispositivos y redes
-- 📱 **Interfaz Móvil Optimizada**: UX adaptativa para tablets y smartphones
+- 📱 **PWA Instalable**: App nativa para móvil/desktop con cache inteligente
 - 🔌 **Topología Visual**: Visualización interactiva de conectividad de red
 - 📡 **Análisis Wireless**: Métricas de APs, conexiones fallidas, y calidad de señal
 - 🔐 **Gestión de Appliances**: Estado de MX, uplinks, VPN, y configuración de puertos
@@ -30,6 +30,31 @@ Portal Meraki
     ├── Nginx (reverse proxy + SSL)
     └── Ubuntu 22.04 LTS
 ```
+
+## 📱 PWA (Progressive Web App)
+
+El Portal Meraki es una **PWA instalable** que funciona como app nativa en cualquier dispositivo.
+
+### Instalación
+
+**Android (Chrome/Edge)**:
+1. Abrir https://portalmeraki.info
+2. Menú ⋮ → "Instalar app"
+
+**iOS (Safari 16.4+)**:
+1. Abrir en Safari
+2. Compartir → "Añadir a pantalla de inicio"
+
+**Desktop (Chrome/Edge)**:
+1. Abrir https://portalmeraki.info
+2. Clic ícono ⊕ en barra URL → "Instalar"
+
+### Ventajas
+
+- ⚡ Carga instantánea (interfaz en cache)
+- 📊 Datos siempre actuales (API no cacheada)
+- 🪟 Ventana independiente sin barras del navegador
+- 🔄 Actualizaciones automáticas en segundo plano
 
 ## 🚀 Despliegue Rápido
 

@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import ThemeToggle from './ui/ThemeToggle';
 
 export default function TopBar({ onSearch, onLogout, onSelectSection, sections = [], selectedSection, selectedNetwork }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -135,9 +134,6 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                   ))}
                 </select>
               )}
-
-              {/* Theme Toggle */}
-              <ThemeToggle variant="icon" />
 
               {/* Botón de logout */}
               <button 

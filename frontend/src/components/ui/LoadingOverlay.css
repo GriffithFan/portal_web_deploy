@@ -130,14 +130,3 @@
     opacity: 0;
   }
 }
-
-/* ===== DARK MODE ===== */
-@media (prefers-color-scheme: dark) {
-  .progress-bar-track {
-    background: #374151;
-  }
-
-  .progress-percentage {
-    color: #e5e7eb;
-  }
-}

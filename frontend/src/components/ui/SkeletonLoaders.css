@@ -129,37 +129,6 @@
   padding: 16px;
 }
 
-/* Dark mode support (preparado para futura implementación) */
-@media (prefers-color-scheme: dark) {
-  .skeleton {
-    background: linear-gradient(
-      90deg,
-      #2a2a2a 0px,
-      #3a3a3a 40px,
-      #2a2a2a 80px
-    );
-  }
-
-  .skeleton-card,
-  .skeleton-table,
-  .skeleton-device,
-  .skeleton-chart,
-  .skeleton-topology,
-  .skeleton-metric {
-    background: #1f1f1f;
-    border-color: #3a3a3a;
-  }
-
-  .skeleton-table-header {
-    background: #2a2a2a;
-    border-bottom-color: #3a3a3a;
-  }
-
-  .skeleton-table-row {
-    border-bottom-color: #2a2a2a;
-  }
-}
-
 /* Animaciones suaves para transiciones */
 .skeleton-card,
 .skeleton-device,

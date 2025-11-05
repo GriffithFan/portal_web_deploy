@@ -1,5 +1,117 @@
 # Changelog - Noviembre 2025
 
+## [2025-11-05] - PWA (Progressive Web App) Implementado
+
+### ✨ Nueva Funcionalidad: Instalación como App Nativa
+
+El Portal Meraki ahora es una **Progressive Web App (PWA)** completa que puede instalarse en cualquier dispositivo como una aplicación nativa.
+
+#### Características PWA
+
+- 📱 **Instalable**: Botón "Instalar" en navegador (Chrome, Edge, Safari iOS 16.4+)
+- 🚀 **Carga Rápida**: Cache inteligente de assets estáticos (HTML/CSS/JS)
+- 🎨 **Interfaz Nativa**: Se abre en ventana independiente sin barras del navegador
+- 🔄 **Actualizaciones Automáticas**: Service Worker se actualiza en segundo plano
+- 💾 **Cache Conservador**: Solo UI en cache, datos siempre frescos del servidor
+
+#### Estrategia de Cache
+
+**Qué se cachea**:
+- ✅ HTML, CSS, JavaScript
+- ✅ Íconos SVG (192x192, 512x512)
+- ✅ Fuentes y assets estáticos
+
+**Qué NO se cachea**:
+- ❌ Llamadas `/api/*` (siempre van al servidor)
+- ❌ Datos de dispositivos, topología, métricas
+
+**Ventaja**: La interfaz carga instantáneamente pero los datos siempre son actuales.
+
+#### Cómo Instalar
+
+**En Android (Chrome/Edge)**:
+1. Abrir https://portalmeraki.info
+2. Tap en menú ⋮ → "Instalar app" o "Añadir a inicio"
+3. Confirmar instalación
+
+**En iOS (Safari 16.4+)**:
+1. Abrir https://portalmeraki.info en Safari
+2. Tap botón Compartir → "Añadir a pantalla de inicio"
+3. Confirmar
+
+**En Desktop (Chrome/Edge)**:
+1. Abrir https://portalmeraki.info
+2. Clic en ícono ⊕ en barra de URL → "Instalar Portal Meraki"
+3. La app se abre en ventana independiente
+
+#### Tecnología Implementada
+
+**Dependencias agregadas**:
+- `vite-plugin-pwa` v1.1.0 - Generación automática de SW
+- `workbox` (incluido) - Estrategias de cache
+
+**Archivos creados**:
+- `frontend/public/manifest.json` - Metadata de la PWA
+- `frontend/public/icon-192.svg` - Ícono pequeño
+- `frontend/public/icon-512.svg` - Ícono grande
+- `dist/sw.js` - Service Worker (generado automáticamente)
+- `dist/registerSW.js` - Script de registro
+
+**Configuración**:
+```javascript
+// vite.config.js
+VitePWA({
+  registerType: 'autoUpdate',
+  workbox: {
+    runtimeCaching: [
+      // NO cachear API - NetworkOnly
+      { urlPattern: /\/api\//, handler: 'NetworkOnly' },
+      // Cachear assets - StaleWhileRevalidate
+      { urlPattern: /\.(js|css|html|svg)$/, handler: 'StaleWhileRevalidate' }
+    ]
+  }
+})
+```
+
+### 📦 Archivos Modificados
+
+**Frontend**:
+- `frontend/vite.config.js` - Configuración plugin PWA
+- `frontend/index.html` - Meta tags PWA (theme-color, manifest, icons)
+- `frontend/package.json` - Nueva dependencia vite-plugin-pwa
+- `frontend/public/manifest.json` - Metadata app
+- `frontend/public/icon-*.svg` - Íconos PWA
+
+### 🚀 Despliegue en VPS
+
+**Comandos requeridos**:
+```bash
+cd ~/portal-meraki-deploy
+git pull origin main
+cd frontend
+sudo npm install  # Instala vite-plugin-pwa
+sudo npm run build  # Genera sw.js
+sudo systemctl reload nginx
+```
+
+El Service Worker se genera automáticamente en cada build.
+
+### 🔍 Testing
+
+- ✅ Build genera `sw.js` y `registerSW.js` correctamente
+- ✅ Manifest válido con iconos SVG
+- ✅ Meta tags PWA en index.html
+- ⏳ Pendiente: Test de instalación en dispositivos reales (requiere HTTPS)
+
+### 📝 Próximos Pasos
+
+1. Reemplazar íconos SVG placeholder con logo oficial
+2. Agregar screenshots en manifest para mejor UX
+3. Test de instalación en Android/iOS/Desktop
+4. Verificar cache strategy en producción
+
+---
+
 ## [2025-11-05] - Funcionalidad de Exportación y Optimización de Topología
 
 ### ✨ Nuevas Funcionalidades
