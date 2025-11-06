@@ -3,21 +3,22 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
 
-// Componente principal de la aplicación
+// Root component - handles authentication state and routing
 function App() {
-  // sessionUser: username/email
+  // Technician username/email from login
   const [techUser, setTechUser] = useState(() => localStorage.getItem('sessionUser') || '');
-  // token devuelto por backend (JWT) — puede ser null
+  // JWT token from backend - null if not authenticated
   const [token, setToken] = useState(() => localStorage.getItem('sessionToken') || null);
+  // Admin key for privileged operations
   const [adminKey, setAdminKey] = useState(() => localStorage.getItem('adminKey') || '');
 
-  // Idle timeout (in ms). Cerrar sesión si no hay actividad por 15 minutos.
+  // 15 minute idle timeout before auto-logout for security
   const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
   const lastActivityRef = useRef(Number(localStorage.getItem('lastActivity') || Date.now()));
   const idleTimerRef = useRef(null);
 
+  // Persist session state to localStorage for page refresh
   useEffect(() => {
-    // Guardar cambios de sesión en localStorage
     if (techUser) localStorage.setItem('sessionUser', techUser);
     else localStorage.removeItem('sessionUser');
     if (token) localStorage.setItem('sessionToken', token);
@@ -26,13 +27,14 @@ function App() {
     else localStorage.removeItem('adminKey');
   }, [techUser, token, adminKey]);
 
+  // Track user activity and enforce idle timeout
   useEffect(() => {
     const updateActivity = () => {
       lastActivityRef.current = Date.now();
       try { localStorage.setItem('lastActivity', String(lastActivityRef.current)); } catch (e) { console.debug('localStorage write failed', e); }
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       idleTimerRef.current = setTimeout(() => {
-        // Auto logout on idle
+        // Auto-logout on inactivity for security compliance
         setTechUser('');
         setToken(null);
         lastActivityRef.current = 0;
@@ -40,19 +42,20 @@ function App() {
       }, IDLE_TIMEOUT_MS);
     };
 
-    // Activity events
+    // Monitor typical user interactions
     const events = ['mousemove', 'keydown', 'touchstart', 'click'];
     events.forEach((ev) => window.addEventListener(ev, updateActivity));
 
-    // Initialize timer based on stored lastActivity
+    // Check if session already expired before setting up timers
     const last = Number(localStorage.getItem('lastActivity') || Date.now());
     lastActivityRef.current = last;
     const since = Date.now() - last;
     if (since >= IDLE_TIMEOUT_MS) {
-      // already idle
+      // Session already expired, logout immediately
       setTechUser(''); setToken(null);
       try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
     } else {
+      // Schedule logout for remaining time
       idleTimerRef.current = setTimeout(() => {
         setTechUser(''); setToken(null);
         try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
@@ -69,8 +72,7 @@ function App() {
     setTechUser(username);
     setToken(jwtToken);
     setAdminKey('');
-    setAdminRole(null);
-    // mark activity
+    // Reset idle timer on successful login
     lastActivityRef.current = Date.now();
     try { localStorage.setItem('lastActivity', String(lastActivityRef.current)); } catch (e) { console.debug('localStorage write failed', e); }
   };
@@ -81,8 +83,6 @@ function App() {
     try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
   };
 
-  const handleAdminLogin = (key, role = null) => {
-    setAdminKey(key);
   const handleAdminLogin = (key) => {
     setAdminKey(key);
     setTechUser('');
@@ -94,6 +94,7 @@ function App() {
 
   if (adminKey) {
     return <AdminPanel adminKey={adminKey} onLogout={handleAdminLogout} />;
+  }
   if (techUser) {
     return <Dashboard user={techUser} token={token} onLogout={handleLogout} />;
   }

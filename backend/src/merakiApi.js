@@ -3,6 +3,7 @@ const axios = require('axios');
 const MERAKI_API_KEY = process.env.MERAKI_API_KEY || '';
 const BASE_URL = process.env.MERAKI_BASE_URL || 'https://api.meraki.com/api/v1';
 
+// Centralized Meraki API client with retry logic and authentication
 const client = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
@@ -13,6 +14,8 @@ const client = axios.create({
   }
 });
 
+// Extract pagination cursor from RFC 5988 Link header format
+// The Meraki API returns cursors in various header formats depending on endpoint
 function parseNextCursor(linkHeader) {
   if (!linkHeader) return null;
   const source = Array.isArray(linkHeader) ? linkHeader.join(',') : linkHeader;
@@ -34,6 +37,8 @@ function parseNextCursor(linkHeader) {
   return null;
 }
 
+// Check multiple header variations for pagination cursor
+// Different Meraki endpoints return pagination info in different ways
 function getNextCursorFromHeaders(headers = {}) {
   const direct = headers['x-next-page-starting-after']
     || headers['x-next-starting-after']

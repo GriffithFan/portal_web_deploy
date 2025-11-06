@@ -6,7 +6,7 @@ function toGraphFromLinkLayer(data, statusMap) {
   const nodes = new Map();
   const links = new Set();
 
-  // Helper para añadir o actualizar un nodo
+  // Register or update a device node in the graph
   const addNode = (deviceInfo) => {
     if (!deviceInfo || !deviceInfo.serial) return null;
     const id = deviceInfo.serial;
@@ -24,21 +24,21 @@ function toGraphFromLinkLayer(data, statusMap) {
     return id;
   };
 
-  // 1. Procesar nodos explícitos si existen
+  // Process explicit nodes if provided
   if (Array.isArray(data.nodes)) {
     for (const n of data.nodes) {
       addNode(n);
     }
   }
 
-  // 2. Procesar enlaces y descubrir nodos implícitos
+  // Process links and discover implicit nodes from discovered neighbors
   for (const link of data.links) {
     if (!link || !Array.isArray(link.ends) || link.ends.length < 2) continue;
 
     const sourceDevice = link.ends[0]?.device;
     const targetDevice = link.ends[1]?.device;
     
-    // Extraer puerto desde discovered.lldp.portId o discovered.cdp.portId
+    // Extract port identifiers from LLDP/CDP discovery data
     const sourcePort = link.ends[0]?.discovered?.lldp?.portId || 
                        link.ends[0]?.discovered?.cdp?.portId ||
                        link.ends[0]?.node?.portId;
@@ -50,13 +50,11 @@ function toGraphFromLinkLayer(data, statusMap) {
     const targetId = addNode(targetDevice);
 
     if (sourceId && targetId && sourceId !== targetId) {
-      // LÓGICA CORRECTA: 
-      // - sourcePort es el puerto del dispositivo SOURCE
-      // - Si SOURCE tiene puerto X, significa que TARGET está conectado AL puerto X del SOURCE
-      // - Por lo tanto, TARGET.switchPort = X (el puerto del padre donde TARGET está conectado)
+      // Port mapping: sourcePort is where targetId connects to sourceId
+      // Example: SWITCH_01[port 24] -> SWITCH_04 means SWITCH_04.switchPort = 24
       
-      // Caso 1: TARGET conectado al puerto sourcePort del SOURCE
-      // Ejemplo: SWITCH_01[Puerto 24] -> SWITCH_04 => SWITCH_04.switchPort = 24
+      // Case 1: Target connected to source port
+      // Example: SWITCH_01[Port 24] -> SWITCH_04 => SWITCH_04.switchPort = 24
       if (sourcePort && nodes.has(targetId)) {
         const targetNode = nodes.get(targetId);
         const portMatch = sourcePort.toString().match(/\d+/);

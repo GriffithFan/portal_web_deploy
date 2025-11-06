@@ -1,9 +1,9 @@
-// Servidor principal de la API
+// Main API server entry point
 const path = require('path');
-// Cargar .env desde la carpeta del backend SIEMPRE, antes de importar módulos que leen process.env
+// Load .env from backend folder FIRST before importing modules that read process.env
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-// Winston Logger
+// Structured logging using Winston
 const { logger, expressLogger, logSecurity, logError, logAdmin } = require('./config/logger');
 
 const { validarTecnico, listarTecnicos, agregarTecnico, eliminarTecnico } = require('./usuario');
@@ -30,7 +30,7 @@ const {
 const app = express();
 const puerto = process.env.PUERTO || 3000;
 
-// Utilidad: Procesar array en lotes con concurrencia limitada
+// Process large lists with controlled concurrency to avoid memory spikes
 async function processInBatches(items, batchSize, processFn) {
   const results = [];
   for (let i = 0; i < items.length; i += batchSize) {
@@ -41,34 +41,33 @@ async function processInBatches(items, batchSize, processFn) {
   return results;
 }
 
-const host = process.env.HOST || '0.0.0.0'; // Para hosting remoto
+const host = process.env.HOST || '0.0.0.0';
 
-// Trust proxy configurado de forma segura para Cloudflare
-// Especificar número de proxies en lugar de 'true' para mayor seguridad
-// Cloudflare usa 1 proxy, ajustar según infraestructura
+// Configure proxy headers for reverse proxy setups (Nginx, Cloudflare, etc)
+// Set explicitly rather than 'true' for security - Cloudflare typically uses 1 hop
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 
-// ========== MIDDLEWARES DE SEGURIDAD ==========
+// ========== SECURITY MIDDLEWARE STACK ==========
 
-// 1. Helmet - Headers de seguridad
+// Apply security headers via Helmet
 app.use(configurarHelmet());
 
-// Configuración de CORS para acceso remoto
+// CORS configuration for remote access
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir cualquier origen si CORS_ORIGINS está configurado como '*'
+    // Allow all origins if explicitly configured via environment variable
     if (process.env.CORS_ORIGINS === '*') {
       callback(null, true);
       return;
     }
     
-    // En desarrollo, permitir cualquier origen
+    // Development mode: more permissive to allow local testing across ports
     if (process.env.NODE_ENV !== 'production') {
       callback(null, true);
       return;
     }
     
-    // En producción, usar dominios específicos si están configurados
+    // Production mode: enforce whitelist of allowed domains
     const allowedOrigins = process.env.CORS_ORIGINS?.split(',') || [
       'http://localhost:5173',
       'http://localhost:5174',
@@ -78,7 +77,7 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('No permitido por CORS'));
+      callback(new Error('CORS policy violation - origin not whitelisted'));
     }
   },
   credentials: true
@@ -87,19 +86,19 @@ const corsOptions = {
 // 2. CORS
 app.use(cors(corsOptions));
 
-// 3. Body parser
-app.use(express.json({ limit: '10mb' })); // Limitar tamaño de payload
+// Parse JSON payloads with a reasonable size limit to prevent abuse
+app.use(express.json({ limit: '10mb' }));
 
-// 4. Logging de requests sospechosos
+// Monitor and log suspicious request patterns
 app.use(logRequestsSospechosos);
 
-// 5. Sanitización de inputs
+// Clean and validate all inputs before processing
 app.use(sanitizarInputs);
 
-// 6. Prevención de parameter pollution
+// Block parameter pollution attacks
 app.use(prevenirParameterPollution);
 
-// 7. Validación de formato de IDs
+// Validate ID format consistency across endpoints
 app.use(validarFormatoIds);
 
 // 8. Rate limiting general para toda la API
