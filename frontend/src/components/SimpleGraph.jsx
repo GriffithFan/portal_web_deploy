@@ -335,9 +335,10 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   let yGap = 75;
   
   if (apCount <= 4) {
-    // Redes pequeñas (<=4 APs): compactas como 602360
-    scaleFactor = 0.65;
-    yGap = 50;
+    // Redes pequeñas (<=4 APs): más separación vertical para evitar solapado
+    // Mantener iconos ligeramente más grandes para legibilidad
+    scaleFactor = 0.85;
+    yGap = 140; // aumentado para mayor separación en redes con pocos APs
   } else if (apCount <= 12) {
     // Redes medianas (5-12 APs): más espaciado - caso 613074 con 10 APs
     scaleFactor = 0.85;
@@ -464,7 +465,8 @@ const buildLayout = (graph, deviceMap = new Map()) => {
     kids.sort((a, b) => (yPositions.get(a) || 0) - (yPositions.get(b) || 0));
   
     // Espaciado uniforme para todos los hijos, sin importar el tipo
-    const minSpacing = 55;
+  // Para redes muy pequeñas con pocos APs, usar un minSpacing mayor
+  const minSpacing = apCount <= 4 ? 110 : 55;
     
     for (let i = 1; i < kids.length; i += 1) {
       const prevId = kids[i - 1];
@@ -507,7 +509,9 @@ const buildLayout = (graph, deviceMap = new Map()) => {
     if (!node) return;
     const x = marginX + (lvl - minLevel) * xGap;
     const y = yPositions.get(id) ?? marginX;
-    layoutNodes.push({ ...node, level: lvl, x, y, parentId: parent.get(id) });
+    // Attach the scaleFactor to each node so render-time helpers (anchors/links)
+    // can adapt to visual scaling of node shapes.
+    layoutNodes.push({ ...node, level: lvl, x, y, parentId: parent.get(id), scale: scaleFactor });
   });
 
   // REDISTRIBUIR hijos de TODOS los switches para que queden arriba/abajo
@@ -740,8 +744,10 @@ const getNodeDimensions = (node = {}) => {
 
 const anchorForNode = (node, direction = 1) => {
   const { width } = getNodeDimensions(node);
+  const nodeScale = node?.scale || 1;
   const padding = 18; // Incrementado para mayor separación de las líneas
-  const offset = width / 2 + padding;
+  // Aplicar escala visual al ancho y al padding para mantener coherencia con NodeShape
+  const offset = (width * nodeScale) / 2 + padding * nodeScale;
   return {
     x: node.x + direction * offset,
     y: node.y,
@@ -810,8 +816,10 @@ export default function SimpleGraph({ graph, devices = [] }) {
         let textAnchor = 'middle';
         let labelX = 0;
         
-        // Aplicar factor de escala dinámico a fuentes
-        const baseScale = layout.scaleFactor || 1.0;
+  // Aplicar factor de escala dinámico a fuentes
+  const baseScale = layout.scaleFactor || 1.0;
+  // Icon scale: aumentar solo el tamaño de los iconos (no las fuentes)
+  const iconScale = baseScale * 1.25;
         const totalDevices = layout.nodes.length;
         
         // Calcular espaciado dinámico basado en cantidad de APs
@@ -821,10 +829,12 @@ export default function SimpleGraph({ graph, devices = [] }) {
         
         // Ajustar espaciado según cantidad de APs para mantener etiquetas arriba del dispositivo
         if (apCount <= 4) {
-          // Redes pequeñas (<=4 APs): valores por defecto compactos - caso 602360
-          primaryY = -32;
-          secondaryY = -8;
-          tertiaryY = 8;
+          // Redes pequeñas (<=4 APs): aumentar separación de etiquetas para evitar solapados
+          // Las fuentes NO se modifican aquí (solo offsets)
+          // Ajuste fino extra solicitado: subir un poco más las etiquetas respecto al icono
+          primaryY = -76;
+          secondaryY = -48;
+          tertiaryY = -24;
         } else if (apCount <= 8) {
           // Redes medianas pequeñas (5-8 APs): separación suave
           primaryY = -60;
@@ -906,7 +916,7 @@ export default function SimpleGraph({ graph, devices = [] }) {
 
         return (
           <g key={node.id} transform={`translate(${node.x},${node.y})`}>
-            <NodeShape node={node} fill={color} scaleFactor={baseScale} />
+            <NodeShape node={node} fill={color} scaleFactor={iconScale} />
             {showPrimary && (
               <text
                 x={labelX}
