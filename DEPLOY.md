@@ -106,34 +106,275 @@ sudo systemctl reload nginx
 ### Ver Configuración Actual
 
 ```bash
-cat /root/portal-meraki-deploy/backend/.env
+cat /root/portal-meraki-deploy/backend/.env.production
 ```
 
-### Actualizar Variables (SIN EDITOR)
+---
+
+## 🔑 Cambiar ADMIN_KEY (Clave de Administrador)
+
+### Opción 1: Con `sed` (Recomendado - Sin Editor)
 
 ```bash
-cd /root/portal-meraki-deploy
-./config-env.sh
+# 1. Conectarse al VPS
+ssh root@72.61.32.146
+
+# 2. Cambiar la clave (reemplaza con tu nueva clave)
+sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=tu_nueva_clave_admin_super_segura_32caracteres|' /root/portal-meraki-deploy/backend/.env.production
+
+# 3. Verificar que el cambio se guardó
+grep "^ADMIN_KEY=" /root/portal-meraki-deploy/backend/.env.production
+
+# 4. Reiniciar el backend
+pm2 restart portal-meraki-backend
+
+# 5. Verificar que el servicio está corriendo
+pm2 status
 ```
 
-Este script interactivo permite:
-- Actualizar `MERAKI_API_KEY`
-- Actualizar `ADMIN_KEY`
-- Actualizar `CORS_ORIGINS`
-- Ver configuración actual
-- Resetear a valores por defecto
+**Recomendaciones para la nueva clave:**
+- Mínimo 32 caracteres
+- Mezclar mayúsculas, minúsculas, números y símbolos
+- Ejemplo seguro: `e58a89f9f23220f83b37330fa7a4794415633275dd94effc947bb3d128d86aa6`
 
-### Actualizar Variables Manualmente (con sed)
+---
+
+## 🔑 Cambiar MERAKI_API_KEY
+
+### Opción 1: Con `sed` (Recomendado - Sin Editor)
 
 ```bash
-# Actualizar API Key
-sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=TU_NUEVA_KEY|' /root/portal-meraki-deploy/backend/.env
+# 1. Conectarse al VPS
+ssh root@72.61.32.146
 
-# Actualizar Admin Key
-sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=TU_NUEVO_ADMIN_KEY|' /root/portal-meraki-deploy/backend/.env
+# 2. Obtener tu nueva API Key de Meraki
+#    https://dashboard.meraki.com/api_access
+#    (Copiar la clave completa)
 
-# Actualizar CORS
-sed -i 's|^CORS_ORIGINS=.*|CORS_ORIGINS=https://portalmeraki.info,http://72.61.32.146|' /root/portal-meraki-deploy/backend/.env
+# 3. Cambiar la clave en el servidor
+sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=tu_nueva_api_key_de_meraki_aqui|' /root/portal-meraki-deploy/backend/.env.production
+
+# 4. Verificar que se guardó correctamente
+grep "^MERAKI_API_KEY=" /root/portal-meraki-deploy/backend/.env.production
+
+# 5. Reiniciar el backend
+pm2 restart portal-meraki-backend
+
+# 6. Verificar que el servicio está corriendo
+pm2 status
+```
+
+---
+
+## 📝 Métodos Alternativos (Sin Nano)
+
+### Opción 2: Con `echo` y Redirección (Una sola línea)
+
+#### Para ADMIN_KEY:
+```bash
+ssh root@72.61.32.146 "sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=nuevaclave123|' /root/portal-meraki-deploy/backend/.env.production && pm2 restart portal-meraki-backend"
+```
+
+#### Para MERAKI_API_KEY:
+```bash
+ssh root@72.61.32.146 "sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=tu_meraki_key|' /root/portal-meraki-deploy/backend/.env.production && pm2 restart portal-meraki-backend"
+```
+
+### Opción 3: Con `awk` (Si necesitas ser más preciso)
+
+#### Para ADMIN_KEY:
+```bash
+awk -F= '/^ADMIN_KEY=/ {print $1"=tu_nueva_clave"; next} 1' /root/portal-meraki-deploy/backend/.env.production > /tmp/env.tmp && mv /tmp/env.tmp /root/portal-meraki-deploy/backend/.env.production
+```
+
+#### Para MERAKI_API_KEY:
+```bash
+awk -F= '/^MERAKI_API_KEY=/ {print $1"=tu_nueva_api_key"; next} 1' /root/portal-meraki-deploy/backend/.env.production > /tmp/env.tmp && mv /tmp/env.tmp /root/portal-meraki-deploy/backend/.env.production
+```
+
+---
+
+### Opción 4: Con `perl` (Si `sed` tiene problemas)
+
+#### Para ADMIN_KEY:
+```bash
+perl -i -pe 's/^ADMIN_KEY=.*/ADMIN_KEY=tu_nueva_clave/' /root/portal-meraki-deploy/backend/.env.production
+```
+
+#### Para MERAKI_API_KEY:
+```bash
+perl -i -pe 's/^MERAKI_API_KEY=.*/MERAKI_API_KEY=tu_nueva_api_key/' /root/portal-meraki-deploy/backend/.env.production
+```
+
+---
+
+### Opción 5: Con `cat` y Heredoc (Reemplazar archivo completo)
+
+```bash
+# Respaldar antes
+cp /root/portal-meraki-deploy/backend/.env.production /root/portal-meraki-deploy/backend/.env.production.backup
+
+# Ver el contenido actual
+cat /root/portal-meraki-deploy/backend/.env.production
+
+# Crear nuevo archivo con los valores actualizados
+cat > /root/portal-meraki-deploy/backend/.env.production << 'EOF'
+# backend/.env (limpio — completar antes de producción)
+
+# Entorno
+NODE_ENV=production
+
+# Puerto y host
+PUERTO=3000
+HOST=127.0.0.1
+
+# CORS: dominio(s) permitidos (coma-separados)
+CORS_ORIGINS=https://portalmeraki.info,http://localhost:5173
+
+# Clave administrativa (RELLENA: cadena larga y aleatoria)
+ADMIN_KEY=tu_nueva_clave_admin_aqui
+
+# Meraki API
+MERAKI_API_KEY=tu_nueva_api_key_aqui
+MERAKI_ORG_ID=
+
+# TTL cache LLDP en ms
+LLDP_CACHE_TTL_MS=600000
+
+# Opcionales
+ENABLE_WARM_CACHE=true
+WARM_CACHE_SIZE=20
+
+# Performance (opcional)
+UV_THREADPOOL_SIZE=16
+
+# Número de proxies confiables (Cloudflare = 1, múltiples proxies = ajustar)
+TRUST_PROXY_HOPS=1
+EOF
+
+# Reiniciar
+pm2 restart portal-meraki-backend
+```
+
+---
+
+## ✅ Verificar que los cambios funcionan
+
+### Verificar ADMIN_KEY
+
+```bash
+# Desde tu computadora local (no en SSH):
+curl -X POST http://72.61.32.146/api/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{"key":"tu_nueva_clave_admin_aqui"}'
+
+# Respuesta esperada si funciona:
+# {"success":true}
+```
+
+### Verificar MERAKI_API_KEY
+
+```bash
+# Desde tu computadora local:
+curl http://72.61.32.146/api/organizations \
+  -H "x-admin-key: tu_nueva_clave_admin_aqui"
+
+# Si devuelve datos de organizaciones Meraki, el cambio funciona
+# Si devuelve error, la API key es inválida
+```
+
+---
+
+## 🔄 Script Automatizado (Recomendado)
+
+Crear un script local para cambiar claves fácilmente:
+
+**Crear archivo `change_keys.sh` en tu computadora:**
+
+```bash
+#!/bin/bash
+
+# Script para cambiar ADMIN_KEY y MERAKI_API_KEY remotamente
+
+VPS_HOST="root@72.61.32.146"
+PROJECT_PATH="/root/portal-meraki-deploy"
+
+echo "=== Cambiar Claves en el VPS ==="
+echo ""
+
+# Leer entrada del usuario
+read -sp "Nueva ADMIN_KEY (Enter si no cambiar): " NEW_ADMIN_KEY
+echo ""
+read -sp "Nueva MERAKI_API_KEY (Enter si no cambiar): " NEW_MERAKI_KEY
+echo ""
+
+# Hacer backup remoto
+echo "📦 Haciendo backup..."
+ssh $VPS_HOST "cp $PROJECT_PATH/backend/.env.production $PROJECT_PATH/backend/.env.production.backup.\$(date +%s)"
+
+# Actualizar ADMIN_KEY si se proporcionó
+if [ ! -z "$NEW_ADMIN_KEY" ]; then
+  echo "🔄 Actualizando ADMIN_KEY..."
+  ssh $VPS_HOST "sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=$NEW_ADMIN_KEY|' $PROJECT_PATH/backend/.env.production"
+  echo "✅ ADMIN_KEY actualizada"
+fi
+
+# Actualizar MERAKI_API_KEY si se proporcionó
+if [ ! -z "$NEW_MERAKI_KEY" ]; then
+  echo "🔄 Actualizando MERAKI_API_KEY..."
+  ssh $VPS_HOST "sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=$NEW_MERAKI_KEY|' $PROJECT_PATH/backend/.env.production"
+  echo "✅ MERAKI_API_KEY actualizada"
+fi
+
+# Reiniciar si algo cambió
+if [ ! -z "$NEW_ADMIN_KEY" ] || [ ! -z "$NEW_MERAKI_KEY" ]; then
+  echo "♻️ Reiniciando backend..."
+  ssh $VPS_HOST "pm2 restart portal-meraki-backend"
+  echo "✅ Backend reiniciado"
+  echo ""
+  echo "🎉 ¡Cambios aplicados correctamente!"
+else
+  echo "⚠️ No se hizo ningún cambio"
+fi
+```
+
+**Usar el script:**
+
+```bash
+# Hacer ejecutable
+chmod +x change_keys.sh
+
+# Ejecutar
+./change_keys.sh
+
+# Te pedirá que ingreses las nuevas claves (ocultas)
+```
+
+---
+
+## 🚨 Rollback (Si algo sale mal)
+
+```bash
+# Ver backups disponibles
+ls -lh /root/portal-meraki-deploy/backend/.env.production.backup.*
+
+# Restaurar desde un backup (reemplaza TIMESTAMP)
+cp /root/portal-meraki-deploy/backend/.env.production.backup.TIMESTAMP /root/portal-meraki-deploy/backend/.env.production
+
+# Reiniciar
+pm2 restart portal-meraki-backend
+
+# Verificar
+pm2 status
+```
+
+---
+
+### Actualizar Otras Variables
+
+```bash
+# Actualizar CORS_ORIGINS
+sed -i 's|^CORS_ORIGINS=.*|CORS_ORIGINS=https://portalmeraki.info,http://72.61.32.146|' /root/portal-meraki-deploy/backend/.env.production
 
 # Aplicar cambios
 pm2 restart portal-meraki-backend
