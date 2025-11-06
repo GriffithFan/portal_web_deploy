@@ -339,6 +339,10 @@ const buildLayout = (graph, deviceMap = new Map()) => {
     // Mantener iconos ligeramente más grandes para legibilidad
     scaleFactor = 0.85;
     yGap = 140; // aumentado para mayor separación en redes con pocos APs
+  } else if (apCount <= 6) {
+    // Pequeñas-medianas (5-6 APs): algo más de separación vertical y etiquetas un poco más arriba
+    scaleFactor = 0.9;
+    yGap = 150;
   } else if (apCount <= 12) {
     // Redes medianas (5-12 APs): más espaciado - caso 613074 con 10 APs
     scaleFactor = 0.85;
@@ -465,8 +469,8 @@ const buildLayout = (graph, deviceMap = new Map()) => {
     kids.sort((a, b) => (yPositions.get(a) || 0) - (yPositions.get(b) || 0));
   
     // Espaciado uniforme para todos los hijos, sin importar el tipo
-  // Para redes muy pequeñas con pocos APs, usar un minSpacing mayor
-  const minSpacing = apCount <= 4 ? 110 : 55;
+  // Para redes pequeñas/medianitas con pocos APs, usar un minSpacing mayor
+  const minSpacing = apCount <= 6 ? 120 : 55;
     
     for (let i = 1; i < kids.length; i += 1) {
       const prevId = kids[i - 1];
@@ -818,8 +822,8 @@ export default function SimpleGraph({ graph, devices = [] }) {
         
   // Aplicar factor de escala dinámico a fuentes
   const baseScale = layout.scaleFactor || 1.0;
-  // Icon scale: aumentar solo el tamaño de los iconos (no las fuentes)
-  const iconScale = baseScale * 1.25;
+  // Icon scale: 1.25 solo cuando hay 1 AP; para predios pequeños/medianos usar 1.0
+  const iconScale = (apCount === 1) ? baseScale * 1.25 : baseScale * 1.0;
         const totalDevices = layout.nodes.length;
         
         // Calcular espaciado dinámico basado en cantidad de APs
@@ -829,12 +833,15 @@ export default function SimpleGraph({ graph, devices = [] }) {
         
         // Ajustar espaciado según cantidad de APs para mantener etiquetas arriba del dispositivo
         if (apCount <= 4) {
-          // Redes pequeñas (<=4 APs): aumentar separación de etiquetas para evitar solapados
-          // Las fuentes NO se modifican aquí (solo offsets)
-          // Ajuste fino extra solicitado: subir un poco más las etiquetas respecto al icono
+          // Redes muy pequeñas (<=4 APs): etiquetas arriba y más separación
           primaryY = -76;
           secondaryY = -48;
           tertiaryY = -24;
+        } else if (apCount <= 6) {
+          // Redes pequeñas con 5-6 APs: subir ligeramente las etiquetas y mejorar separación
+          primaryY = -84;
+          secondaryY = -52;
+          tertiaryY = -28;
         } else if (apCount <= 8) {
           // Redes medianas pequeñas (5-8 APs): separación suave
           primaryY = -60;
@@ -899,6 +906,13 @@ export default function SimpleGraph({ graph, devices = [] }) {
         primaryFontSize = Math.round(primaryFontSize * baseScale);
         secondaryFontSize = Math.round(secondaryFontSize * baseScale);
         tertiaryFontSize = Math.round(tertiaryFontSize * baseScale);
+
+        // Para predios pequeños (<=6 APs) reducir las fuentes "un poquito" para evitar congestión
+        if (apCount <= 6) {
+          primaryFontSize = Math.max(10, primaryFontSize - 1);
+          secondaryFontSize = Math.max(10, secondaryFontSize - 1);
+          tertiaryFontSize = Math.max(10, tertiaryFontSize - 1);
+        }
 
         if (isExternal) {
           textAnchor = 'end';
