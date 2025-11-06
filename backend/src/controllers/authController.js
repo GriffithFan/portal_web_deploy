@@ -42,7 +42,7 @@ exports.loginAdmin = (req, res) => {
     logAdmin('admin_login', { success: true });
     return res.json({ success: true });
   }
-  
+
   logAdmin('admin_login_failed', { attempt: true });
   return res.status(401).json({ 
     success: false, 
@@ -110,16 +110,16 @@ exports.eliminarTecnico = (req, res) => {
  */
 exports.requireAdmin = (req, res, next) => {
   const key = req.headers['x-admin-key'];
-  
+
   if (!process.env.ADMIN_KEY) {
     return res.status(500).json({ error: 'ADMIN_KEY no configurada' });
   }
-  
-  if (key !== process.env.ADMIN_KEY) {
-    return res.status(401).json({ error: 'No autorizado' });
+
+  if (key === process.env.ADMIN_KEY) {
+    return next();
   }
-  
-  next();
+
+  return res.status(401).json({ error: 'No autorizado' });
 };
 
 /**
@@ -128,12 +128,12 @@ exports.requireAdmin = (req, res, next) => {
 exports.isAdmin = (req) => {
   const hdr = req.headers['x-admin-key'];
   if (process.env.ADMIN_KEY && hdr === process.env.ADMIN_KEY) return true;
-  
+
   const q = req.query.adminKey;
   if (process.env.ADMIN_KEY && q === process.env.ADMIN_KEY) return true;
-  
-  // Si no hay ADMIN_KEY definida, permitir para entorno local
+
+  // si no hay ADMIN_KEY definida, permitir para entorno local (retornaremos muestras recortadas)
   if (!process.env.ADMIN_KEY) return true;
-  
+
   return false;
 };

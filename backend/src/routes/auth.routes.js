@@ -17,3 +17,4 @@ router.post('/login', limiterAuth, authController.loginTecnico);
 router.post('/admin/login', limiterAuth, authController.loginAdmin);
 
 module.exports = router;
+

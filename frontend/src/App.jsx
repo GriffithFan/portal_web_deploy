@@ -69,6 +69,7 @@ function App() {
     setTechUser(username);
     setToken(jwtToken);
     setAdminKey('');
+    setAdminRole(null);
     // mark activity
     lastActivityRef.current = Date.now();
     try { localStorage.setItem('lastActivity', String(lastActivityRef.current)); } catch (e) { console.debug('localStorage write failed', e); }
@@ -80,6 +81,8 @@ function App() {
     try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
   };
 
+  const handleAdminLogin = (key, role = null) => {
+    setAdminKey(key);
   const handleAdminLogin = (key) => {
     setAdminKey(key);
     setTechUser('');
@@ -91,8 +94,6 @@ function App() {
 
   if (adminKey) {
     return <AdminPanel adminKey={adminKey} onLogout={handleAdminLogout} />;
-  }
-
   if (techUser) {
     return <Dashboard user={techUser} token={token} onLogout={handleLogout} />;
   }

@@ -610,39 +610,22 @@ app.post('/api/admin/login', limiterAuth, (req, res) => {
 
 // Admin de técnicos (protegido por ADMIN_KEY en headers)
 function requireAdmin(req, res, next) {
-  const key = req.headers['x-admin-key'];
+  // aceptar clave en header x-admin-key o en body.adminKey para facilitar pruebas
+  const key = req.headers['x-admin-key'] || (req.body && req.body.adminKey) || req.query.adminKey;
   if (!process.env.ADMIN_KEY) return res.status(500).json({ error: 'ADMIN_KEY no configurada' });
   if (key !== process.env.ADMIN_KEY) return res.status(401).json({ error: 'No autorizado' });
   next();
 }
 
-app.get('/api/tecnicos', requireAdmin, (req, res) => {
-  res.json(listarTecnicos());
-});
-
-app.post('/api/tecnicos', requireAdmin, limiterEscritura, (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
-  const r = agregarTecnico(username, password);
-  if (!r.ok) return res.status(409).json({ error: r.error });
-  res.json({ ok: true });
-});
-
-app.delete('/api/tecnicos/:username', requireAdmin, limiterEscritura, (req, res) => {
-  const { username } = req.params;
-  const r = eliminarTecnico(username);
-  if (!r.ok) return res.status(404).json({ error: r.error });
-  res.json({ ok: true });
-});
-
 // Utilidad: validar admin también por query param (para facilitar pruebas locales)
 function isAdmin(req) {
   const hdr = req.headers['x-admin-key'];
-  if (process.env.ADMIN_KEY && hdr === process.env.ADMIN_KEY) return true;
-  const q = req.query.adminKey;
-  if (process.env.ADMIN_KEY && q === process.env.ADMIN_KEY) return true;
-  // si no hay ADMIN_KEY definida, permitir para entorno local (retornaremos muestras recortadas)
-  if (!process.env.ADMIN_KEY) return true;
+  const q = req.query.adminKey || (req.body && req.body.adminKey);
+  const key = hdr || q;
+  const role = getAdminRoleFromKey(key);
+  if (role) return true;
+  // si no hay ADMIN_KEY definida (entorno local), permitir
+  if (!process.env.ADMIN_KEY && !process.env.SECOND_ADMIN_KEY) return true;
   return false;
 }
 
@@ -665,16 +648,15 @@ app.get('/api/debug/topology/:networkId', requireAdmin, limiterDatos, async (req
     
   console.debug(`Switches: ${switches.length}, MX: ${mxDevice ? mxDevice.serial : 'NO ENCONTRADO'}`);
     
-    // Obtener LLDP de cada switch (reutilizar caché si existe)
-    const lldpData = {};
-    const forceLldpRefreshDbg = (req.query.forceLldpRefresh || '').toString().toLowerCase() === 'true' || (req.query.forceLldpRefresh || '').toString() === '1';
-    const cachedLldpMapDebug = !forceLldpRefreshDbg && (getFromCache(cache.lldpByNetwork, networkId, 'lldp') || {});
-    for (const sw of switches) {
-      try {
-        const lldpInfo = (cachedLldpMapDebug && cachedLldpMapDebug[sw.serial]) || await getDeviceLldpCdp(sw.serial);
-        lldpData[sw.serial] = lldpInfo;
-        console.debug(`${sw.name} (${sw.serial}) - puertos LLDP: ${Object.keys(lldpInfo?.ports || {}).length}`);
-      } catch (err) {
+function isAdmin(req) {
+  const hdr = req.headers['x-admin-key'];
+  const q = req.query.adminKey || (req.body && req.body.adminKey);
+  const key = hdr || q;
+  if (process.env.ADMIN_KEY && key === process.env.ADMIN_KEY) return true;
+  // si no hay ADMIN_KEY definida (entorno local), permitir
+  if (!process.env.ADMIN_KEY) return true;
+  return false;
+}     } catch (err) {
         console.error(`Error LLDP para ${sw.serial}:`, err.message);
       }
     }

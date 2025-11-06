@@ -31,8 +31,8 @@ export default function Login({ onLogin, onAdminLogin }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: adminKey })
         });
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
           throw new Error(data.message || 'Clave incorrecta');
         }
         setError('');
