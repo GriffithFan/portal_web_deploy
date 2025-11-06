@@ -300,18 +300,6 @@ ENABLE_WARM_CACHE=true
 WARM_CACHE_SIZE=20
 
 # Performance (opcional)
-UV_THREADPOOL_SIZE=16
-
-# Número de proxies confiables (Cloudflare = 1, múltiples proxies = ajustar)
-TRUST_PROXY_HOPS=1
-EOF
-
-# Reiniciar
-pm2 restart portal-meraki-backend
-```
-
----
-
 ## ✅ Verificar que los cambios funcionan
 
 ### Verificar ADMIN_KEY
@@ -324,6 +312,38 @@ curl -X POST http://72.61.32.146/api/admin/login \
 
 # Respuesta esperada si funciona:
 # {"success":true}
+```
+
+**Ejemplo REAL:**
+```bash
+curl -X POST http://72.61.32.146/api/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{"key":"Pr0t4lM3r4k1_S3cur0_2025_x9k7mN2pQ4wZ1vB5c"}'
+
+# Respuesta: {"success":true}
+```
+
+### Verificar MERAKI_API_KEY
+
+```bash
+# Desde tu computadora local:
+curl http://72.61.32.146/api/organizations \
+  -H "x-admin-key: tu_nueva_clave_admin_aqui"
+
+# Si devuelve datos de organizaciones Meraki, el cambio funciona
+# Si devuelve error, la API key es inválida
+```
+
+**Ejemplo REAL:**
+```bash
+curl http://72.61.32.146/api/organizations \
+  -H "x-admin-key: Pr0t4lM3r4k1_S3cur0_2025_x9k7mN2pQ4wZ1vB5c"
+
+# Si la API key es correcta, devuelve algo como:
+# [{"id":"L_123456","name":"Mi Organización","url":"https://dashboard.meraki.com/o/..."}]
+
+# Si hay error, probablemente es que la MERAKI_API_KEY no es válida
+```"success":true}
 ```
 
 ### Verificar MERAKI_API_KEY
