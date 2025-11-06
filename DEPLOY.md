@@ -137,6 +137,26 @@ pm2 status
 - Mezclar mayúsculas, minúsculas, números y símbolos
 - Ejemplo seguro: `e58a89f9f23220f83b37330fa7a4794415633275dd94effc947bb3d128d86aa6`
 
+**Ejemplo REAL de ejecución:**
+
+```bash
+ssh root@72.61.32.146
+
+# Cambiar ADMIN_KEY con un ejemplo real
+sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=Pr0t4lM3r4k1_S3cur0_2025_x9k7mN2pQ4wZ1vB5c|' /root/portal-meraki-deploy/backend/.env.production
+
+# Ver que se guardó
+grep "^ADMIN_KEY=" /root/portal-meraki-deploy/backend/.env.production
+# Output: ADMIN_KEY=Pr0t4lM3r4k1_S3cur0_2025_x9k7mN2pQ4wZ1vB5c
+
+# Reiniciar
+pm2 restart portal-meraki-backend
+
+# Verificar estado
+pm2 status
+# El backend debe mostrar "online"
+```
+
 ---
 
 ## 🔑 Cambiar MERAKI_API_KEY
@@ -175,9 +195,19 @@ pm2 status
 ssh root@72.61.32.146 "sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=nuevaclave123|' /root/portal-meraki-deploy/backend/.env.production && pm2 restart portal-meraki-backend"
 ```
 
+**Ejemplo REAL:**
+```bash
+ssh root@72.61.32.146 "sed -i 's|^ADMIN_KEY=.*|ADMIN_KEY=MyS3cur3Adm1nK3y_2025_9Xz2Qw5Ez8|' /root/portal-meraki-deploy/backend/.env.production && pm2 restart portal-meraki-backend"
+```
+
 #### Para MERAKI_API_KEY:
 ```bash
 ssh root@72.61.32.146 "sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=tu_meraki_key|' /root/portal-meraki-deploy/backend/.env.production && pm2 restart portal-meraki-backend"
+```
+
+**Ejemplo REAL:**
+```bash
+ssh root@72.61.32.146 "sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=12ab34cd56ef78gh90ij12kl34mn56op78qr90st|' /root/portal-meraki-deploy/backend/.env.production && pm2 restart portal-meraki-backend"
 ```
 
 ### Opción 3: Con `awk` (Si necesitas ser más preciso)
@@ -187,12 +217,36 @@ ssh root@72.61.32.146 "sed -i 's|^MERAKI_API_KEY=.*|MERAKI_API_KEY=tu_meraki_key
 awk -F= '/^ADMIN_KEY=/ {print $1"=tu_nueva_clave"; next} 1' /root/portal-meraki-deploy/backend/.env.production > /tmp/env.tmp && mv /tmp/env.tmp /root/portal-meraki-deploy/backend/.env.production
 ```
 
-#### Para MERAKI_API_KEY:
+**Ejemplo REAL:**
 ```bash
-awk -F= '/^MERAKI_API_KEY=/ {print $1"=tu_nueva_api_key"; next} 1' /root/portal-meraki-deploy/backend/.env.production > /tmp/env.tmp && mv /tmp/env.tmp /root/portal-meraki-deploy/backend/.env.production
+awk -F= '/^ADMIN_KEY=/ {print $1"=AwesomeAdmin2025_Secure_xK7pR3mV9Ld"; next} 1' /root/portal-meraki-deploy/backend/.env.production > /tmp/env.tmp && mv /tmp/env.tmp /root/portal-meraki-deploy/backend/.env.production
+pm2 restart portal-meraki-backend
 ```
 
----
+#### Para MERAKI_API_KEY:
+### Opción 4: Con `perl` (Si `sed` tiene problemas)
+
+#### Para ADMIN_KEY:
+```bash
+perl -i -pe 's/^ADMIN_KEY=.*/ADMIN_KEY=tu_nueva_clave/' /root/portal-meraki-deploy/backend/.env.production
+```
+
+**Ejemplo REAL:**
+```bash
+perl -i -pe 's/^ADMIN_KEY=.*/ADMIN_KEY=P3rl_Upd@t3d_K3y_2025_qWe9RtYu3/' /root/portal-meraki-deploy/backend/.env.production
+pm2 restart portal-meraki-backend
+```
+
+#### Para MERAKI_API_KEY:
+```bash
+perl -i -pe 's/^MERAKI_API_KEY=.*/MERAKI_API_KEY=tu_nueva_api_key/' /root/portal-meraki-deploy/backend/.env.production
+```
+
+**Ejemplo REAL:**
+```bash
+perl -i -pe 's/^MERAKI_API_KEY=.*/MERAKI_API_KEY=xyzabc123def456ghi789jkl012mno345/' /root/portal-meraki-deploy/backend/.env.production
+pm2 restart portal-meraki-backend
+```
 
 ### Opción 4: Con `perl` (Si `sed` tiene problemas)
 
