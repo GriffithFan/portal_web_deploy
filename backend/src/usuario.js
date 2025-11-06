@@ -18,7 +18,7 @@ function initTecnicosFile() {
   // Crear directorio data/ si no existe
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log('📁 Directorio data/ creado');
+    console.log('[INIT] data/ directory created');
   }
   
   // Si no existe tecnicos.json en data/, crearlo o migrar desde src/
@@ -27,10 +27,10 @@ function initTecnicosFile() {
     
     // Intentar migrar desde src/tecnicos.json
     if (fs.existsSync(oldPath)) {
-      console.log('🔄 Migrando tecnicos.json desde src/ a data/...');
+      console.log('[MIGRATION] Migrating tecnicos.json from src/ to data/...');
       const oldData = fs.readFileSync(oldPath, 'utf-8');
       fs.writeFileSync(TECNICOS_PATH, oldData, 'utf-8');
-      console.log('✅ Migración completada: data/tecnicos.json creado');
+      console.log('[MIGRATION] Complete - data/tecnicos.json created');
     } else {
       // Crear archivo con usuarios por defecto
       const defaultUsers = [
@@ -42,7 +42,7 @@ function initTecnicosFile() {
         { username: "griffith@fan.com", password: "000c22deec6ed2c7475d34bff05884884bfe71848ffef5571adb66ef8e46aa8f" }
       ];
       fs.writeFileSync(TECNICOS_PATH, JSON.stringify(defaultUsers, null, 2), 'utf-8');
-      console.log('✅ Archivo data/tecnicos.json creado con usuarios por defecto');
+      console.log('[INIT] data/tecnicos.json created with default users');
     }
   }
 }

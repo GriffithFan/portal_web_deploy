@@ -377,3 +377,4 @@ pm2 restart portal-meraki-backend
 **Versión**: 1.6.0  
 **Fecha**: 2025-11-04  
 **Autor**: Equipo Portal Meraki
+
