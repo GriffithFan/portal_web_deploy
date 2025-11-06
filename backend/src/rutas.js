@@ -6,6 +6,9 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
+// Import admin routes for technician management
+const adminRoutes = require('./routes/admin.routes');
+
 // Middleware para verificar el token JWT
 function verificarToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -394,5 +397,8 @@ router.get('/meraki/network-topology/:network_id', verificarToken, async (req, r
     res.status(500).json({ mensaje: 'Error al consultar network/topología', error: error.message });
   }
 });
+
+// Mount admin routes for technician management
+router.use(adminRoutes);
 
 module.exports = router;

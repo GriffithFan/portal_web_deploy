@@ -616,15 +616,14 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Utilidad: validar admin también por query param (para facilitar pruebas locales)
+// Utility: validate admin from headers or query params
 function isAdmin(req) {
   const hdr = req.headers['x-admin-key'];
   const q = req.query.adminKey || (req.body && req.body.adminKey);
   const key = hdr || q;
-  const role = getAdminRoleFromKey(key);
-  if (role) return true;
-  // si no hay ADMIN_KEY definida (entorno local), permitir
-  if (!process.env.ADMIN_KEY && !process.env.SECOND_ADMIN_KEY) return true;
+  if (process.env.ADMIN_KEY && key === process.env.ADMIN_KEY) return true;
+  // Allow in local development if ADMIN_KEY is not set
+  if (!process.env.ADMIN_KEY) return true;
   return false;
 }
 
@@ -645,26 +644,27 @@ app.get('/api/debug/topology/:networkId', requireAdmin, limiterDatos, async (req
     const switches = devices.filter(d => d.model?.startsWith('MS'));
     const mxDevice = devices.find(d => d.model?.startsWith('MX'));
     
-  console.debug(`Switches: ${switches.length}, MX: ${mxDevice ? mxDevice.serial : 'NO ENCONTRADO'}`);
+    console.debug(`Switches: ${switches.length}, MX: ${mxDevice ? mxDevice.serial : 'NO ENCONTRADO'}`);
     
-function isAdmin(req) {
-  const hdr = req.headers['x-admin-key'];
-  const q = req.query.adminKey || (req.body && req.body.adminKey);
-  const key = hdr || q;
-  if (process.env.ADMIN_KEY && key === process.env.ADMIN_KEY) return true;
-  // si no hay ADMIN_KEY definida (entorno local), permitir
-  if (!process.env.ADMIN_KEY) return true;
-  return false;
-}     } catch (err) {
+    // Query LLDP data for each switch
+    const lldpData = {};
+    for (const sw of switches) {
+      try {
+        const lldpInfo = await getDeviceLldpCdp(sw.serial);
+        if (lldpInfo && lldpInfo.ports) {
+          lldpData[sw.serial] = lldpInfo;
+          console.debug(`LLDP obtenido para ${sw.serial}: ${Object.keys(lldpInfo.ports).length} puertos`);
+        }
+      } catch (err) {
         console.error(`Error LLDP para ${sw.serial}:`, err.message);
       }
     }
     
     // Analizar topología para encontrar conexiones switch → MX
     const topologyAnalysis = [];
-  if (topology && topology.links && mxDevice) {
-  const mxSerial = mxDevice.serial.toUpperCase();
-  console.debug(`Analizando ${topology.links.length} enlaces en topología...`);
+    if (topology && topology.links && mxDevice) {
+      const mxSerial = mxDevice.serial.toUpperCase();
+      console.debug(`Analizando ${topology.links.length} enlaces en topología...`);
       
       for (const link of topology.links) {
         const src = (link.source || link.from || link.a || '').toString().toUpperCase();
