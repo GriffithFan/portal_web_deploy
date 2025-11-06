@@ -1,4 +1,11 @@
 // Definición de rutas principales de la API
+// 
+// ARQUITECTURA ACTUAL:
+// - Rutas de Meraki (topología, organizaciones, networks, etc) definidas inline en este archivo
+// - Rutas modulares separadas en backend/src/routes/ (admin, auth, predios, networks, organizations, debug)
+// - Actualmente solo admin.routes está montado aquí (para gestión de técnicos)
+// - Las rutas REST legacy se mantienen aquí para compatibilidad (no reorganizar sin testing profundo)
+//
 const express = require('express');
 const router = express.Router();
 
@@ -6,7 +13,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
-// Import admin routes for technician management
+// Importar rutas modulares
 const adminRoutes = require('./routes/admin.routes');
 
 // Middleware para verificar el token JWT

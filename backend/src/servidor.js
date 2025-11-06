@@ -107,6 +107,10 @@ app.use('/api', limiterGeneral);
 // 9. Logging de HTTP requests con Winston
 app.use(expressLogger());
 
+// Montaje de rutas principales
+// Nota: Arquitectura híbrida - ruta legacy inline en servidor.js + rutas modulares en rutas.js
+// Sistema de rutas modulares está en backend/src/routes/ pero solo admin.routes está activo vía rutas.js
+// Endpoints de Meraki/networks/predios están inline en servidor.js para compatibilidad legacy
 app.use('/api', rutas);
 
 // Sistema avanzado de caché in-memory con TTL por categoría
