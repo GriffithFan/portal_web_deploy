@@ -60,3 +60,4 @@ echo ""
 echo "🔍 Ver estado detallado:"
 echo "   pm2 describe portal-meraki-backend"
 echo ""
+

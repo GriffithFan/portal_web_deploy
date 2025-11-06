@@ -609,10 +609,8 @@ const ConnectivityBar = ({ ap, device }) => {
   const history = Array.isArray(wireless.history) ? wireless.history : [];
   const isOnline = normalizeReachability(targetDevice.status) === 'connected';
   
-  // Nota: comprobación puntual suprimida
-  // Depuración puntual eliminada para evitar mensajes innecesarios en consola.
-  
-  // Si no hay historial, mostrar barra basada en status actual
+  // If no history exists, show bar based on current status
+
   if (!history.length) {
     return (
       <div style={{ display: 'flex', height: '8px', borderRadius: '2px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
@@ -1340,12 +1338,12 @@ export default function Dashboard({ onLogout }) {
       // Marcar todas las secciones como cargadas (modo completo)
       setLoadedSections(new Set(['topology', 'switches', 'access_points', 'appliance_status']));
       
-  // Nota: información de predio (registro suprimido para consola)
+  // Debugging - suppressed from console
       console.debug('networkMetadata:', data?.networkMetadata);
       console.debug('predioInfo:', data?.networkMetadata?.predioInfo);
       console.debug('wirelessInsights:', data?.wirelessInsights);
       if (data?.wirelessInsights?.devices?.length > 0) {
-        console.debug('Primer wireless device del summary:', JSON.stringify(data.wirelessInsights.devices[0], null, 2));
+        console.debug('First wireless device from summary:', JSON.stringify(data.wirelessInsights.devices[0], null, 2));
       }
       
       // Enriquecer selectedNetwork con predio_code si está disponible
@@ -2176,10 +2174,10 @@ export default function Dashboard({ onLogout }) {
           </div>
         );
         
-  // Nota: comprobación de enrichedAPs (registro suprimido para consola)
+  // Debug check for enrichedAPs
         if (accessPoints.length > 0) {
-          console.debug('Primer AP procesado:', accessPoints[0].name, accessPoints[0].serial);
-          console.debug('Wireless data completo:', JSON.stringify(accessPoints[0].wireless, null, 2));
+          console.debug('First AP processed:', accessPoints[0].name, accessPoints[0].serial);
+          console.debug('Full wireless data:', JSON.stringify(accessPoints[0].wireless, null, 2));
         }
 
         if (!accessPoints.length) {

@@ -162,3 +162,4 @@ chmod +x update_admin_key.sh
 - Requiere acceso directo al servidor (auditoría más clara)
 - Evita ataques CSRF y escalada de privilegios
 - Las claves nunca se transmiten por la red
+

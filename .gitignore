@@ -18,6 +18,8 @@ build/
 # Logs
 logs/
 *.log
+server.log
+server.err.log
 
 # Datos de usuarios (NO subir a Git - se pierden en git pull)
 backend/data/tecnicos.json
@@ -36,9 +38,19 @@ Thumbs.db
 *.swo
 *~
 
+# Development artifacts
+*.backup
+*.bak
+backend/backups/
+frontend/backups/
+backend/test-*.js
+backend/debug-*.js
+frontend/src/pages/*.bak
+
 # Docker
 portal-meraki-*.tar
 *.tar.gz
+dist.zip
 
 # Certificates (SSL)
 deploy/nginx/certs/
@@ -48,8 +60,8 @@ deploy/nginx/certs/
 
 # Temporary files
 *.tmp
-*.bak
 *.cache
+ayuda.txt
 
 # PM2
 .pm2/
@@ -57,3 +69,4 @@ deploy/nginx/certs/
 # Coverage
 coverage/
 .nyc_output/
+

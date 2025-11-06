@@ -1,23 +1,23 @@
-﻿# 🌐 Portal Meraki - Dashboard de Monitoreo de Redes
+﻿# Portal Meraki - Dashboard de Monitoreo de Redes
 
 **Portal web empresarial para monitoreo y diagnóstico de redes Cisco Meraki** diseñado para equipos técnicos (NOC/soporte) que necesitan visibilidad operativa clara de infraestructura de red.
 
 ---
 
-## ✨ Características Principales
+## Características Principales
 
-- 📊 **Dashboard en Tiempo Real** - Monitoreo de estado de dispositivos y redes
-- 📱 **PWA Instalable** - App nativa para móvil/desktop con cache inteligente
-- 🔌 **Topología Visual** - Visualización interactiva de conectividad de red
-- 📡 **Análisis Wireless** - Métricas de APs, conexiones fallidas, y calidad de señal
-- 🔐 **Gestión de Appliances** - Estado de MX, uplinks, VPN, y configuración de puertos
-- 👥 **Administración de Técnicos** - Panel para gestión de usuarios (máx. 40 cuentas)
-- 📈 **Históricos y Métricas** - Análisis de tendencias y patrones de conectividad
-- 📸 **Exportación JPG/PDF** - Capturas de Topología y Access Points
+- **Dashboard en Tiempo Real** - Monitoreo de estado de dispositivos y redes
+- **PWA Instalable** - App nativa para móvil/desktop con cache inteligente
+- **Topología Visual** - Visualización interactiva de conectividad de red
+- **Análisis Wireless** - Métricas de APs, conexiones fallidas, y calidad de señal
+- **Gestión de Appliances** - Estado de MX, uplinks, VPN, y configuración de puertos
+- **Administración de Técnicos** - Panel para gestión de usuarios (máx. 40 cuentas)
+- **Históricos y Métricas** - Análisis de tendencias y patrones de conectividad
+- **Exportación JPG/PDF** - Capturas de Topología y Access Points
 
 ---
 
-## 🚀 Despliegue Rápido
+## Despliegue Rápido
 
 ### Prerequisitos
 - Ubuntu 22.04+ LTS
@@ -43,15 +43,15 @@ certbot --nginx -d tu-dominio.com -d www.tu-dominio.com
 ```
 
 **El script `deploy-ubuntu.sh` automáticamente:**
-- ✅ Instala Node.js 20, PM2, Nginx
-- ✅ Configura variables de entorno desde `.env.production`
-- ✅ Construye frontend optimizado
-- ✅ Configura Nginx con proxy reverso
-- ✅ Inicia backend con PM2
+- Instala Node.js 20, PM2, Nginx
+- Configura variables de entorno desde `.env.production`
+- Construye frontend optimizado
+- Configura Nginx con proxy reverso
+- Inicia backend con PM2
 
 ---
 
-## 🔄 Actualizar en Producción
+## Actualizar en Producción
 
 ```bash
 cd /root/portal-meraki-deploy
@@ -67,7 +67,7 @@ El script automáticamente:
 
 ---
 
-## ⚙️ Configuración
+## Configuración
 
 ### Variables de Entorno (`backend/.env.production`)
 
@@ -114,23 +114,23 @@ pm2 restart portal-meraki-backend
 
 ---
 
-## 📱 PWA - Instalación como App
+## Instalación como PWA
 
-El Portal Meraki es una **Progressive Web App** instalable en cualquier dispositivo:
+Portal Meraki es una **Progressive Web App** instalable en cualquier dispositivo:
 
 - **Android**: Menú ⋮ → "Instalar app"
 - **iOS**: Safari → Compartir → "Añadir a pantalla de inicio" (Safari 16.4+)
 - **Desktop**: Clic ícono ⊕ en barra URL → "Instalar"
 
 **Ventajas**:
-- ⚡ Interfaz carga instantáneamente (en cache)
-- 📊 Datos siempre actuales (API no cacheada)
-- 🪟 Se abre como app nativa sin barras del navegador
-- 🔄 Actualizaciones automáticas en segundo plano
+- Interfaz carga instantáneamente (en cache)
+- Datos siempre actuales (API no cacheada)
+- Se abre como app nativa sin barras del navegador
+- Actualizaciones automáticas en segundo plano
 
 ---
 
-## 🛠️ Desarrollo Local
+## Desarrollo Local
 
 ### Backend
 ```bash
@@ -150,7 +150,7 @@ npm run dev
 
 ---
 
-## 📡 API Endpoints Principales
+## API Endpoints Principales
 
 ### Autenticación
 - `POST /api/login` - Login de técnicos
@@ -175,7 +175,7 @@ npm run dev
 
 ---
 
-## 📊 Comandos Útiles
+## Comandos Útiles
 
 ### PM2 (Backend)
 ```bash
@@ -202,7 +202,7 @@ git log --oneline -10               # Ver últimos commits
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Backend no inicia
 ```bash
@@ -237,7 +237,7 @@ systemctl restart nginx
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 portal-meraki-deploy/
@@ -270,30 +270,30 @@ portal-meraki-deploy/
 
 ---
 
-## 🔐 Seguridad
+## Seguridad
 
-- ✅ Certificado SSL automático (Let's Encrypt)
-- ✅ Headers de seguridad configurados en Nginx
-- ✅ API key nunca expuesta en frontend
-- ✅ Autenticación por token para técnicos
-- ✅ Gestión de claves por SSH (sin endpoints HTTP)
-- ✅ Rate limiting en endpoints sensibles
-- ✅ Validación de entrada en todos los campos
-
----
-
-## 📈 Performance
-
-- ⚡ Cache LLDP/CDP con TTL de 10 minutos
-- ⚡ Warm cache de predios frecuentes al iniciar
-- ⚡ Build optimizado de Vite con tree-shaking
-- ⚡ Compresión gzip en Nginx
-- ⚡ Lazy loading de componentes React
-- ⚡ Pool de threads UV expandido (16 workers)
+- Certificado SSL automático (Let's Encrypt)
+- Headers de seguridad configurados en Nginx
+- API key nunca expuesta en frontend
+- Autenticación por token para técnicos
+- Gestión de claves por SSH (sin endpoints HTTP)
+- Rate limiting en endpoints sensibles
+- Validación de entrada en todos los campos
 
 ---
 
-## 📚 Documentación
+## Performance
+
+- Cache LLDP/CDP con TTL de 10 minutos
+- Warm cache de predios frecuentes al iniciar
+- Build optimizado de Vite con tree-shaking
+- Compresión gzip en Nginx
+- Lazy loading de componentes React
+- Pool de threads UV expandido (16 workers)
+
+---
+
+## Documentación
 
 - **[DEPLOY.md](./DEPLOY.md)** - Guía completa de despliegue y actualización (5 métodos para cambiar claves)
 - **[SSH_KEY_MANAGEMENT.md](./SSH_KEY_MANAGEMENT.md)** - Gestión segura de claves administrativas por SSH
@@ -301,7 +301,7 @@ portal-meraki-deploy/
 
 ---
 
-## 🤝 Contribuir
+## Contribuir
 
 1. Fork el repositorio
 2. Crear rama feature (`git checkout -b feature/AmazingFeature`)
@@ -311,7 +311,7 @@ portal-meraki-deploy/
 
 ---
 
-## 📞 Soporte
+## Soporte
 
 - **Repositorio**: [github.com/GriffithFan/portal_web_deploy](https://github.com/GriffithFan/portal_web_deploy)
 - **Issues**: GitHub Issues
@@ -319,7 +319,7 @@ portal-meraki-deploy/
 
 ---
 
-## 📄 Licencia
+## Licencia
 
 Proyecto privado para uso empresarial.
 
@@ -327,7 +327,7 @@ Proyecto privado para uso empresarial.
 
 **Última actualización**: Noviembre 2025  
 **Versión**: 2.1.0  
-**Status**: ✅ Producción - Estable
+**Status**: Producción - Estable
 
 ## 🏗️ Arquitectura
 

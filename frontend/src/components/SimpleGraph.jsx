@@ -34,15 +34,12 @@ const looksLikeSerial = (value) => {
   return compact.length >= 10 && /[a-z]/i.test(compact) && /\d/.test(compact);
 };
 
-/* removed exploratory ordering helpers to keep topology derivation conservative */
-
 const computeNodeLabels = (node = {}) => {
   const meta = node.meta || {};
   const serial = (node.serial || meta.serial || node.id || '').toString().trim();
   const mac = (node.mac || meta.mac || '').toString().trim();
   const modelLower = (node.model || meta.model || '').toString().toLowerCase();
   
-  // Identificar tipo de dispositivo
   const isZ3Utm = modelLower.startsWith('z') || 
                   modelLower.includes('utm') || 
                   modelLower.includes('z3') || 

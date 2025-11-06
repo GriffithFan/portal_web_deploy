@@ -1,6 +1,6 @@
-# 🚀 Portal Meraki - Guía de Despliegue y Actualización
+# Portal Meraki - Guía de Despliegue y Actualización
 
-## 📋 Contenido
+## Contenido
 
 1. [Despliegue Inicial](#despliegue-inicial)
 2. [Actualización](#actualización)
@@ -10,7 +10,7 @@
 
 ---
 
-## 🆕 Despliegue Inicial
+## Despliegue Inicial
 
 ### Prerequisitos en VPS Ubuntu
 
@@ -44,13 +44,13 @@ chmod +x backend/*.sh
 ```
 
 Este script automáticamente:
-- ✅ Instala Node.js 20
-- ✅ Instala PM2
-- ✅ Instala Nginx
-- ✅ Configura el backend con `.env.production`
-- ✅ Construye el frontend
-- ✅ Configura Nginx
-- ✅ Inicia el servicio con PM2
+- Instala Node.js 20
+- Instala PM2
+- Instala Nginx
+- Configura el backend con `.env.production`
+- Construye el frontend
+- Configura Nginx
+- Inicia el servicio con PM2
 
 ### 4. Configurar SSL (Después del Deploy)
 
@@ -726,3 +726,4 @@ ufw allow 22/tcp
 ---
 
 **Última actualización**: Noviembre 2025
+
