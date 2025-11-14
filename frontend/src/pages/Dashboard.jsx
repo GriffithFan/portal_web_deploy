@@ -2118,17 +2118,17 @@ export default function Dashboard({ onLogout }) {
                   </div>
                 )}
 
-                <div style={{ overflowX: 'visible', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                  <table className="modern-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <div style={{ overflowX: 'auto', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                  <table className="modern-table" style={{ minWidth: '1200px', width: '100%' }}>
                     <thead>
                       <tr>
-                        <SortableHeader label="Status" sortKey="status" align="center" width="8%" />
-                        <SortableHeader label="Name" sortKey="name" align="left" width="18%" />
-                        <SortableHeader label="Model" sortKey="model" align="left" width="12%" />
-                        <SortableHeader label="Serial" sortKey="serial" align="left" width="15%" />
-                        <th style={{ textAlign: 'left', width: '22%' }}>Connectivity (UTC-3)</th>
-                        <SortableHeader label="MAC address" sortKey="mac" align="left" width="15%" />
-                        <SortableHeader label="LAN IP" sortKey="lanIp" align="left" width="10%" />
+                        <SortableHeader label="Status" sortKey="status" align="center" width="100px" />
+                        <SortableHeader label="Name" sortKey="name" align="left" width="220px" />
+                        <SortableHeader label="Model" sortKey="model" align="left" width="150px" />
+                        <SortableHeader label="Serial" sortKey="serial" align="left" width="180px" />
+                        <th style={{ textAlign: 'left', minWidth: '280px' }}>Connectivity (UTC-3)</th>
+                        <SortableHeader label="MAC address" sortKey="mac" align="left" width="180px" />
+                        <SortableHeader label="LAN IP" sortKey="lanIp" align="left" width="120px" />
                       </tr>
                     </thead>
                     <tbody>
@@ -2524,18 +2524,18 @@ export default function Dashboard({ onLogout }) {
                 />
               </div>
 
-              <div style={{ overflowX: 'visible', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                <table className="modern-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <div style={{ overflowX: 'auto', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                <table className="modern-table" style={{ minWidth: '1400px', width: '100%' }}>
                   <thead>
                     <tr>
-                      <SortableHeader label="Status" sortKey="status" align="center" width="5%" />
-                      <SortableHeader label="Name" sortKey="name" align="left" width="9%" />
-                      <th style={{ textAlign: 'left', width: '18%' }}>Connectivity (UTC-3)</th>
-                      <SortableHeader label="Serial number" sortKey="serial" align="left" width="11%" />
-                      <SortableHeader label="Ethernet 1" sortKey="wiredSpeed" align="left" width="10%" />
-                      <SortableHeader label="Ethernet 1 LLDP" sortKey="connectedTo" align="left" width="14%" />
-                      <SortableHeader label="MAC address" sortKey="mac" align="left" width="13%" />
-                      <th style={{ textAlign: 'left', width: '10%' }}>Local IP</th>
+                      <SortableHeader label="Status" sortKey="status" align="center" width="80px" />
+                      <SortableHeader label="Name" sortKey="name" align="left" width="150px" />
+                      <th style={{ textAlign: 'left', minWidth: '300px' }}>Connectivity (UTC-3)</th>
+                      <SortableHeader label="Serial number" sortKey="serial" align="left" width="180px" />
+                      <SortableHeader label="Ethernet 1" sortKey="wiredSpeed" align="left" width="150px" />
+                      <SortableHeader label="Ethernet 1 LLDP" sortKey="connectedTo" align="left" width="220px" />
+                      <SortableHeader label="MAC address" sortKey="mac" align="left" width="180px" />
+                      <th style={{ textAlign: 'left', minWidth: '130px' }}>Local IP</th>
                     </tr>
                   </thead>
                   <tbody>

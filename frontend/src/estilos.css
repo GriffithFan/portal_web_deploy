@@ -2477,3 +2477,109 @@ h1 {
     transform: translate(-50%, -50%) scale(1.2);
   }
 }
+
+/* ===== Scroll Horizontal para Tablas ===== */
+/* Estilo de barra de scroll horizontal personalizado (tipo Meraki) */
+.modern-table {
+  position: relative;
+}
+
+/* Contenedor con scroll */
+div[style*="overflowX: 'auto'"],
+div[style*='overflowX: auto'] {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+/* Webkit scrollbar styling */
+div[style*="overflowX: 'auto'"]::-webkit-scrollbar,
+div[style*='overflowX: auto']::-webkit-scrollbar {
+  height: 8px;
+}
+
+div[style*="overflowX: 'auto'"]::-webkit-scrollbar-track,
+div[style*='overflowX: auto']::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+div[style*="overflowX: 'auto'"]::-webkit-scrollbar-thumb,
+div[style*='overflowX: auto']::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+div[style*="overflowX: 'auto'"]::-webkit-scrollbar-thumb:hover,
+div[style*='overflowX: auto']::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ===== Escalado Responsive para Pantallas 16:9 ===== */
+/* Mantener proporciones consistentes en diferentes resoluciones 16:9 */
+@media screen and (min-width: 1280px) and (max-width: 1920px) {
+  /* Pantallas entre HD (1280x720) y Full HD (1920x1080) */
+  body {
+    font-size: clamp(14px, 0.9vw, 16px);
+  }
+  
+  .modern-card-title {
+    font-size: clamp(16px, 1.1vw, 18px);
+  }
+  
+  .modern-table th {
+    font-size: clamp(12px, 0.85vw, 14px);
+    padding: clamp(10px, 0.9vw, 14px) clamp(12px, 1vw, 16px);
+  }
+  
+  .modern-table td {
+    font-size: clamp(13px, 0.95vw, 15px);
+    padding: clamp(10px, 0.9vw, 14px) clamp(12px, 1vw, 16px);
+  }
+}
+
+@media screen and (min-width: 1921px) {
+  /* Pantallas mayores a Full HD (2K, 4K) */
+  body {
+    font-size: 16px;
+  }
+}
+
+@media screen and (max-width: 1279px) {
+  /* Pantallas más pequeñas que HD */
+  body {
+    font-size: 14px;
+  }
+  
+  .modern-table th {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+  
+  .modern-table td {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+}
+
+/* Indicador visual de scroll disponible */
+div[style*="overflowX: 'auto']::after,
+div[style*='overflowX: auto']::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 8px;
+  width: 40px;
+  background: linear-gradient(to left, rgba(241, 245, 249, 0.95), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+div[style*="overflowX: 'auto'"]:hover::after,
+div[style*='overflowX: auto']:hover::after {
+  opacity: 1;
+}
+
