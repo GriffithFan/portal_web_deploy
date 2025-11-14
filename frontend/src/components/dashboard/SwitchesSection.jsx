@@ -119,7 +119,7 @@ export default function SwitchesSection({
               <SummaryChip 
                 label="Online" 
                 value={switchesData.filter(sw => normalizeReachability(sw.status) === 'connected').length} 
-                accent="#059669" 
+                accent="#22c55e" 
               />
               <SummaryChip 
                 label="Offline" 
@@ -145,7 +145,7 @@ export default function SwitchesSection({
               <tbody>
                 {sortData(switchesData, sortConfig.key, sortConfig.direction).map((sw) => {
                   const statusColor = getStatusColor(sw.status);
-                  const isOnline = normalizeReachability(sw.status) === 'connected';
+                  const statusNormalized = normalizeReachability(sw.status);
                   
                   // Construir tooltip para la tabla
                   const switchTooltip = sw.tooltipInfo ? (
@@ -209,7 +209,7 @@ export default function SwitchesSection({
                             width: '26px', 
                             height: '26px', 
                             borderRadius: '50%', 
-                            background: isOnline ? '#d1fae5' : '#fee2e2',
+                            background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef3c7' : '#fee2e2',
                             cursor: 'pointer'
                           }}>
                             <span style={{ 

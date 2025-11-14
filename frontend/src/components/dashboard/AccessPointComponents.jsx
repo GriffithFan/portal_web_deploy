@@ -41,7 +41,7 @@ export const ConnectivityTimeline = ({ series }) => {
   if (!segments.length) return null;
 
   const statusColor = (status) => {
-    if (status === 'connected') return '#059669';
+    if (status === 'connected') return '#22c55e';
     if (status === 'disabled') return '#94a3b8';
     return '#f97316';
   };
@@ -100,7 +100,7 @@ export const SignalQualitySparkline = ({ samples = [], threshold = 25 }) => {
         </linearGradient>
       </defs>
       <path d={`${linePath} L ${lastX} ${height} L 0 ${height} Z`} fill="url(#signalGradient)" opacity="0.35" />
-      <path d={linePath} fill="none" stroke="#059669" strokeWidth="2" />
+      <path d={linePath} fill="none" stroke="#22c55e" strokeWidth="2" />
       <line x1="0" x2={width} y1={thresholdY} y2={thresholdY} stroke="#f97316" strokeDasharray="6 4" strokeWidth="1" />
       <circle cx={lastX} cy={lastY} r={3} fill="#0f172a" stroke="#fff" strokeWidth="1" />
     </svg>
@@ -114,46 +114,142 @@ export const ConnectivityBar = ({ ap, device }) => {
   const targetDevice = device || ap;
   const wireless = targetDevice.wireless || {};
   const history = Array.isArray(wireless.history) ? wireless.history : [];
-  const isOnline = normalizeReachability(targetDevice.status) === 'connected';
+  const statusNormalized = normalizeReachability(targetDevice.status);
+  const lastReportedAt = targetDevice.lastReportedAt || null;
+  
+  // Función para formatear fecha de última conexión
+  const formatLastSeen = (timestamp) => {
+    if (!timestamp) return 'Nunca conectado';
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      
+      if (diffMins < 1) return 'Hace menos de 1 minuto';
+      if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+      if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+      if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+      
+      return date.toLocaleString('es-AR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return timestamp;
+    }
+  };
   
   // Si no hay historial, mostrar barra basada en status actual
   if (!history.length) {
+    const barColor = statusNormalized === 'connected' ? '#45991f' : statusNormalized === 'warning' ? '#f59e0b' : '#cbd5e1';
+    const barTitle = statusNormalized === 'connected' 
+      ? 'Conectado' 
+      : statusNormalized === 'warning' 
+        ? 'Conectado con advertencias' 
+        : `Sin datos recientes${lastReportedAt ? '\nÚltima conexión: ' + formatLastSeen(lastReportedAt) : ''}`;
+    
     return (
-      <div style={{ display: 'flex', height: '8px', borderRadius: '2px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+      <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
         <div
           style={{
             width: '100%',
-            background: isOnline ? '#45991f' : '#cbd5e1',
+            background: barColor,
             transition: 'all 0.3s ease',
+            cursor: 'help'
           }}
-          title={isOnline ? 'Conectado' : 'Sin datos'}
+          title={barTitle}
         />
       </div>
     );
   }
 
-  // Crear segmentos individuales para cada muestra - sin agrupar para ver interferencias
-  const signalThreshold = 20;
+  // Umbrales de calidad de señal mejorados
+  const SIGNAL_EXCELLENT = 60;  // Excelente
+  const SIGNAL_GOOD = 40;       // Buena
+  const SIGNAL_FAIR = 25;       // Regular
+  const SIGNAL_POOR = 15;       // Pobre
+  // < 15 = Muy mala
 
+  // Crear segmentos con análisis de calidad de señal e interferencias
   const segments = history.map((sample) => {
     const quality = sample.signalQuality ?? -1;
-    const hasFailures = sample.failures > 0;
+    const failures = sample.failures || 0;
+    const hasInterference = failures > 0;
     
-    if (hasFailures || quality === 0) {
-      return { color: '#ef4444', label: `Microcorte${hasFailures ? ` (${sample.failures} fallos)` : ''}` };
-    } else if (quality < 0) {
-      return { color: '#cbd5e1', label: 'Sin señal' };
-    } else if (quality <= signalThreshold) {
-      return { color: '#f59e0b', label: 'Señal débil' };
+    // Timestamp del sample
+    const sampleTime = sample.ts || sample.timestamp || null;
+    const timeLabel = sampleTime ? new Date(sampleTime).toLocaleString('es-AR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    }) : '';
+    
+    // PRIORIDAD 1: Interferencia o fallas detectadas - SIEMPRE ROJO
+    if (hasInterference || failures > 0) {
+      return { 
+        color: '#ef4444', 
+        label: `Interferencia detectada${timeLabel ? ' (' + timeLabel + ')' : ''}\nFallos: ${failures}${quality >= 0 ? ' - Calidad: ' + quality + '%' : ''}`,
+        quality: quality
+      };
+    }
+    
+    // PRIORIDAD 2: Sin señal o desconectado - ROJO para barra de conectividad
+    if (quality <= 0) {
+      return { 
+        color: '#ef4444', 
+        label: quality === 0 
+          ? `Desconectado${timeLabel ? ' (' + timeLabel + ')' : ''}${lastReportedAt ? '\nÚltima conexión: ' + formatLastSeen(lastReportedAt) : ''}`
+          : `Sin señal${timeLabel ? ' (' + timeLabel + ')' : ''}${lastReportedAt ? '\nÚltima conexión: ' + formatLastSeen(lastReportedAt) : ''}`,
+        quality: quality
+      };
+    }
+    
+    // PRIORIDAD 3: Evaluar calidad de señal
+    if (quality < SIGNAL_POOR) {
+      // Señal muy pobre (rojo oscuro)
+      return { 
+        color: '#dc2626', 
+        label: `Señal muy débil${timeLabel ? ' (' + timeLabel + ')' : ''}\nCalidad: ${quality}%`,
+        quality: quality
+      };
+    } else if (quality < SIGNAL_FAIR) {
+      // Señal pobre (naranja)
+      return { 
+        color: '#ea580c', 
+        label: `Señal débil${timeLabel ? ' (' + timeLabel + ')' : ''}\nCalidad: ${quality}%`,
+        quality: quality
+      };
+    } else if (quality < SIGNAL_GOOD) {
+      // Señal regular (amarillo)
+      return { 
+        color: '#f59e0b', 
+        label: `Señal regular${timeLabel ? ' (' + timeLabel + ')' : ''}\nCalidad: ${quality}%`,
+        quality: quality
+      };
+    } else if (quality < SIGNAL_EXCELLENT) {
+      // Señal buena (verde claro)
+      return { 
+        color: '#65a30d', 
+        label: `Señal buena${timeLabel ? ' (' + timeLabel + ')' : ''}\nCalidad: ${quality}%`,
+        quality: quality
+      };
     } else {
-      return { color: '#45991f', label: 'Conectado' };
+      // Señal excelente (verde oscuro)
+      return { 
+        color: '#16a34a', 
+        label: `Señal excelente${timeLabel ? ' (' + timeLabel + ')' : ''}\nCalidad: ${quality}%`,
+        quality: quality
+      };
     }
   });
 
-  const totalSegments = segments.length;
-
   return (
-    <div style={{ display: 'flex', height: '8px', borderRadius: '2px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+    <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
       {segments.map((segment, index) => (
         <div
           key={index}
@@ -161,6 +257,7 @@ export const ConnectivityBar = ({ ap, device }) => {
             flex: 1,
             background: segment.color,
             transition: 'all 0.3s ease',
+            cursor: 'help'
           }}
           title={segment.label}
         />
@@ -173,8 +270,8 @@ export const ConnectivityBar = ({ ap, device }) => {
  * Tarjeta de Access Point con métricas wireless
  */
 export const AccessPointCard = ({ ap, signalThreshold = 25 }) => {
+  const statusNormalized = normalizeReachability(ap.status);
   const statusColor = getStatusColor(ap.status);
-  const isOnline = normalizeReachability(ap.status) === 'connected';
   const wireless = ap.wireless || {};
   const history = Array.isArray(wireless.history) ? wireless.history : [];
   const signalSummary = wireless.signalSummary || {};
@@ -243,9 +340,9 @@ export const AccessPointCard = ({ ap, signalThreshold = 25 }) => {
           )}
         </div>
         <span 
-          className={`status-badge ${isOnline ? 'online' : 'offline'}`}
+          className={`status-badge ${statusNormalized}`}
           style={{ 
-            background: isOnline ? '#d1fae5' : '#fee2e2',
+            background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef9c3' : '#fee2e2',
             color: statusColor 
           }}
         >
@@ -255,7 +352,7 @@ export const AccessPointCard = ({ ap, signalThreshold = 25 }) => {
             borderRadius: '50%', 
             background: statusColor 
           }} />
-          {ap.status}
+          {statusNormalized === 'warning' ? 'warning' : ap.status}
         </span>
       </div>
 
@@ -273,7 +370,7 @@ export const AccessPointCard = ({ ap, signalThreshold = 25 }) => {
           <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Microcortes
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: microDrops > 0 ? '#ef4444' : '#059669', marginTop: '2px' }}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: microDrops > 0 ? '#ef4444' : '#22c55e', marginTop: '2px' }}>
             {microDrops}
           </div>
         </div>

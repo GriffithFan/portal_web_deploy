@@ -73,7 +73,8 @@
   background: #ef4444;
 }
 
-.timeline-segment.degraded {
+.timeline-segment.degraded,
+.timeline-segment.warning {
   background: #f59e0b;
 }
 

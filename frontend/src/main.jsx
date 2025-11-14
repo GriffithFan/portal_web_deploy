@@ -6,7 +6,5 @@ import App from './App'
 
 // Punto de entrada principal
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 )

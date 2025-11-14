@@ -1,9 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const ApplianceHistoricalCharts = ({ networkId }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({ connectivity: [], uplinkUsage: [] });
-  const [timespan, setTimespan] = useState(86400);
+  const [timespan, setTimespan] = useState(86400); // 1 día por defecto
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
+  const svgRef = useRef(null);
+
+  const timespanOptions = [
+    { label: 'for the last 2 hours', value: 7200 },
+    { label: 'for the last day', value: 86400 },
+    { label: 'for the last week', value: 604800 },
+    { label: 'for the last month', value: 2592000 }
+  ];
+
+  const getTimespanLabel = () => {
+    const option = timespanOptions.find(opt => opt.value === timespan);
+    return option ? option.label : 'for the last day';
+  };
 
   useEffect(() => {
     if (!networkId) return;
@@ -11,16 +26,17 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
     const fetchHistorical = async () => {
       setLoading(true);
       try {
+        // Valores válidos de resolution según Meraki API: 60, 600, 3600, 86400
+        const resolution = timespan <= 7200 ? 60 : timespan <= 86400 ? 600 : timespan <= 604800 ? 3600 : 86400;
         const response = await fetch(
-          `/api/networks/${networkId}/appliance/historical?timespan=${timespan}&resolution=300`,
+          `/api/networks/${networkId}/appliance/historical?timespan=${timespan}&resolution=${resolution}`,
           { credentials: 'include' }
         );
         
         if (response.ok) {
           const result = await response.json();
-          console.log('Datos historicos recibidos:', result);
           
-          // Normalizar timestamps: agregar 'ts' si no existe
+          // Normalizar timestamps
           if (result.connectivity) {
             result.connectivity = result.connectivity.map(point => ({
               ...point,
@@ -36,11 +52,8 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
           }
           
           setData(result);
-        } else {
-          console.error('Error en respuesta:', response.status, response.statusText);
         }
       } catch (error) {
-        console.error('Error cargando datos historicos:', error);
       } finally {
         setLoading(false);
       }
@@ -50,79 +63,268 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
   }, [networkId, timespan]);
 
   const formatTimestamp = (ts) => {
-    if (!ts) return '';
-    const date = new Date(ts);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    if (!ts) {
+      console.log('[formatTimestamp] No timestamp');
+      return '';
+    }
+    
+    let date;
+    if (typeof ts === 'string') {
+      date = new Date(ts);
+    } else if (typeof ts === 'number') {
+      // Unix timestamp: si es mayor a 10 billones, ya está en ms
+      date = ts > 10000000000 ? new Date(ts) : new Date(ts * 1000);
+    } else {
+      console.log('[formatTimestamp] Unknown type:', typeof ts);
+      return '';
+    }
+    
+    if (isNaN(date.getTime())) {
+      console.log('[formatTimestamp] Invalid date from:', ts);
+      return '';
+    }
+    
+    // Para timespan corto (2 horas), mostrar hora:minuto
+    if (timespan <= 7200) {
+      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    }
+    // Para día, mostrar hora:minuto
+    if (timespan <= 86400) {
+      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    }
+    // Para semana o más, mostrar día/mes
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   };
 
   const renderConnectivityChart = () => {
+    console.log('[ConnectivityChart] Rendering, data:', data);
+    console.log('[ConnectivityChart] Connectivity data:', data.connectivity);
+    
     if (!data.connectivity || data.connectivity.length === 0) {
+      console.log('[ConnectivityChart] No connectivity data available');
       return (
-        <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-          Sin datos de conectividad disponibles
+        <div style={{ position: 'relative', marginTop: '4px' }}>
+          <svg width="100%" height="8" style={{ display: 'block' }}>
+            <rect x={0} y={0} width="100%" height="8" fill="#e5e7eb" rx="1" />
+          </svg>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            fontSize: '11px', 
+            color: '#9ca3af', 
+            marginTop: '6px',
+            paddingLeft: '2px',
+            paddingRight: '2px'
+          }}>
+            {Array.from({ length: 6 }, (_, i) => (
+              <span key={i} style={{ textAlign: i === 0 ? 'left' : i === 5 ? 'right' : 'center' }}>--</span>
+            ))}
+          </div>
         </div>
       );
     }
 
     const points = data.connectivity;
-    const chartHeight = 60;
+    const chartHeight = 8;
+
+    const pointsWithState = points.map(p => {
+      const loss = p?.lossPercent != null ? Number(p.lossPercent) : (p?.loss != null ? Number(p.loss) : null);
+      const latency = p?.latencyMs != null ? Number(p.latencyMs) : (p?.latency != null ? Number(p.latency) : null);
+
+      let state = 'offline';
+      
+      const hasLatency = latency !== null && Number.isFinite(latency) && latency >= 0;
+      const hasLoss = loss !== null && Number.isFinite(loss) && loss >= 0;
+      
+      // Si ambos son null, verificar el estado del uplink
+      if (!hasLatency && !hasLoss) {
+        // Distinguir entre offline total y failed connection
+        if (p.uplinkStatus === 'offline') {
+          state = 'offline'; // Gris - dispositivo completamente offline/no reportando
+        } else if (p.uplinkStatus === 'failed') {
+          state = 'no_signal'; // Rojo - dispositivo reporta pero sin conexión
+        } else {
+          state = 'offline'; // Gris por defecto - sin datos
+        }
+      } else {
+        // Offline: latencia extrema (>10000ms) o pérdida casi total (>80%)
+        const seemsOffline = (hasLatency && latency > 10000) || (hasLoss && loss > 80);
+        
+        if (seemsOffline) {
+          state = 'offline'; // Gris
+        } else {
+          // Problemas: loss > 10% o latency > 200ms (más sensible)
+          const poorConnection = (hasLoss && loss > 10) || (hasLatency && latency > 200);
+          
+          if (poorConnection) {
+            state = 'no_signal'; // Rojo
+          } else {
+            state = 'connected'; // Verde
+          }
+        }
+      }
+
+      return { ...p, lossPercent: loss, latencyMs: latency, state };
+    });
+
+    const stateCount = pointsWithState.reduce((acc, p) => {
+      acc[p.state] = (acc[p.state] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('[ConnectivityChart] Estado de conectividad:', stateCount, 'Total puntos:', pointsWithState.length);
     
+    // Mostrar primeros y últimos puntos para debug
+    console.log('[ConnectivityChart] Primeros 3 puntos:', pointsWithState.slice(0, 3).map(p => ({
+      ts: p.ts,
+      latency: p.latencyMs,
+      loss: p.lossPercent,
+      state: p.state
+    })));
+    console.log('[ConnectivityChart] Últimos 3 puntos:', pointsWithState.slice(-3).map(p => ({
+      ts: p.ts,
+      latency: p.latencyMs,
+      loss: p.lossPercent,
+      state: p.state
+    })));
+
+    const handleMouseMove = (e) => {
+      if (!svgRef.current) return;
+      
+      const rect = svgRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const relativeX = x / rect.width;
+      const pointIndex = Math.floor(relativeX * pointsWithState.length);
+      const point = pointsWithState[pointIndex];
+      
+      if (point) {
+        const timestamp = point.ts || point.startTs || point.timestamp || point.time;
+        const date = timestamp ? new Date(timestamp) : null;
+        const timeStr = date ? date.toLocaleString('es-ES', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : 'Unknown time';
+        
+        let statusText = '';
+        if (point.state === 'connected') {
+          statusText = `Connected gateway (${timeStr})`;
+        } else if (point.state === 'no_signal') {
+          statusText = `Poor connection (${timeStr})`;
+        } else {
+          statusText = `No connectivity (starting ${timeStr})`;
+        }
+        
+        setTooltip({
+          visible: true,
+          x: e.clientX,
+          y: e.clientY - 40,
+          content: statusText
+        });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      setTooltip({ visible: false, x: 0, y: 0, content: '' });
+    };
+
     return (
-      <div style={{ position: 'relative', marginTop: '12px' }}>
-        <svg width="100%" height={chartHeight} viewBox={`0 0 100 ${chartHeight}`} preserveAspectRatio="none" style={{ display: 'block' }}>
-          <defs>
-            <linearGradient id="connectivityGradient" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#00d084" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#00d084" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
-          
-          {/* Área bajo la línea */}
-          <path
-            d={`${points.map((point, idx) => {
-              const x = (idx / Math.max(points.length - 1, 1)) * 100;
-              const lossPercent = point.lossPercent || point.loss || 0;
-              const y = lossPercent > 0 ? chartHeight - 5 : 5;
-              return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-            }).join(' ')} L 100 ${chartHeight} L 0 ${chartHeight} Z`}
-            fill="url(#connectivityGradient)"
-          />
-          
-          {/* Línea continua de conectividad */}
-          <path
-            d={points.map((point, idx) => {
-              const x = (idx / Math.max(points.length - 1, 1)) * 100;
-              const lossPercent = point.lossPercent || point.loss || 0;
-              const y = lossPercent > 0 ? chartHeight - 5 : 5;
-              return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-            }).join(' ')}
-            fill="none"
-            stroke="#00d084"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
+      <div style={{ position: 'relative', marginTop: '4px' }}>
+        <svg 
+          ref={svgRef}
+          width="100%" 
+          height={chartHeight} 
+          style={{ display: 'block', borderRadius: '1px', cursor: 'pointer' }}
+          preserveAspectRatio="none"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          {(() => {
+            const n = pointsWithState.length;
+            if (n === 0) return null;
+
+            return pointsWithState.map((point, idx) => {
+              const xPercent = (idx / n) * 100;
+              const widthPercent = (100 / n);
+              
+              let fillColor;
+              if (point.state === 'offline') {
+                fillColor = '#d1d5db'; // Gris - offline
+              } else if (point.state === 'no_signal') {
+                fillColor = '#ef4444'; // Rojo - conectado con problemas
+              } else {
+                fillColor = '#22c55e'; // Verde - conectado OK
+              }
+
+              return (
+                <rect
+                  key={`segment-${idx}`}
+                  x={`${xPercent}%`}
+                  y={0}
+                  width={`${widthPercent}%`}
+                  height="100%"
+                  fill={fillColor}
+                  shapeRendering="crispEdges"
+                />
+              );
+            });
+          })()}
         </svg>
         
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: '11px',
-          color: '#6b7280',
-          marginTop: '8px',
-          fontWeight: '500'
+        {/* Tooltip */}
+        {tooltip.visible && (
+          <div style={{
+            position: 'fixed',
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: 'translateX(-50%)',
+            background: '#fffbeb',
+            border: '1px solid #fbbf24',
+            borderRadius: '4px',
+            padding: '6px 10px',
+            fontSize: '12px',
+            color: '#78350f',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            {tooltip.content}
+          </div>
+        )}
+        
+        {/* Eje X con timestamps */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          fontSize: '11px', 
+          color: '#6b7280', 
+          marginTop: '6px',
+          paddingLeft: '2px',
+          paddingRight: '2px'
         }}>
-          {[0, 20, 40, 60, 80, 100].map(pct => {
+          {Array.from({ length: 6 }, (_, i) => {
+            const pct = i * 20;
             const idx = Math.floor((points.length - 1) * pct / 100);
             const point = points[idx];
-            if (!point) return <span key={pct}></span>;
-            const timestamp = point.ts || point.startTs || point.timestamp || point.time;
+            if (!point) {
+              console.log(`[Axis] No point at index ${idx} (${i}/6)`);
+              return <span key={i}>--</span>;
+            }
+            const timestamp = point.ts || point.startTs || point.timestamp || point.time || point.endTs;
+            if (i === 0 || i === 5) {
+              console.log(`[Axis] Point ${i}: idx=${idx}, ts=${timestamp}, point=`, point);
+            }
             const formatted = formatTimestamp(timestamp);
             return (
-              <span key={pct} style={{ minWidth: '40px', textAlign: 'center' }}>
-                {formatted || ''}
+              <span 
+                key={i} 
+                style={{ 
+                  textAlign: i === 0 ? 'left' : i === 5 ? 'right' : 'center',
+                  minWidth: i === 0 || i === 5 ? 'auto' : '50px'
+                }}
+              >
+                {formatted || '--'}
               </span>
             );
           })}
@@ -360,55 +562,137 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
 
   return (
     <div style={{ marginTop: '24px' }}>
+      {/* Header estilo Meraki */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '16px'
       }}>
-        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#374151' }}>
+        <h3 style={{ 
+          margin: 0, 
+          fontSize: '18px', 
+          fontWeight: '400', 
+          color: '#111827',
+          letterSpacing: '-0.01em'
+        }}>
           Historical device data
         </h3>
-        <select
-          value={timespan}
-          onChange={(e) => setTimespan(parseInt(e.target.value))}
-          style={{
-            padding: '5px 10px',
-            borderRadius: '4px',
-            border: '1px solid #d1d5db',
-            fontSize: '12px',
-            color: '#4b5563',
-            background: 'white',
-            cursor: 'pointer',
-            fontFamily: 'inherit'
-          }}
-        >
-          <option value={3600}>Last hour</option>
-          <option value={86400}>Last day</option>
-          <option value={604800}>Last week</option>
-        </select>
+        
+        {/* Dropdown estilo Meraki */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            style={{
+              padding: '6px 32px 6px 12px',
+              borderRadius: '4px',
+              border: '1px solid #d1d5db',
+              fontSize: '13px',
+              color: '#374151',
+              background: 'white',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              position: 'relative'
+            }}
+          >
+            {getTimespanLabel()}
+            <span style={{ 
+              position: 'absolute',
+              right: '10px',
+              fontSize: '10px',
+              color: '#6b7280'
+            }}>▼</span>
+          </button>
+          
+          {dropdownOpen && (
+            <>
+              <div 
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 999
+                }}
+                onClick={() => setDropdownOpen(false)}
+              />
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '4px',
+                background: 'white',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                minWidth: '180px',
+                zIndex: 1000,
+                overflow: 'hidden'
+              }}>
+                {timespanOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    onClick={() => {
+                      setTimespan(option.value);
+                      setDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      color: '#374151',
+                      cursor: 'pointer',
+                      background: timespan === option.value ? '#f3f4f6' : 'white',
+                      fontWeight: timespan === option.value ? '500' : '400'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = timespan === option.value ? '#f3f4f6' : 'white'}
+                  >
+                    {option.label}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
+      {/* Connectivity Chart */}
       <div style={{
         background: 'white',
         borderRadius: '6px',
-        padding: '20px',
-        marginBottom: '12px',
+        padding: '16px 20px',
+        marginBottom: '16px',
         border: '1px solid #e5e7eb'
       }}>
-        <h4 style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>
+        <h4 style={{ 
+          margin: '0 0 12px 0', 
+          fontSize: '13px', 
+          fontWeight: '600', 
+          color: '#4b5563'
+        }}>
           Connectivity
         </h4>
         {renderConnectivityChart()}
       </div>
 
+      {/* Client Usage Chart */}
       <div style={{
         background: 'white',
         borderRadius: '6px',
-        padding: '20px 20px 20px 60px',
+        padding: '16px 20px 16px 60px',
         border: '1px solid #e5e7eb'
       }}>
-        <h4 style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>
+        <h4 style={{ 
+          margin: '0 0 12px 0', 
+          fontSize: '13px', 
+          fontWeight: '600', 
+          color: '#4b5563',
+          marginLeft: '-40px'
+        }}>
           Client usage
         </h4>
         {renderUplinkUsageChart()}

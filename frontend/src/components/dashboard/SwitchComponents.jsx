@@ -113,9 +113,9 @@ export const SwitchPortsGrid = ({ ports = [] }) => {
  * Card de switch con detalles y puertos
  */
 export const SwitchCard = ({ sw }) => {
+  const statusNormalized = normalizeReachability(sw.status);
   const statusColor = getStatusColor(sw.status);
   const portsToShow = Array.isArray(sw.ports) ? sw.ports : [];
-  const isOnline = normalizeReachability(sw.status) === 'connected';
   const uplinkInfo = sw.connectedTo || null;
 
   const switchTooltip = sw.tooltipInfo ? (
@@ -206,9 +206,9 @@ export const SwitchCard = ({ sw }) => {
           )}
         </div>
         <span 
-          className={`status-badge ${isOnline ? 'online' : 'offline'}`}
+          className={`status-badge ${statusNormalized}`}
           style={{ 
-            background: isOnline ? '#d1fae5' : '#fee2e2',
+            background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef9c3' : '#fee2e2',
             color: statusColor 
           }}
         >
@@ -218,7 +218,7 @@ export const SwitchCard = ({ sw }) => {
             borderRadius: '50%', 
             background: statusColor 
           }} />
-          {sw.status || 'unknown'}
+          {statusNormalized === 'warning' ? 'warning' : (sw.status || 'unknown')}
         </span>
       </div>
 

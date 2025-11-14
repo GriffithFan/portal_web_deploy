@@ -652,6 +652,18 @@ async function getOrgWirelessDevicesEthernetStatuses(organizationId, params = {}
   }
 }
 
+async function getOrgDevicesAvailabilitiesChangeHistory(organizationId, params = {}) {
+  try {
+    // Returns history of device availability changes
+    // Params: t0, t1, timespan, serials[], productTypes[], networkIds[], perPage, startingAfter, endingBefore
+    const { data } = await client.get(`/organizations/${organizationId}/devices/availabilities/changeHistory`, { params });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching devices availabilities change history:`, error.message);
+    return [];
+  }
+}
+
 module.exports = {
   getOrganizations,
   getNetworks,
@@ -726,5 +738,7 @@ module.exports = {
   getNetworkApplianceUplinksUsageHistory,
   getOrgApplianceUplinksStatusesOverview,
   // Wireless ethernet statuses
-  getOrgWirelessDevicesEthernetStatuses
+  getOrgWirelessDevicesEthernetStatuses,
+  // Device availabilities
+  getOrgDevicesAvailabilitiesChangeHistory
 };

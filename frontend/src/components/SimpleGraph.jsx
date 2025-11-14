@@ -16,9 +16,9 @@ const STATUS_COLOR = {
   online: '#45991f',
   connected: '#45991f',
   ready: '#45991f',
-  alerting: '#f1c40f',
-  warning: '#f1c40f',
-  degraded: '#f39c12',
+  alerting: '#f59e0b',
+  warning: '#f59e0b',
+  degraded: '#f59e0b',
   offline: '#e74c3c',
   down: '#e74c3c'
 };

@@ -13,7 +13,7 @@
   z-index: 99999;
   background: rgba(15, 23, 42, 0.97);
   color: #fff;
-  padding: 10px 14px;
+  padding: 6px 18px;
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.5;
@@ -22,9 +22,9 @@
   pointer-events: none;
   animation: tooltipFadeIn 0.15s ease-out;
   backdrop-filter: blur(10px);
-  min-width: 280px;
-  max-width: 450px;
-  white-space: normal;
+  min-width: 90px;
+  max-width: 220px;
+  white-space: nowrap;
 }
 
 .tooltip-top {

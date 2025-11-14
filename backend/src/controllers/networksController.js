@@ -431,6 +431,9 @@ exports.getNetworkSection = async (req, res) => {
         console.log('\n========================================');
         console.log('PROCESANDO ACCESS POINTS');
         console.log('========================================');
+        console.log(`Devices disponibles: ${devices.length}`);
+        console.log(`Switches disponibles: ${switches ? switches.length : 'undefined'}`);
+        console.log(`AccessPoints disponibles: ${accessPoints.length}`);
         
         logger.debug('Procesando puntos de acceso para', networkId);
         
@@ -615,6 +618,29 @@ exports.getNetworkSection = async (req, res) => {
           };
         });
         
+        // CORRECCIÓN GAP: En redes con Z3 + APs sin switches, el AP siempre va en puerto 5 (PoE)
+        // Detectar si es configuración GAP
+        const hasZ3 = devices.some(d => (d.model || '').toUpperCase().startsWith('Z3'));
+        const switchCount = (switches && Array.isArray(switches)) ? switches.length : 0;
+        const isGAPConfiguration = hasZ3 && switchCount === 0 && result.accessPoints.length === 1;
+        
+        console.log(`[GAP Detection] hasZ3=${hasZ3}, switchCount=${switchCount}, APcount=${result.accessPoints.length}, isGAP=${isGAPConfiguration}`);
+        
+        if (isGAPConfiguration) {
+          logger.debug('Configuración GAP detectada - corrigiendo puerto del AP a puerto 5 (PoE)');
+          result.accessPoints = result.accessPoints.map(ap => {
+            // Buscar el nombre del appliance/predio desde connectedTo
+            const connectedDevice = ap.connectedTo.split('/')[0].trim();
+            console.log(`[GAP Fix] AP ${ap.serial}: "${ap.connectedTo}" -> "${connectedDevice}/Port 5"`);
+            return {
+              ...ap,
+              connectedTo: `${connectedDevice}/Port 5`,
+              connectedPort: '5',
+              _correctedForGAP: true
+            };
+          });
+        }
+        
         if (networkWirelessStats) {
           result.networkWirelessStats = {
             assoc: networkWirelessStats.assoc || 0,
@@ -733,20 +759,24 @@ exports.getApplianceConnectivityMonitoring = async (req, res) => {
 exports.getApplianceHistorical = async (req, res) => {
   try {
     const { networkId } = req.params;
-    const timespan = parseInt(req.query.timespan) || 86400;
+    const timespan = parseInt(req.query.timespan) || 3600;
     const resolution = parseInt(req.query.resolution) || 300;
     
     logger.info(`[HISTORICAL] Request for network ${networkId}, timespan: ${timespan}s, resolution: ${resolution}s`);
     
     const devices = await getNetworkDevices(networkId);
-    const mxDevice = devices.find(d => (d.model || '').toLowerCase().startsWith('mx'));
-    
+    // Prefer MX devices but accept Z-family appliances (Z3, Z3C) as appliance devices for historical data
+    const mxDevice = devices.find(d => {
+      const m = (d.model || '').toString().toLowerCase();
+      return m.startsWith('mx') || m.startsWith('z');
+    });
+
     if (!mxDevice) {
-      logger.info(`[HISTORICAL] No MX device found for network ${networkId}`);
+      logger.info(`[HISTORICAL] No appliance (MX/Z) device found for network ${networkId}`);
       return res.json({ connectivity: [], uplinkUsage: [] });
     }
-    
-    logger.info(`[HISTORICAL] Found MX device: ${mxDevice.serial} (${mxDevice.model})`);
+
+    logger.info(`[HISTORICAL] Found appliance device: ${mxDevice.serial} (${mxDevice.model})`);
 
     const orgId = await resolveNetworkOrgId(networkId);
     if (!orgId) {
@@ -855,9 +885,25 @@ exports.getApplianceHistorical = async (req, res) => {
       logger.info(`[HISTORICAL] First generated connectivity point:`, JSON.stringify(connectivityData[0]));
     }
 
+    // If both connectivity and uplinkUsage are empty, log detailed diagnostics (truncated)
+    const uplinkUsageArray = uplinkUsage.status === 'fulfilled' ? (uplinkUsage.value || []) : [];
+    if ((!connectivityData || connectivityData.length === 0) && (!uplinkUsageArray || uplinkUsageArray.length === 0)) {
+      try {
+        logger.info(`[HISTORICAL-DEBUG] Empty historical payload for network ${networkId}, device ${mxDevice?.serial || 'unknown'}`);
+        logger.info(`[HISTORICAL-DEBUG] orgId: ${orgId}`);
+        logger.info(`[HISTORICAL-DEBUG] uplinks (extracted): ${JSON.stringify(uplinks).substring(0, 1000)}`);
+        logger.info(`[HISTORICAL-DEBUG] devicePerformance.status: ${devicePerformance.status}`);
+        logger.info(`[HISTORICAL-DEBUG] devicePerformance.value (truncated): ${devicePerformance.status === 'fulfilled' ? JSON.stringify(devicePerformance.value).substring(0, 2000) : 'N/A'}`);
+        logger.info(`[HISTORICAL-DEBUG] uplinkUsage.status: ${uplinkUsage.status}`);
+        logger.info(`[HISTORICAL-DEBUG] uplinkUsage.value (truncated): ${uplinkUsage.status === 'fulfilled' ? JSON.stringify(uplinkUsage.value).substring(0, 2000) : 'N/A'}`);
+      } catch (err) {
+        logger.warn('[HISTORICAL-DEBUG] Failed to stringify diagnostic payloads', { error: err.message });
+      }
+    }
+
     res.json({
       connectivity: connectivityData,
-      uplinkUsage: uplinkUsage.status === 'fulfilled' ? (uplinkUsage.value || []) : []
+      uplinkUsage: uplinkUsageArray
     });
   } catch (error) {
     logger.error('[HISTORICAL] Error:', { data: error.response?.data || error.message });

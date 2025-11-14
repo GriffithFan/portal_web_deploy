@@ -45,12 +45,29 @@ const MODEL_PORT_LAYOUTS = {
       wan2: 2,
     },
   },
+  Z3: {
+    management: [],
+    columns: [
+      { label: 'Internet', kind: 'wan', top: { number: 1, overrides: { role: 'wan', type: 'wan', enabled: true } } },
+      { label: '', kind: 'lan', top: { number: 2 } },
+      { label: '', kind: 'lan', top: { number: 3 } },
+      { label: '', kind: 'lan', top: { number: 4 } },
+      { label: '', kind: 'lan', top: { number: 5 } },
+    ],
+    interfaceToPort: {
+      wan1: 1,
+    },
+  },
 };
 
 const getModelLayout = (model = '') => {
   if (!model) return null;
   const normalized = model.toString().trim().toUpperCase();
-  return MODEL_PORT_LAYOUTS[normalized] || null;
+  // Support Z3 variants like Z3C, Z3-*, etc.
+  if (normalized.startsWith('Z3')) return MODEL_PORT_LAYOUTS.Z3;
+  // Check exact model matches (MX84, MX68, etc.)
+  if (MODEL_PORT_LAYOUTS[normalized]) return MODEL_PORT_LAYOUTS[normalized];
+  return null;
 };
 
 const toDescriptor = (value) => {
@@ -144,8 +161,20 @@ const parsePortNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const getPortAlias = (port) => {
+const getPortAlias = (port, networkName = '', model = '', group = '', deviceCount = {}) => {
   if (!port) return '';
+  
+  // Para redes USAP con dispositivos MX, mostrar Wan1 y Wan2
+  // USAP se detecta por: tiene MX + más de 3 APs
+  const isUSAP = (networkName && networkName.toUpperCase().includes('USAP')) || 
+                 (deviceCount.aps > 3 && deviceCount.hasMX);
+  const isMX = model && model.toUpperCase().startsWith('MX');
+  
+  if (isUSAP && isMX && (group === 'wan' || port.role === 'wan') && port.number) {
+    if (port.number === 1) return 'Wan1';
+    if (port.number === 2) return 'Wan2';
+  }
+  
   if (port.uplink?.interface) return port.uplink.interface.toUpperCase();
   if (port.name && port.name.trim()) return port.name;
   if (port.label && port.label.trim()) return port.label;
@@ -173,6 +202,11 @@ const buildPortClassName = (port, { rotated } = {}) => {
     classes.push('disabled');
   } else {
     const normalized = normalizeReachability(port?.statusNormalized || port?.status);
+    // treat explicit 'warning' normalized state as warning class
+    if (normalized === 'warning') {
+      classes.push('warning');
+      return classes.join(' ');
+    }
     const hasCarrier = port?.hasCarrier === true
       || normalizeReachability(port?.uplink?.statusNormalized || port?.uplink?.status) === 'connected'
       || normalized === 'connected'
@@ -198,13 +232,16 @@ const NodePortIcon = ({ port, rotated = false }) => {
   if (!port) return null;
   
   // Construir contenido del tooltip
+  // If port has explicit tooltipInfo use it, otherwise if topology provided a connection object
+  // render a simple connection tooltip so connected endpoints (APs) show info.
+  // NodePortIconSfp: tooltip handling mirrors NodePortIcon, include topology connection fallback
   const tooltipContent = port?.tooltipInfo ? (
     <div>
-      <div className="tooltip-title">Puerto {port.number || port.displayNumber}</div>
-      {port.tooltipInfo.type === 'lan-switch-connection' && (
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      {(port.tooltipInfo.type === 'lan-switch-connection' || port.tooltipInfo.type === 'lan-ap-connection') && (
         <>
           <div className="tooltip-row">
-            <span className="tooltip-label">Dispositivo</span>
+            <span className="tooltip-label">Device</span>
             <span className="tooltip-value">{port.tooltipInfo.deviceName}</span>
           </div>
           <div className="tooltip-row">
@@ -212,16 +249,22 @@ const NodePortIcon = ({ port, rotated = false }) => {
             <span className="tooltip-value">{port.tooltipInfo.deviceSerial}</span>
           </div>
           <div className="tooltip-row">
-            <span className="tooltip-label">Puerto remoto</span>
-            <span className="tooltip-value">Puerto {port.tooltipInfo.devicePort}</span>
+            <span className="tooltip-label">Type</span>
+            <span className="tooltip-value">{port.tooltipInfo.deviceType === 'ap' ? 'Access Point' : 'Switch'}</span>
           </div>
+          {port.tooltipInfo.devicePort && port.tooltipInfo.devicePort !== '-' && (
+            <div className="tooltip-row">
+              <span className="tooltip-label">Remote port</span>
+              <span className="tooltip-value">Port {port.tooltipInfo.devicePort}</span>
+            </div>
+          )}
           <div className="tooltip-row">
-            <span className="tooltip-label">Detección</span>
+            <span className="tooltip-label">Detection</span>
             <span className="tooltip-value">{port.tooltipInfo.detectionMethod || 'LLDP'}</span>
           </div>
           <div className="tooltip-row">
-            <span className="tooltip-label">Estado</span>
-            <span className={`tooltip-badge ${port.tooltipInfo.status === 'connected' ? 'success' : 'error'}`}>
+            <span className="tooltip-label">Status</span>
+            <span className={`tooltip-badge ${port.tooltipInfo.status === 'connected' ? 'success' : port.tooltipInfo.status === 'warning' ? 'warning' : 'error'}`}>
               {port.tooltipInfo.status}
             </span>
           </div>
@@ -230,18 +273,18 @@ const NodePortIcon = ({ port, rotated = false }) => {
       {!port.tooltipInfo.type && (
         <>
           <div className="tooltip-row">
-            <span className="tooltip-label">Rol</span>
+            <span className="tooltip-label">Role</span>
             <span className="tooltip-value">{port.role || port.type || 'LAN'}</span>
           </div>
           {port.status && (
             <div className="tooltip-row">
-              <span className="tooltip-label">Estado</span>
+              <span className="tooltip-label">Status</span>
               <span className="tooltip-value">{port.status}</span>
             </div>
           )}
           {(port.speed || port.speedLabel) && (
             <div className="tooltip-row">
-              <span className="tooltip-label">Velocidad</span>
+              <span className="tooltip-label">Speed</span>
               <span className="tooltip-value">{port.speedLabel || port.speed}</span>
             </div>
           )}
@@ -250,8 +293,35 @@ const NodePortIcon = ({ port, rotated = false }) => {
     </div>
   ) : null;
 
+  const topologyTooltip = !port?.tooltipInfo && port?.connection ? (
+    <div>
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Device</span>
+        <span className="tooltip-value">{port.connection.deviceName}</span>
+      </div>
+      {port.connection.deviceSerial && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Serial</span>
+          <span className="tooltip-value">{port.connection.deviceSerial}</span>
+        </div>
+      )}
+      {port.connection.deviceType && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Type</span>
+          <span className="tooltip-value">{port.connection.deviceType}</span>
+        </div>
+      )}
+      <div className="tooltip-row">
+        <span className="tooltip-label">Detected via</span>
+        <span className="tooltip-value">Topology</span>
+      </div>
+    </div>
+  ) : null;
+  // If no tooltipInfo but topology connection exists, show basic connection tooltip
+  
   return (
-    <Tooltip content={tooltipContent} position="top">
+  <Tooltip content={tooltipContent || topologyTooltip} position="top">
       <svg
         viewBox="0 0 30 25"
         preserveAspectRatio="none"
@@ -271,11 +341,11 @@ const NodePortIconSfp = ({ port, rotated = false }) => {
   // Construir contenido del tooltip (mismo que NodePortIcon)
   const tooltipContent = port?.tooltipInfo ? (
     <div>
-      <div className="tooltip-title">Puerto {port.number || port.displayNumber}</div>
-      {port.tooltipInfo.type === 'lan-switch-connection' && (
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      {(port.tooltipInfo.type === 'lan-switch-connection' || port.tooltipInfo.type === 'lan-ap-connection') && (
         <>
           <div className="tooltip-row">
-            <span className="tooltip-label">Dispositivo</span>
+            <span className="tooltip-label">Device</span>
             <span className="tooltip-value">{port.tooltipInfo.deviceName}</span>
           </div>
           <div className="tooltip-row">
@@ -283,16 +353,22 @@ const NodePortIconSfp = ({ port, rotated = false }) => {
             <span className="tooltip-value">{port.tooltipInfo.deviceSerial}</span>
           </div>
           <div className="tooltip-row">
-            <span className="tooltip-label">Puerto remoto</span>
-            <span className="tooltip-value">Puerto {port.tooltipInfo.devicePort}</span>
+            <span className="tooltip-label">Type</span>
+            <span className="tooltip-value">{port.tooltipInfo.deviceType === 'ap' ? 'Access Point' : 'Switch'}</span>
           </div>
+          {port.tooltipInfo.devicePort && port.tooltipInfo.devicePort !== '-' && (
+            <div className="tooltip-row">
+              <span className="tooltip-label">Remote port</span>
+              <span className="tooltip-value">Port {port.tooltipInfo.devicePort}</span>
+            </div>
+          )}
           <div className="tooltip-row">
-            <span className="tooltip-label">Detección</span>
+            <span className="tooltip-label">Detection</span>
             <span className="tooltip-value">{port.tooltipInfo.detectionMethod || 'LLDP'}</span>
           </div>
           <div className="tooltip-row">
-            <span className="tooltip-label">Estado</span>
-            <span className={`tooltip-badge ${port.tooltipInfo.status === 'connected' ? 'success' : 'error'}`}>
+            <span className="tooltip-label">Status</span>
+            <span className={`tooltip-badge ${port.tooltipInfo.status === 'connected' ? 'success' : port.tooltipInfo.status === 'warning' ? 'warning' : 'error'}`}>
               {port.tooltipInfo.status}
             </span>
           </div>
@@ -301,18 +377,18 @@ const NodePortIconSfp = ({ port, rotated = false }) => {
       {!port.tooltipInfo.type && (
         <>
           <div className="tooltip-row">
-            <span className="tooltip-label">Rol</span>
+            <span className="tooltip-label">Role</span>
             <span className="tooltip-value">{port.role || port.type || 'LAN'}</span>
           </div>
           {port.status && (
             <div className="tooltip-row">
-              <span className="tooltip-label">Estado</span>
+              <span className="tooltip-label">Status</span>
               <span className="tooltip-value">{port.status}</span>
             </div>
           )}
           {(port.speed || port.speedLabel) && (
             <div className="tooltip-row">
-              <span className="tooltip-label">Velocidad</span>
+              <span className="tooltip-label">Speed</span>
               <span className="tooltip-value">{port.speedLabel || port.speed}</span>
             </div>
           )}
@@ -321,8 +397,34 @@ const NodePortIconSfp = ({ port, rotated = false }) => {
     </div>
   ) : null;
 
+  const topologyTooltipSfp = !port?.tooltipInfo && port?.connection ? (
+    <div>
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Device</span>
+        <span className="tooltip-value">{port.connection.deviceName}</span>
+      </div>
+      {port.connection.deviceSerial && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Serial</span>
+          <span className="tooltip-value">{port.connection.deviceSerial}</span>
+        </div>
+      )}
+      {port.connection.deviceType && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Type</span>
+          <span className="tooltip-value">{port.connection.deviceType}</span>
+        </div>
+      )}
+      <div className="tooltip-row">
+        <span className="tooltip-label">Detected via</span>
+        <span className="tooltip-value">Topology</span>
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <Tooltip content={tooltipContent} position="top">
+    <Tooltip content={tooltipContent || topologyTooltipSfp} position="top">
       <svg
         viewBox="0 0 30 25"
         preserveAspectRatio="none"
@@ -582,15 +684,45 @@ const buildColumns = (ports = [], model, uplinks = [], connectedOverrides = []) 
   };
 };
 
-const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverrides = [] }) => {
+const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverrides = [], networkName = '', deviceCount = {} }) => {
   const { management, columns } = useMemo(
     () => buildColumns(ports, model, uplinks, connectedOverrides),
     [ports, model, uplinks, connectedOverrides]
   );
+  
+  // If buildColumns returned nothing but we do have a known model layout (e.g. Z3),
+  // render a fallback matrix based on the layout so the UI isn't empty.
+  const layout = getModelLayout(model);
   const hasContent = management.length || columns.some((column) => column.top || column.bottom);
-  if (!hasContent) return null;
+  const shouldRenderFallback = !hasContent && layout;
+  
+  if (!hasContent && !shouldRenderFallback) {
+    return null;
+  }
+
+  const isZ3 = model && typeof model === 'string' && model.toString().trim().toUpperCase().startsWith('Z3');
 
   const wanColumnCount = columns.filter((column) => column.group === 'wan').length;
+  // Fallback columns based on layout when buildColumns returned none
+  const fallbackColumns = shouldRenderFallback ? (layout.columns || []).map((column) => {
+    const topRaw = column.top ?? null;
+    const bottomRaw = column.bottom ?? null;
+    const topNumber = topRaw && (topRaw.number ?? topRaw) ? (parsePortNumber(topRaw.number ?? topRaw) ?? null) : null;
+    const bottomNumber = bottomRaw && (bottomRaw.number ?? bottomRaw) ? (parsePortNumber(bottomRaw.number ?? bottomRaw) ?? null) : null;
+    return {
+      group: column.kind === 'wan' ? 'wan' : 'lan',
+      label: column.label || '',
+      top: topNumber !== null ? createPlaceholderPort({ number: topNumber, displayNumber: column.top?.displayNumber || null, overrides: (column.top?.overrides || {}) }) : null,
+      bottom: bottomNumber !== null ? createPlaceholderPort({ number: bottomNumber, displayNumber: column.bottom?.displayNumber || null, overrides: (column.bottom?.overrides || {}) }) : null,
+    };
+  }) : null;
+  const effectiveColumns = shouldRenderFallback ? fallbackColumns : columns;
+  
+  // Validación defensiva: asegurar que effectiveColumns sea un array válido
+  if (!effectiveColumns || !Array.isArray(effectiveColumns)) {
+    return null;
+  }
+  
   const managementCellClass = management.length ? 'NodePortCell lastOfMiniGroup' : 'NodePortCell';
 
   const renderManagementIcons = () => {
@@ -624,65 +756,194 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
     return wanIndex === wanColumnCount - 1 ? 'NodePortCell lastOfGroup' : 'NodePortCell';
   };
 
-  const formatPortNumber = (port) => {
+  const formatPortNumber = (port, group = '') => {
     if (!port) return '';
     if (port.displayNumber) return port.displayNumber;
     if (port.number !== undefined && port.number !== null && port.number !== '') return port.number;
-    const alias = getPortAlias(port);
+    const alias = getPortAlias(port, networkName, model, group, deviceCount);
     return alias || '';
   };
 
+  // Prefer a plain numeric port label when available (useful for WAN mappings like 'wan1' -> '1')
+  const formatVisiblePortNumber = (port, group) => {
+    if (!port) return '';
+    
+    // Para redes USAP con MX, usar el alias completo (Wan1, Wan2)
+    const isUSAP = (networkName && networkName.toUpperCase().includes('USAP')) || 
+                   (deviceCount.aps > 3 && deviceCount.hasMX);
+    const isMX = model && model.toUpperCase().startsWith('MX');
+    
+    if (isUSAP && isMX && group === 'wan') {
+      const alias = getPortAlias(port, networkName, model, group, deviceCount) || '';
+      if (alias.startsWith('Wan')) return alias; // Devolver "Wan1" o "Wan2" completo
+    }
+    
+    const numeric = parsePortNumber(port.number ?? port.displayNumber);
+    if (numeric !== null) return numeric;
+    // For WAN group where interface aliases like 'wan1' might be present, try extracting trailing digit
+    if (group === 'wan') {
+      const alias = getPortAlias(port, networkName, model, group, deviceCount) || '';
+      const m = alias.toString().match(/(\d+)$/);
+      if (m) return Number(m[1]);
+    }
+    return formatPortNumber(port, group);
+  };
+
+  const isPoEPort = (port, model) => {
+    if (!port) return false;
+    // If data explicitly marks PoE, respect it
+  if (port.poeEnabled || port.poe === true || port.poeActive === true || port.poeActivePorts) return true;
+
+    // Force PoE on port 5 for Z3-family models (Z3, Z3C, etc.) — Z3 has port 5 electrified by default
+    if (model && typeof model === 'string') {
+      const normalized = model.toString().trim().toUpperCase();
+      if (normalized.startsWith('Z3')) {
+        const num = parsePortNumber(port.number ?? port.displayNumber);
+        if (num === 5) return true;
+      }
+    }
+
+    return false;
+  };
+
+  const shouldRenderSwitchBadge = (port, parentModel) => {
+    if (!port) return false;
+    // Always render if we have an explicit lan-switch detection coming from topology/tooltip
+    if (port.tooltipInfo?.type === 'lan-switch-connection') return true;
+
+    // If topology connection explicitly marks deviceType as 'switch', render
+    if (port.connection && (port.connection.deviceType || '').toString().toLowerCase().includes('switch')) return true;
+
+    // Determine if the parent device is an appliance/UTM (MX/Z family). For appliance devices
+    // be conservative: only show SW badge when the uplink/product explicitly identifies a switch.
+    const parent = (parentModel || '').toString().toLowerCase();
+    const isAppliance = /^mx|^z/.test(parent);
+
+    if (port.uplink) {
+      const name = (port.uplink.deviceName || port.uplink.name || port.uplink.description || '').toString().toLowerCase();
+      const product = (port.uplink.productType || port.uplink.model || port.uplink.deviceType || '').toString().toLowerCase();
+
+      // If uplink product explicitly contains 'switch' consider it a switch
+      if (/(^|\s)switch/.test(product)) return true;
+
+      // For non-appliance parents, allow looser heuristics (name contains ms/sw/switch)
+      if (!isAppliance && /(\bms\b|\bsw\b|switch)/.test(name)) return true;
+    }
+
+    return false;
+  };
+
   return (
-    <div className="PortMatrixWrapper">
+  <div className={`PortMatrixWrapper ${isZ3 ? 'PortMatrixWrapper--z3' : ''}`}>
+      {shouldRenderFallback && (
+        <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fff7ed', border: '1px solid #fcd34d', borderRadius: 6, color: '#92400e', fontSize: 12 }}>
+          Using layout fallback for model: {model || 'unknown'}
+        </div>
+      )}
       <span className="NodePortTableSpan" data-testid="appliance-port-matrix">
         <table className="NodePortTable">
           <tbody>
             <tr>
               <td className={managementCellClass} />
-              {columns.map((column, index) => (
+              {effectiveColumns.map((column, index) => (
                 <td key={`header-${index}`} className={classForColumn(column, index)}>
-                  {column.label}
+                  {isZ3 ? (column.label || '') : (column.group === 'wan' ? (column.label || 'Internet') : (column.label || ''))}
                 </td>
               ))}
             </tr>
             <tr>
               <td className={`${managementCellClass} port-number`} />
-              {columns.map((column, index) => (
-                <td key={`top-number-${index}`} className={`${classForColumn(column, index)} port-number`}>
-                  {formatPortNumber(column.top)}
-                </td>
-              ))}
+              {effectiveColumns.map((column, index) => {
+                if (isZ3) {
+                  const num = parsePortNumber(column.top?.number ?? column.top?.displayNumber);
+                  return (
+                    <td key={`top-number-${index}`} className={`${classForColumn(column, index)} port-number`}>
+                      <span className="port-number-value">
+                        {num}
+                        {num === 5 && isPoEPort(column.top, model) && (
+                          <span className="PoEInline" title="PoE" style={{ marginLeft: '4px' }}>⚡</span>
+                        )}
+                      </span>
+                    </td>
+                  );
+                }
+                return (
+                  <td key={`top-number-${index}`} className={`${classForColumn(column, index)} port-number`}>
+                    {(() => {
+                      const topLabel = formatVisiblePortNumber(column.top, column.group);
+                      if (topLabel) {
+                        return (
+                          <span className="port-number-value">
+                            {topLabel}
+                            {(() => {
+                              const num = parsePortNumber(column.top?.number ?? column.top?.displayNumber);
+                              if (num !== 5) return null;
+                              if (!isPoEPort(column.top, model)) return null;
+                              const normalized = normalizeReachability(column.top?.statusNormalized || column.top?.status);
+                              const active = normalized === 'connected';
+                              return (
+                                <span className={`PoEInline ${active ? 'active' : 'inactive'}`} title={active ? 'PoE — active' : 'PoE — inactive'}>⚡</span>
+                              );
+                            })()}
+                          </span>
+                        );
+                      }
+                      return column.group === 'wan' ? (column.label || 'Internet') : '';
+                    })()}
+                  </td>
+                );
+              })}
             </tr>
             <tr>
               <td className={`${managementCellClass} label-cell`}>
-                {management.length ? 'Management' : ''}
+                {!isZ3 && management.length ? 'Management' : ''}
               </td>
-              {columns.map((column, index) => (
+              {effectiveColumns.map((column, index) => (
                 <td key={`top-icon-${index}`} className={classForColumn(column, index)}>
-                  <NodePort port={column.top} rotated={false} />
+                  <div className="port-content">
+                    <NodePort port={column.top} rotated={false} />
+                  </div>
                 </td>
               ))}
             </tr>
-            <tr>
-              <td className={managementCellClass}>
-                {renderManagementIcons()}
-              </td>
-              {columns.map((column, index) => (
-                <td key={`bottom-icon-${index}`} className={classForColumn(column, index)}>
-                  <NodePort port={column.bottom} rotated={Boolean(column.bottom)} />
+            {!isZ3 && (
+              <tr>
+                <td className={managementCellClass}>
+                  {renderManagementIcons()}
                 </td>
-              ))}
-            </tr>
-            <tr>
-              <td className={managementCellClass}>
-                {renderManagementNumbers()}
-              </td>
-              {columns.map((column, index) => (
-                <td key={`bottom-number-${index}`} className={`${classForColumn(column, index)} port-number`}>
-                  {formatPortNumber(column.bottom)}
+                {effectiveColumns.map((column, index) => (
+                  <td key={`bottom-icon-${index}`} className={classForColumn(column, index)}>
+                    <div className="port-content">
+                      <NodePort port={column.bottom} rotated={Boolean(column.bottom)} />
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            )}
+            {!isZ3 && (
+              <tr>
+                <td className={managementCellClass}>
+                  {renderManagementNumbers()}
                 </td>
-              ))}
-            </tr>
+                {effectiveColumns.map((column, index) => (
+                  <td key={`bottom-number-${index}`} className={`${classForColumn(column, index)} port-number`}>
+                    <span className="port-number-value">
+                      {formatVisiblePortNumber(column.bottom, column.group)}
+                      {(() => {
+                        const num = parsePortNumber(column.bottom?.number ?? column.bottom?.displayNumber);
+                        if (num !== 5) return null;
+                        if (!isPoEPort(column.bottom, model)) return null;
+                        const normalized = normalizeReachability(column.bottom?.statusNormalized || column.bottom?.status);
+                        const active = normalized === 'connected';
+                        return (
+                          <span className={`PoEInline ${active ? 'active' : 'inactive'}`} title={active ? 'PoE — active' : 'PoE — inactive'}>⚡</span>
+                        );
+                      })()}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+            )}
           </tbody>
         </table>
       </span>
@@ -691,3 +952,6 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
 };
 
 export default AppliancePortsMatrix;
+
+// Named export for individual port renderer used by other components
+export { NodePort };

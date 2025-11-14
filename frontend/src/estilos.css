@@ -382,17 +382,21 @@
   letter-spacing: 0.3px;
 }
 
-.status-badge.online {
+.status-badge.online,
+.status-badge.connected {
   background: #d1fae5;
   color: #047857;
 }
 
-.status-badge.offline {
+.status-badge.offline,
+.status-badge.disconnected {
   background: #fee2e2;
   color: #b91c1c;
 }
 
-.status-badge.warning {
+.status-badge.warning,
+.status-badge.alerting,
+.status-badge.degraded {
   background: #fef3c7;
   color: #a16207;
 }

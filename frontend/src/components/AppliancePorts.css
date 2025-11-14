@@ -7,16 +7,58 @@
   margin-bottom: 18px;
 }
 
+/* Z3 / gateway-gap specific wrapper: center and constrain width so the matrix sits centered */
+.PortMatrixWrapper--z3 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 12px;
+  max-width: 560px; /* slightly reduced for tighter centering */
+  /* centering for Z3 cases (no debug outline) */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Center and constrain the inner grey table for Z3 so its left/right padding looks balanced */
+.PortMatrixWrapper--z3 .NodePortTable {
+  width: 100%;
+  max-width: 520px; /* keep table reasonably sized inside wrapper */
+  margin: 0 auto; /* center inside wrapper */
+  padding: 16px 18px 12px; /* symmetric left/right padding */
+}
+
+/* Small switch badge shown next to a port when a switch is connected to that port */
+.SwitchBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 6px;
+  margin-left: 6px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.SwitchBadge.active {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #166534;
+}
+
 .NodePortTableSpan {
   display: inline-flex;
 }
 
 .NodePortTable {
+  display: inline-block;
   background-color: #ebebeb;
   border-collapse: initial;
   border-radius: 4px;
-  padding: 10px;
+  padding: 14px 12px 10px; /* maintain some inner padding */
   font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
 }
 
 .NodePortTable tbody tr td {
@@ -122,6 +164,46 @@
   font-family: 'Font Awesome 5 Free', FontAwesome, sans-serif;
   font-size: 13px;
   text-shadow: -1px 0 #000;
+}
+
+/* Hide any PoE/bolt glyphs inside the appliance port matrix specifically to avoid stray icons */
+.PortMatrixWrapper .NodePort .poeBolt {
+  /* keep any internal svg glyphs available (not used by default) */
+  display: inline-block;
+}
+
+/* PoE badge shown next to NodePort inside the matrix */
+.NodePortCell {
+  min-width: 42px;
+  /* make content align with badge placed beside the port */
+}
+.NodePortCell .port-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+/* Removed large PoE badge; inline symbol used instead. */
+
+/* Inline PoE symbol shown next to the numeric port label (right side of the number) */
+.PoEInline {
+  margin-left: 6px;
+  font-size: 11px; /* smaller inline symbol */
+  line-height: 1;
+  vertical-align: middle;
+  display: inline-block;
+}
+.PoEInline.active {
+  color: #f59e0b; /* amber/yellow for active PoE */
+}
+.PoEInline.inactive {
+  color: #64748b; /* gray when inactive */
+}
+
+.port-number-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .NodePort.rotated .poeBolt {

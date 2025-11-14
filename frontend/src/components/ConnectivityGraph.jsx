@@ -150,9 +150,9 @@ const ConnectivityGraph = ({
   }
 
   const getStatusColor = (status) => {
-    if (status === 'connected') return '#059669';
+    if (status === 'connected') return '#22c55e';
     if (status === 'disconnected') return '#ef4444';
-    if (status === 'degraded') return '#f59e0b';
+    if (status === 'degraded' || status === 'warning') return '#f59e0b';
     return '#94a3b8';
   };
 
@@ -203,7 +203,7 @@ const ConnectivityGraph = ({
                 </div>
                 <div className="tooltip-row">
                   <span className="tooltip-label">Estado</span>
-                  <span className={`tooltip-badge ${segment.status === 'connected' ? 'success' : 'error'}`}>
+                  <span className={`tooltip-badge ${segment.status === 'connected' ? 'success' : segment.status === 'warning' ? 'warning' : 'error'}`}>
                     {segment.status}
                   </span>
                 </div>

@@ -47,11 +47,11 @@ export const TopologySection = ({ topology, devices, isMobile }) => {
             <span style={{ 
               fontSize: '14px', 
               fontWeight: '600', 
-              color: '#047857',
+              color: '#065f46',
               background: '#d1fae5',
               padding: '8px 16px',
               borderRadius: '8px',
-              border: '1px solid #10b981',
+              border: '1px solid #22c55e',
               display: 'flex',
               alignItems: 'center',
               gap: '8px'
@@ -60,10 +60,16 @@ export const TopologySection = ({ topology, devices, isMobile }) => {
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                background: '#10b981',
-                boxShadow: '0 0 4px rgba(16, 185, 129, 0.6)'
+                background: '#22c55e',
+                boxShadow: '0 0 4px rgba(34, 197, 94, 0.6)'
               }}></span>
-              {topology.nodes.length} Dispositivo{topology.nodes.length !== 1 ? 's' : ''} en Línea
+              {(() => {
+                const onlineCount = topology.nodes.filter(n => {
+                  const status = (n.status || '').toLowerCase();
+                  return status === 'online' || status === 'connected' || status === 'active';
+                }).length;
+                return `${onlineCount} Dispositivo${onlineCount !== 1 ? 's' : ''} en Línea`;
+              })()}
             </span>
           )}
           <span>Topología</span>

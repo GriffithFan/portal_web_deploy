@@ -7,6 +7,7 @@ import AppliancePortsMatrix from '../components/AppliancePortsMatrix';
 import Tooltip from '../components/Tooltip';
 import { SkeletonTable, SkeletonDeviceList, SkeletonTopology } from '../components/ui/SkeletonLoaders';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
+import { normalizeReachability, getStatusColor as getStatusColorUtil, resolvePortColor as resolvePortColorUtil, looksLikeSerial } from '../utils/networkUtils';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -72,40 +73,9 @@ const DEFAULT_SECTIONS = [
 const DEFAULT_UPLINK_TIMESPAN = 24 * 3600; // 24h
 const DEFAULT_UPLINK_RESOLUTION = 300; // 5 min buckets
 
-const normalizeReachability = (value, fallback = 'unknown') => {
-  if (!value) return fallback;
-  const normalized = value.toString().trim().toLowerCase();
-  if (/(not\s*connected|disconnected|offline|down|failed|inactive|unplugged|alerting)/.test(normalized)) return 'disconnected';
-  if (/(connected|online|up|active|ready|reachable|operational)/.test(normalized)) return 'connected';
-  if (/disabled/.test(normalized)) return 'disabled';
-  return normalized || fallback;
-};
-
-const getStatusColor = (value) => {
-  const normalized = normalizeReachability(value);
-  if (normalized === 'connected') return '#059669';
-  if (normalized === 'disconnected') return '#ef4444';
-  if (normalized === 'disabled') return '#94a3b8';
-  return '#6366f1';
-};
-
-const resolvePortColor = (port) => {
-  if (!port.enabled && port.enabled !== undefined) return '#94a3b8';
-  const normalized = normalizeReachability(port.statusNormalized || port.status);
-  if (normalized === 'connected') return '#047857';
-  if (normalized === 'disconnected' || normalized === 'disabled') return '#f59e0b';
-  return '#60a5fa';
-};
-
-const looksLikeSerial = (value) => {
-  if (!value) return false;
-  const text = value.toString().trim();
-  if (!text) return false;
-  const pattern = /^[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){2,}$/i;
-  if (pattern.test(text)) return true;
-  const compact = text.replace(/[^a-z0-9]/gi, '');
-  return compact.length >= 10 && /[a-z]/i.test(compact) && /\d/.test(compact);
-};
+// Usar funciones de networkUtils
+const getStatusColor = getStatusColorUtil;
+const resolvePortColor = resolvePortColorUtil;
 
 const formatSpeedLabel = (port) => {
   if (!port) return '-';
@@ -223,7 +193,7 @@ const AppliancePortsSummary = ({ ports = [], summary }) => {
       <div><strong>{wanPorts}</strong> WAN</div>
       {managementPorts > 0 && <div><strong>{managementPorts}</strong> Gestión</div>}
       <div><strong style={{ color: '#047857' }}>{enabledPorts}</strong> Habilitados</div>
-      <div><strong style={{ color: '#059669' }}>{connectedPorts}</strong> Conectados</div>
+      <div><strong style={{ color: '#22c55e' }}>{connectedPorts}</strong> Conectados</div>
       {poeTotal > 0 && (
         <div><strong>{poeActive}/{poeTotal}</strong> PoE activos</div>
       )}
@@ -504,13 +474,14 @@ const ConnectivityTimeline = ({ series }) => {
   if (!segments.length) return null;
 
   const statusColor = (status) => {
-    if (status === 'connected') return '#059669';
+    if (status === 'connected') return '#22c55e';
+    if (status === 'warning' || status === 'degraded' || status === 'alerting') return '#f59e0b';
     if (status === 'disabled') return '#94a3b8';
     return '#f97316';
   };
 
   return (
-    <div style={{ display: 'flex', borderRadius: 999, overflow: 'hidden', border: '1px solid #cbd5e1', height: 12, width: '100%' }}>
+    <div style={{ display: 'flex', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1', height: 10, width: '100%' }}>
       {segments.map((segment, idx) => (
         <div
           key={`${segment.status}-${idx}`}
@@ -595,7 +566,7 @@ const SignalQualitySparkline = ({ samples = [], threshold = 25 }) => {
         </linearGradient>
       </defs>
       <path d={`${linePath} L ${lastX} ${height} L 0 ${height} Z`} fill="url(#signalGradient)" opacity="0.35" />
-      <path d={linePath} fill="none" stroke="#059669" strokeWidth="2" />
+      <path d={linePath} fill="none" stroke="#22c55e" strokeWidth="2" />
       <line x1="0" x2={width} y1={thresholdY} y2={thresholdY} stroke="#f97316" strokeDasharray="6 4" strokeWidth="1" />
       <circle cx={lastX} cy={lastY} r={3} fill="#0f172a" stroke="#fff" strokeWidth="1" />
     </svg>
@@ -603,71 +574,241 @@ const SignalQualitySparkline = ({ samples = [], threshold = 25 }) => {
 };
 
 // Nuevo componente de barra de conectividad tipo Meraki Dashboard
-const ConnectivityBar = ({ ap, device }) => {
+const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp }) => {
   const targetDevice = device || ap;
-  const wireless = targetDevice.wireless || {};
-  const history = Array.isArray(wireless.history) ? wireless.history : [];
-  const isOnline = normalizeReachability(targetDevice.status) === 'connected';
+  const [connectivityData, setConnectivityData] = useState(connectivityDataProp || null);
+  const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false);
   
-  // If no history exists, show bar based on current status
-
-  if (!history.length) {
+  // Protección completa contra datos mal formados
+  const wireless = (targetDevice && targetDevice.wireless && typeof targetDevice.wireless === 'object') 
+    ? targetDevice.wireless 
+    : {};
+  
+  const historyArray = Array.isArray(wireless.history) ? wireless.history : [];
+  const historyLength = historyArray.length;
+  
+  const statusNormalized = normalizeReachability(targetDevice.status);
+  const lastReportedAt = targetDevice.lastReportedAt || null;
+  const isAP = targetDevice.model && targetDevice.model.toLowerCase().startsWith('mr');
+  
+  // Si recibimos datos como prop, usarlos
+  useEffect(() => {
+    if (connectivityDataProp) {
+      setConnectivityData(connectivityDataProp);
+    }
+  }, [connectivityDataProp]);
+  
+  // Si es un AP y NO tenemos datos en prop, usar wireless.history directamente
+  useEffect(() => {
+    // Si ya tenemos datos del prop, no cargar
+    if (connectivityDataProp) return;
+    
+    // Para APs, usar los datos de wireless.history si existen
+    if (isAP && historyLength > 0) {
+      try {
+        // Convertir wireless.history a formato de connectivity
+        const convertedData = historyArray.map((sample) => {
+        // El historial ya tiene formato de muestra de señal
+        // Convertir a formato de connectivity basándose en signalQuality
+        const quality = sample.signalQuality;
+        
+        let latencyMs = null;
+        let lossPercent = null;
+        
+        if (quality === null || quality === undefined) {
+          // Sin datos
+          latencyMs = null;
+          lossPercent = null;
+        } else if (quality === 0) {
+          // Failed connections detectadas - ROJO
+          latencyMs = 400;
+          lossPercent = 35;
+        } else if (quality < 20) {
+          // Señal muy mala - ROJO
+          latencyMs = 400;
+          lossPercent = 35;
+        } else if (quality < 40) {
+          // Señal mala - NARANJA
+          latencyMs = 200;
+          lossPercent = 15;
+        } else if (quality < 60) {
+          // Señal regular - AMARILLO
+          latencyMs = 80;
+          lossPercent = 5;
+        } else {
+          // Señal buena (quality >= 60) - VERDE
+          latencyMs = 20;
+          lossPercent = 1;
+        }
+        
+        return {
+          startTime: sample.epochMs ? Math.floor(sample.epochMs / 1000) : null,
+          endTime: sample.epochMs ? Math.floor(sample.epochMs / 1000) + 300 : null,
+          latencyMs,
+          lossPercent
+        };
+      });
+      
+      setConnectivityData(convertedData);
+      } catch (error) {
+        console.error('[ConnectivityBar] Error converting wireless.history:', error);
+        // En caso de error, generar datos sintéticos como fallback
+      }
+      return;
+    }
+    
+    // Si NO hay wireless.history, generar datos sintéticos basados en status
+    if (isAP && historyLength === 0) {
+      // Generar 144 buckets de 10 minutos (24 horas total)
+      const numBuckets = 144;
+      const bucketSize = 600; // 10 minutos en segundos
+      const now = Math.floor(Date.now() / 1000);
+      
+      // Determinar calidad basada en status del AP
+      let latencyMs = null;
+      let lossPercent = null;
+      
+      if (statusNormalized === 'online' || statusNormalized === 'connected') {
+        // Online = Verde (sin problemas)
+        latencyMs = 20;
+        lossPercent = 1;
+      } else if (statusNormalized === 'offline' || statusNormalized === 'dormant' || statusNormalized === 'disconnected') {
+        // Offline = Gris (sin datos)
+        latencyMs = null;
+        lossPercent = null;
+      } else if (statusNormalized === 'alerting' || statusNormalized === 'warning') {
+        // Warning = Amarillo/Naranja
+        latencyMs = 80;
+        lossPercent = 5;
+      } else {
+        // Desconocido = Gris
+        latencyMs = null;
+        lossPercent = null;
+      }
+      
+      const syntheticData = Array(numBuckets).fill(0).map((_, i) => {
+        const bucketStart = now - ((numBuckets - i) * bucketSize);
+        return {
+          startTime: bucketStart,
+          endTime: bucketStart + bucketSize,
+          latencyMs,
+          lossPercent
+        };
+      });
+      
+      setConnectivityData(syntheticData);
+      return;
+    }
+    
+    // Para switches y otros dispositivos sin datos de conectividad, 
+    // también generar datos sintéticos si no hay connectivityData
+    if (!isAP && !connectivityDataProp) {
+      const numBuckets = 144;
+      const bucketSize = 600;
+      const now = Math.floor(Date.now() / 1000);
+      
+      let latencyMs = null;
+      let lossPercent = null;
+      
+      if (statusNormalized === 'online' || statusNormalized === 'connected') {
+        latencyMs = 20;
+        lossPercent = 1;
+      } else if (statusNormalized === 'warning') {
+        latencyMs = 80;
+        lossPercent = 5;
+      }
+      
+      const syntheticData = Array(numBuckets).fill(0).map((_, i) => {
+        const bucketStart = now - ((numBuckets - i) * bucketSize);
+        return {
+          startTime: bucketStart,
+          endTime: bucketStart + bucketSize,
+          latencyMs,
+          lossPercent
+        };
+      });
+      
+      setConnectivityData(syntheticData);
+      return;
+    }
+  }, [isAP, historyLength, connectivityDataProp, statusNormalized, historyArray]);
+  
+  // Si no hay datos, mostrar barra verde si está online (para switches), o gris si no
+  if (!connectivityData || connectivityData.length === 0) {
+    const barColor = statusNormalized === 'online' || statusNormalized === 'connected' ? '#22c55e' : '#d1d5db';
+    const barLabel = statusNormalized === 'online' || statusNormalized === 'connected' ? 'Conectado (sin datos de tráfico)' : 'Sin datos';
+    
     return (
-      <div style={{ display: 'flex', height: '8px', borderRadius: '2px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+      <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
         <div
           style={{
             width: '100%',
-            background: isOnline ? '#45991f' : '#cbd5e1',
-            transition: 'all 0.3s ease',
+            background: barColor,
+            transition: 'all 0.3s ease'
           }}
-          title={isOnline ? 'Conectado' : 'Sin datos'}
+          title={barLabel}
         />
       </div>
     );
   }
-
-  // Crear segmentos individuales para cada muestra - sin agrupar para ver interferencias
-  const signalThreshold = 20;
-
-  const segments = history.map((sample) => {
-    const quality = sample.signalQuality ?? -1;
-    const hasFailures = sample.failures > 0; // Si tiene failures registrados, es un microcorte
+  
+  // Renderizar barras de conectividad
+  const segments = connectivityData.map((point) => {
+    const hasLatency = point.latencyMs !== null && point.latencyMs !== undefined;
+    const hasLoss = point.lossPercent !== null && point.lossPercent !== undefined;
     
-    // Si tiene failures o quality es exactamente 0 (microcorte marcado)
-    if (hasFailures || quality === 0) {
-      return { color: '#ef4444', label: `Microcorte${hasFailures ? ` (${sample.failures} fallos)` : ''}` };
-    } else if (quality < 0) {
-      // Sin datos (-1 o null)
-      return { color: '#cbd5e1', label: 'Sin señal' };
-    } else if (quality <= signalThreshold) {
-      // Señal débil pero no microcorte completo
-      return { color: '#f59e0b', label: 'Señal débil' };
+    let color = '#d1d5db';
+    let label = 'Sin datos';
+    
+    if (!hasLatency && !hasLoss) {
+      color = '#d1d5db';
+      label = 'Sin datos';
     } else {
-      // Señal buena
-      return { color: '#45991f', label: 'Conectado' };
+      const loss = point.lossPercent || 0;
+      const latency = point.latencyMs || 0;
+      
+      if (loss > 30 || latency > 500) {
+        color = '#ef4444';
+        label = 'Sin conectividad';
+      } else if (loss > 10 || latency > 200) {
+        color = '#f97316';
+        label = 'Conectividad degradada';
+      } else {
+        color = '#22c55e';
+        label = 'Conectado';
+      }
     }
+    
+    // Agregar información de tiempo al tooltip
+    let tooltip = label;
+    if (point.startTime && point.endTime) {
+      const startDate = new Date(point.startTime * 1000);
+      const endDate = new Date(point.endTime * 1000);
+      const formatTime = (d) => d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      tooltip = `${label}\n${formatTime(startDate)} - ${formatTime(endDate)}`;
+    }
+    
+    return { color, label, tooltip };
   });
-
-  const totalSamples = segments.length;
-  const segmentWidth = totalSamples > 0 ? (100 / totalSamples) : 100;
-
+  
+  const segmentWidth = connectivityData.length > 0 ? (100 / connectivityData.length) : 100;
+  
   return (
-    <div style={{ display: 'flex', height: '8px', borderRadius: '2px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-      {segments.map((segment, idx) => {
-        return (
-          <div
-            key={idx}
-            style={{
-              flex: `0 0 ${segmentWidth}%`,
-              background: segment.color,
-              transition: 'all 0.2s ease',
-              position: 'relative',
-              minWidth: '1px',
-            }}
-            title={segment.label}
-          />
-        );
-      })}
+    <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+      {segments.map((segment, idx) => (
+        <div
+          key={idx}
+          style={{
+            flex: `0 0 ${segmentWidth}%`,
+            background: segment.color,
+            transition: 'all 0.2s ease',
+            minWidth: '1px',
+            cursor: 'help'
+          }}
+          title={segment.tooltip || segment.label}
+        />
+      ))}
     </div>
   );
 };
@@ -693,7 +834,7 @@ const AccessPointCard = ({ ap, signalThreshold = 25, isEnriched = false }) => {
       }
     : null;
 
-  const isOnline = normalizeReachability(ap.status) === 'connected';
+  const statusNormalized = normalizeReachability(ap.status);
 
   return (
     <div className="modern-card">
@@ -708,9 +849,9 @@ const AccessPointCard = ({ ap, signalThreshold = 25, isEnriched = false }) => {
           </p>
         </div>
         <span 
-          className={`status-badge ${isOnline ? 'online' : 'offline'}`}
+          className={`status-badge ${statusNormalized}`}
           style={{ 
-            background: isOnline ? '#d1fae5' : '#fee2e2',
+            background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef9c3' : '#fee2e2',
             color: statusColor 
           }}
         >
@@ -942,7 +1083,7 @@ const SwitchCard = ({ sw }) => {
   const stats = sw.stats || {};
   const portsToShow = Array.isArray(sw.ports) ? sw.ports : [];
   
-  const isOnline = normalizeReachability(sw.status) === 'connected';
+  const statusNormalized = normalizeReachability(sw.status);
 
   // Información de uplink (conexión al appliance/upstream)
   const uplinkInfo = sw.connectedTo || null;
@@ -1035,24 +1176,22 @@ const SwitchCard = ({ sw }) => {
             </div>
           )}
         </div>
-        <span 
-          className={`status-badge ${isOnline ? 'online' : 'offline'}`}
-          style={{ 
-            background: isOnline ? '#d1fae5' : '#fee2e2',
-            color: statusColor 
-          }}
-        >
-          <span style={{ 
-            width: '8px', 
-            height: '8px', 
-            borderRadius: '50%', 
-            background: statusColor 
-          }} />
-          {sw.status}
-        </span>
-      </div>
-
-      {/* Stats grid */}
+      <span 
+        className={`status-badge ${statusNormalized}`}
+        style={{ 
+          background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef9c3' : '#fee2e2',
+          color: statusColor 
+        }}
+      >
+        <span style={{ 
+          width: '8px', 
+          height: '8px', 
+          borderRadius: '50%', 
+          background: statusColor 
+        }} />
+        {sw.status}
+      </span>
+    </div>      {/* Stats grid */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', 
@@ -1074,7 +1213,7 @@ const SwitchCard = ({ sw }) => {
           <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Activos
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: '#059669', marginTop: '2px' }}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: '#22c55e', marginTop: '2px' }}>
             {stats.connectedPorts || 0}
           </div>
         </div>
@@ -1129,7 +1268,9 @@ export default function Dashboard({ onLogout }) {
   const [switchesTab, setSwitchesTab] = useState('list'); // 'list' o 'ports'
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
   const [loadingLLDP, setLoadingLLDP] = useState(false); // Estado de carga de datos LLDP
+  const [apConnectivityData, setApConnectivityData] = useState({}); // Datos de conectividad por serial
   const hasAppliedPreferredRef = useRef(false);
+  const hasMarkedApsSectionRef = useRef(false); // Track if we already marked APs section as loaded
 
   // Track window width to enable mobile-specific rendering without affecting desktop
   useEffect(() => {
@@ -1207,6 +1348,7 @@ export default function Dashboard({ onLogout }) {
   // Limpiar datos enriquecidos de APs cuando cambia la red
   useEffect(() => {
     setEnrichedAPs(null);
+    hasMarkedApsSectionRef.current = false; // Reset when network changes
   }, [selectedNetwork?.id]);
 
   // Cargar datos completos de APs con LLDP/CDP cuando se selecciona access_points
@@ -1389,17 +1531,23 @@ export default function Dashboard({ onLogout }) {
     // Access Points NO necesita loadSection, usa datos del summary directamente
     // El enriquecimiento LLDP se hace en background con el otro useEffect
     if (section === 'access_points') {
-      // Marcar como cargada para evitar spinner innecesario
-      setLoadedSections(prev => new Set(prev).add('access_points'));
+      // Marcar como cargada para evitar spinner innecesario - SOLO UNA VEZ
+      if (!hasMarkedApsSectionRef.current) {
+        hasMarkedApsSectionRef.current = true;
+        setLoadedSections(prev => new Set(prev).add('access_points'));
+      }
       return;
     }
+    
+    // Reset ref when changing away from access_points
+    hasMarkedApsSectionRef.current = false;
     
     // Si la sección no está cargada, cargarla
     if (!loadedSections.has(section)) {
       console.debug(`Sección '${section}' no cargada, iniciando carga...`);
       loadSection(section);
     }
-  }, [section, selectedNetwork, loadedSections, summaryData, loadSection]);
+  }, [section, selectedNetwork, summaryData, loadSection]); // Removed loadedSections from dependencies to avoid infinite loop
 
   const search = async (q) => {
     setError('');
@@ -1713,11 +1861,11 @@ export default function Dashboard({ onLogout }) {
                   <span style={{ 
                     fontSize: '14px', 
                     fontWeight: '600', 
-                    color: '#047857',
+                    color: '#065f46',
                     background: '#d1fae5',
                     padding: '8px 16px',
                     borderRadius: '8px',
-                    border: '1px solid #10b981',
+                    border: '1px solid #22c55e',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px'
@@ -1726,10 +1874,16 @@ export default function Dashboard({ onLogout }) {
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
-                      background: '#10b981',
-                      boxShadow: '0 0 4px rgba(16, 185, 129, 0.6)'
+                      background: '#22c55e',
+                      boxShadow: '0 0 4px rgba(34, 197, 94, 0.6)'
                     }}></span>
-                    {topology.nodes.length} Dispositivo{topology.nodes.length !== 1 ? 's' : ''} en Línea
+                    {(() => {
+                      const onlineCount = topology.nodes.filter(n => {
+                        const status = (n.status || '').toLowerCase();
+                        return status === 'online' || status === 'connected' || status === 'active';
+                      }).length;
+                      return `${onlineCount} Dispositivo${onlineCount !== 1 ? 's' : ''} en Línea`;
+                    })()}
                   </span>
                 )}
                 <span>Topología</span>
@@ -1949,7 +2103,12 @@ export default function Dashboard({ onLogout }) {
                     <SummaryChip 
                       label="Online" 
                       value={switchesData.filter(sw => normalizeReachability(sw.status) === 'connected').length} 
-                      accent="#059669" 
+                      accent="#22c55e" 
+                    />
+                    <SummaryChip 
+                      label="Advertencia" 
+                      value={switchesData.filter(sw => normalizeReachability(sw.status) === 'warning').length} 
+                      accent="#f59e0b" 
                     />
                     <SummaryChip 
                       label="Offline" 
@@ -1975,7 +2134,7 @@ export default function Dashboard({ onLogout }) {
                     <tbody>
                       {sortData(switchesData, sortConfig.key, sortConfig.direction).map((sw) => {
                         const statusColor = getStatusColor(sw.status);
-                        const isOnline = normalizeReachability(sw.status) === 'connected';
+                        const statusNormalized = normalizeReachability(sw.status);
                         
                         // Construir tooltip para la tabla (igual que en SwitchCard)
                         const switchTooltip = sw.tooltipInfo ? (
@@ -2039,14 +2198,14 @@ export default function Dashboard({ onLogout }) {
                                   width: '22px',
                                   height: '22px',
                                   borderRadius: '50%',
-                                  background: isOnline ? '#d1fae5' : '#fee2e2',
+                                  background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef3c7' : statusNormalized === 'disconnected' ? '#fee2e2' : '#f1f5f9',
                                 }}
                               >
                                 <span style={{ 
                                   width: '9px', 
                                   height: '9px', 
                                   borderRadius: '50%', 
-                                  background: statusColor 
+                                  background: statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'warning' ? '#f59e0b' : statusNormalized === 'disconnected' ? '#ef4444' : '#94a3b8'
                                 }} />
                               </span>
                             </td>
@@ -2351,7 +2510,12 @@ export default function Dashboard({ onLogout }) {
                 <SummaryChip 
                   label="Online" 
                   value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'connected').length} 
-                  accent="#059669" 
+                  accent="#22c55e" 
+                />
+                <SummaryChip 
+                  label="Advertencia" 
+                  value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'warning').length} 
+                  accent="#f59e0b" 
                 />
                 <SummaryChip 
                   label="Offline" 
@@ -2376,97 +2540,106 @@ export default function Dashboard({ onLogout }) {
                   </thead>
                   <tbody>
                     {sortData(accessPoints, sortConfig.key, sortConfig.direction).map((d) => {
-                      const statusColor = getStatusColor(d.status);
-                      const isOnline = normalizeReachability(d.status) === 'connected';
-                      
-                      // Construir tooltip para AP
-                      const apTooltip = d.tooltipInfo ? (
+                      // Mejorar colores de estado y tooltips solo desktop
+                      let statusColor = '#94a3b8';
+                      const normalizedStatus = normalizeReachability(d.status);
+                      if (normalizedStatus === 'connected') statusColor = '#22c55e';
+                      else if (normalizedStatus === 'disconnected') statusColor = '#ef4444';
+                      else if (normalizedStatus === 'warning') statusColor = '#f59e0b';
+                      else if (normalizedStatus === 'disabled') statusColor = '#94a3b8';
+                      // Otros estados pueden usar color por defecto
+
+                      // Tooltip solo en desktop
+                      const isDesktop = typeof window !== 'undefined' && window.innerWidth > 900;
+                      const apTooltip = isDesktop && d.tooltipInfo ? (
                         <div>
                           <div className="tooltip-title">{d.tooltipInfo.name}</div>
-                          <div className="tooltip-row">
-                            <span className="tooltip-label">Modelo</span>
-                            <span className="tooltip-value">{d.tooltipInfo.model}</span>
-                          </div>
-                          <div className="tooltip-row">
-                            <span className="tooltip-label">Serial</span>
-                            <span className="tooltip-value">{d.tooltipInfo.serial}</span>
-                          </div>
+                          {d.tooltipInfo.model && (
+                            <div className="tooltip-row"><span className="tooltip-label">Modelo</span><span className="tooltip-value">{d.tooltipInfo.model}</span></div>
+                          )}
+                          {d.tooltipInfo.serial && (
+                            <div className="tooltip-row"><span className="tooltip-label">Serial</span><span className="tooltip-value">{d.tooltipInfo.serial}</span></div>
+                          )}
                           {d.tooltipInfo.firmware && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Firmware</span>
-                              <span className="tooltip-value">{d.tooltipInfo.firmware}</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">Firmware</span><span className="tooltip-value">{d.tooltipInfo.firmware}</span></div>
                           )}
                           {d.tooltipInfo.lanIp && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">LAN IP</span>
-                              <span className="tooltip-value">{d.tooltipInfo.lanIp}</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">LAN IP</span><span className="tooltip-value">{d.tooltipInfo.lanIp}</span></div>
                           )}
                           {d.tooltipInfo.signalQuality != null && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Calidad señal</span>
-                              <span className="tooltip-value">{d.tooltipInfo.signalQuality}%</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">Calidad señal</span><span className="tooltip-value">{d.tooltipInfo.signalQuality}%</span></div>
                           )}
                           {d.tooltipInfo.clients != null && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Clientes</span>
-                              <span className="tooltip-value">{d.tooltipInfo.clients}</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">Clientes</span><span className="tooltip-value">{d.tooltipInfo.clients}</span></div>
                           )}
                           {d.tooltipInfo.microDrops > 0 && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Microcortes</span>
-                              <span className={`tooltip-badge error`}>{d.tooltipInfo.microDrops}</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">Microcortes</span><span className={`tooltip-badge error`}>{d.tooltipInfo.microDrops}</span></div>
                           )}
                           {d.tooltipInfo.connectedTo && d.tooltipInfo.connectedTo !== '-' && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Conectado a</span>
-                              <span className="tooltip-value">{d.tooltipInfo.connectedTo}</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">Conectado a</span><span className="tooltip-value">{d.tooltipInfo.connectedTo}</span></div>
                           )}
                           {d.tooltipInfo.wiredSpeed && (
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Velocidad Ethernet</span>
-                              <span className="tooltip-value">{d.tooltipInfo.wiredSpeed}</span>
-                            </div>
+                            <div className="tooltip-row"><span className="tooltip-label">Velocidad Ethernet</span><span className="tooltip-value">{d.tooltipInfo.wiredSpeed}</span></div>
                           )}
                         </div>
                       ) : null;
-                      
+
                       return (
                         <tr key={d.serial}>
                           <td style={{ textAlign: 'center', padding: '8px 4px' }}>
-                            <span 
-                              style={{ 
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '22px',
-                                height: '22px',
-                                borderRadius: '50%',
-                                background: isOnline ? '#d1fae5' : '#fee2e2',
-                              }}
-                            >
-                              <span style={{ 
-                                width: '9px', 
-                                height: '9px', 
-                                borderRadius: '50%', 
-                                background: statusColor 
-                              }} />
-                            </span>
+                            {(() => {
+                              const statusText =
+                                normalizedStatus === 'connected' ? 'Conectado' :
+                                normalizedStatus === 'disconnected' ? 'Desconectado' :
+                                normalizedStatus === 'warning' ? 'Advertencia' :
+                                normalizedStatus === 'disabled' ? 'Deshabilitado' : 'Desconocido';
+                              const isDesktop = typeof window !== 'undefined' && window.innerWidth > 900;
+                              const statusIcon = (
+                                <span 
+                                  style={{ 
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '22px',
+                                    height: '22px',
+                                    borderRadius: '50%',
+                                    background: normalizedStatus === 'connected' ? '#d1fae5' : normalizedStatus === 'warning' ? '#fef3c7' : normalizedStatus === 'disconnected' ? '#fee2e2' : '#f1f5f9',
+                                  }}
+                                >
+                                  <span style={{ 
+                                    width: '9px', 
+                                    height: '9px', 
+                                    borderRadius: '50%', 
+                                    background: normalizedStatus === 'connected' ? '#22c55e' : normalizedStatus === 'warning' ? '#f59e0b' : normalizedStatus === 'disconnected' ? '#ef4444' : '#94a3b8'
+                                  }} />
+                                </span>
+                              );
+                              return isDesktop ? (
+                                <Tooltip content={statusText} position="top">
+                                  {statusIcon}
+                                </Tooltip>
+                              ) : statusIcon;
+                            })()}
                           </td>
                           <td style={{ textAlign: 'left', padding: '8px 10px' }}>
-                            <Tooltip content={apTooltip} position="right">
-                              <div style={{ fontWeight: '700', color: '#2563eb', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                            {isDesktop && apTooltip ? (
+                              <Tooltip content={apTooltip} position="right">
+                                <div style={{ fontWeight: '700', color: '#2563eb', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                                  {d.name || d.serial}
+                                </div>
+                              </Tooltip>
+                            ) : (
+                              <div style={{ fontWeight: '700', color: '#2563eb', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {d.name || d.serial}
                               </div>
-                            </Tooltip>
+                            )}
                           </td>
                           <td style={{ textAlign: 'left', padding: '8px 10px' }}>
-                            <ConnectivityBar ap={d} />
+                            <ConnectivityBar 
+                              ap={d} 
+                              networkId={summaryData?.networkMetadata?.networkInfo?.id}
+                              orgId={summaryData?.networkMetadata?.organizationId}
+                            />
                           </td>
                           <td style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'monospace', fontSize: '13px', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {d.serial}
@@ -2545,7 +2718,7 @@ export default function Dashboard({ onLogout }) {
                   const uplinks = Array.isArray(appliance.uplinks) ? appliance.uplinks : [];
                   const activeUplink = uplinks.find(u => normalizeReachability(u.statusNormalized || u.status) === 'connected') || uplinks[0] || {};
                   const statusNormalized = normalizeReachability(activeUplink.statusNormalized || activeUplink.status || appliance.device?.status);
-                  const color = statusNormalized === 'connected' ? '#10b981' : statusNormalized === 'disconnected' ? '#ef4444' : '#f59e0b';
+                  const color = statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'disconnected' ? '#ef4444' : '#f59e0b';
 
                   // Determine connected ports for this appliance (derived from topology or port list)
                   const connectedFromTopology = deriveConnectedPortsFromTopology(appliance.device?.serial, summaryData?.topology || null) || [];
@@ -2651,7 +2824,7 @@ export default function Dashboard({ onLogout }) {
               if (!activeUplink) return null;
 
               const statusNormalized = normalizeReachability(activeUplink.statusNormalized || activeUplink.status || activeUplink.reachability);
-              const color = statusNormalized === 'connected' ? '#10b981' : statusNormalized === 'disconnected' ? '#ef4444' : '#f59e0b';
+              const color = statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'disconnected' ? '#ef4444' : '#f59e0b';
               
               const dnsLabel = (() => {
                 if (Array.isArray(activeUplink.dns)) return activeUplink.dns.join(', ');
@@ -2679,7 +2852,7 @@ export default function Dashboard({ onLogout }) {
                       </div>
                     </div>
                     <span style={{ 
-                      background: color === '#10b981' ? '#d1fae5' : color === '#ef4444' ? '#fee2e2' : '#fef3c7',
+                      background: color === '#22c55e' ? '#d1fae5' : color === '#ef4444' ? '#fee2e2' : '#fef3c7',
                       color: color,
                       padding: '6px 16px',
                       borderRadius: 999,
@@ -2697,12 +2870,34 @@ export default function Dashboard({ onLogout }) {
                       {(() => {
                         const connectedOverrides = deriveConnectedPortsFromTopology(appliance.device?.serial, topology);
                         const enrichedPorts = enrichPortsWithConnections(appliance.ports, appliance.device?.serial, topology);
+                        
+                        // Calcular deviceCount para detectar USAP (>3 APs + tiene MX)
+                        const deviceCount = {
+                          aps: Array.isArray(devices) ? devices.filter(d => (d.model || '').toLowerCase().startsWith('mr')).length : 0,
+                          hasMX: applianceStatus.some(a => (a.device?.model || '').toUpperCase().startsWith('MX'))
+                        };
+                        
+                        // Debug: log what we pass to the matrix so we can confirm model/ports in the browser console
+                        try {
+                          // eslint-disable-next-line no-console
+                          console.debug('Rendering AppliancePortsMatrix', {
+                            serial: appliance.device?.serial,
+                            model: appliance.device?.model,
+                            portsCount: Array.isArray(enrichedPorts) ? enrichedPorts.length : 0,
+                            uplinksCount: Array.isArray(appliance.uplinks) ? appliance.uplinks.length : 0,
+                            deviceCount
+                          });
+                        } catch (e) {
+                          // ignore
+                        }
                         return (
                           <AppliancePortsMatrix
                             ports={enrichedPorts}
                             model={appliance.device?.model}
                             uplinks={appliance.uplinks}
                             connectedOverrides={connectedOverrides}
+                            networkName={selectedNetwork?.name || selectedNetwork?.predio_name || ''}
+                            deviceCount={deviceCount}
                           />
                         );
                       })()}

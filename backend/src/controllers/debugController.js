@@ -34,8 +34,6 @@ exports.analyzeTopology = async (req, res) => {
   const { networkId } = req.params;
   
   try {
-    logger.debug('Iniciando análisis de topología y LLDP...');
-    
     const [devices, topology] = await Promise.all([
       getNetworkDevices(networkId),
       getNetworkTopologyLinkLayer(networkId)
@@ -43,10 +41,6 @@ exports.analyzeTopology = async (req, res) => {
     
     const switches = devices.filter(d => d.model?.startsWith('MS'));
     const mxDevice = devices.find(d => d.model?.startsWith('MX'));
-    
-    logger.debug(`Switches: ${switches.length}, MX: ${mxDevice ? mxDevice.serial : 'NO ENCONTRADO'}`);
-    
-    // Obtener LLDP de cada switch
     const lldpData = {};
     const forceLldpRefresh = (req.query.forceLldpRefresh || '').toString().toLowerCase() === 'true' || 
                              (req.query.forceLldpRefresh || '').toString() === '1';
@@ -56,7 +50,6 @@ exports.analyzeTopology = async (req, res) => {
       try {
         const lldpInfo = (cachedLldpMap && cachedLldpMap[sw.serial]) || await getDeviceLldpCdp(sw.serial);
         lldpData[sw.serial] = lldpInfo;
-        logger.debug(`${sw.name} (${sw.serial}) - puertos LLDP: ${Object.keys(lldpInfo?.ports || {}).length}`);
       } catch (err) {
         logger.error(`Error LLDP para ${sw.serial}:`, { error: err.message });
       }
@@ -66,7 +59,6 @@ exports.analyzeTopology = async (req, res) => {
     const topologyAnalysis = [];
     if (topology && topology.links && mxDevice) {
       const mxSerial = mxDevice.serial.toUpperCase();
-      logger.debug(`Analizando ${topology.links.length} enlaces en topología...`);
       
       for (const link of topology.links) {
         const src = (link.source || link.from || link.a || '').toString().toUpperCase();
@@ -93,8 +85,6 @@ exports.analyzeTopology = async (req, res) => {
               linkTarget: dst,
               fullLink: link
             });
-            
-            logger.info(`Enlace detectado: ${sw.name} Puerto ${swPortMatch ? swPortMatch[1] : '?'} → MX Puerto ${portMatch ? portMatch[1] : '?'}`);
           }
         }
       }

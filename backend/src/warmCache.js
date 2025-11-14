@@ -13,11 +13,8 @@ const WARM_CACHE_SIZE = parseInt(process.env.WARM_CACHE_SIZE || '20');
 // Función para pre-cargar un predio completo
 async function warmUpPredio(predioCode, cache) {
   try {
-  console.log(`Iniciando precarga del predio: ${predioCode}`);
-    
     const predioInfo = findPredio(predioCode);
     if (!predioInfo || !predioInfo.network_id) {
-      console.log(`Predio ${predioCode} no encontrado en CSV`);
       return;
     }
 
@@ -99,16 +96,12 @@ async function warmUpPredio(predioCode, cache) {
       });
     }
 
-  console.log(`Predio ${predioCode} precargado: ${switches.length} switches, ${aps.length} AP, ${mx ? 'MX OK' : 'Sin MX'}`);
-    
   } catch (error) {
     console.error(`Error en la precarga del predio ${predioCode}:`, error.message);
   }
 }
 
-// Función para precargar todos los predios frecuentes
 async function warmUpFrequentPredios(cache) {
-  console.log(`Iniciando precarga de ${FREQUENT_PREDIOS.length} predios frecuentes...`);
   const startTime = Date.now();
   
   // Pre-cargar en batches de 3 para no saturar la API
@@ -122,9 +115,6 @@ async function warmUpFrequentPredios(cache) {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-  
-  const elapsed = Math.round((Date.now() - startTime) / 1000);
-  console.log(`Precarga completada en ${elapsed}s`);
 }
 
 // Función para obtener predios más usados desde un log (futuro)

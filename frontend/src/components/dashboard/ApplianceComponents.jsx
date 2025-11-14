@@ -20,14 +20,14 @@ export const AppliancePortsSummary = ({ ports = [], summary }) => {
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px' }}>
-      <div><strong>{totalPorts}</strong> Puertos totales</div>
+      <div><strong>{totalPorts}</strong> Total ports</div>
       <div><strong>{lanPorts}</strong> LAN</div>
       <div><strong>{wanPorts}</strong> WAN</div>
-      {managementPorts > 0 && <div><strong>{managementPorts}</strong> Gestión</div>}
-      <div><strong style={{ color: '#047857' }}>{enabledPorts}</strong> Habilitados</div>
-      <div><strong style={{ color: '#059669' }}>{connectedPorts}</strong> Conectados</div>
+      {managementPorts > 0 && <div><strong>{managementPorts}</strong> Management</div>}
+      <div><strong style={{ color: '#047857' }}>{enabledPorts}</strong> Enabled</div>
+      <div><strong style={{ color: '#22c55e' }}>{connectedPorts}</strong> Connected</div>
       {poeTotal > 0 && (
-        <div><strong>{poeActive}/{poeTotal}</strong> PoE activos</div>
+        <div><strong>{poeActive}/{poeTotal}</strong> PoE active</div>
       )}
     </div>
   );
@@ -53,25 +53,23 @@ export const AppliancePortGrid = ({ ports = [] }) => {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginBottom: 18 }}>
       {orderedGroups
-        .filter(([role]) => role !== 'lan') // Ocultar sección LAN
+        .filter(([role]) => role !== 'lan') // hide LAN section
         .map(([role, rolePorts]) => (
         <div key={role} style={{ flex: '1 1 260px', minWidth: 240, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.5, color: '#0f172a' }}>{role.toUpperCase()}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {rolePorts.map((port) => {
               const alias = getPortAlias(port);
-              const statusLabel = getPortStatusLabel(port);
+              const statusNormalized = normalizeReachability(port.statusNormalized || port.status);
+              const statusLabel = statusNormalized === 'warning' ? 'warning' : getPortStatusLabel(port);
               const statusColor = resolvePortColor(port);
               const usageLabel = summarizeUsage(port);
-              const poeLabel = port.poeEnabled ? 'Sí' : 'No';
+              const poeLabel = port.poeEnabled ? 'Yes' : 'No';
               const vlanLabel = port.vlan || '-';
               const uplink = port.uplink;
-              
-              // Determinar si el puerto está en uso
-              const isInUse = statusLabel.toLowerCase().includes('connected') || 
-                             statusLabel.toLowerCase().includes('active') ||
-                             statusLabel.toLowerCase().includes('ready');
-              const bgColor = isInUse ? '#fff' : '#f8fafc';
+              // determine if port is in use
+              const isInUse = statusNormalized === 'connected' || statusLabel.toLowerCase().includes('active') || statusLabel.toLowerCase().includes('ready');
+              const bgColor = isInUse ? '#fff' : statusNormalized === 'warning' ? '#fef9c3' : '#f8fafc';
 
               return (
                 <div
@@ -92,23 +90,23 @@ export const AppliancePortGrid = ({ ports = [] }) => {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 6, fontSize: 12, color: '#475569' }}>
-                    <div>Puerto: <strong>{port.number}</strong></div>
+                    <div>Port: <strong>{port.number}</strong></div>
                     <div>VLAN: <strong>{vlanLabel}</strong></div>
-                    <div>Velocidad: <strong>{formatSpeedLabel(port)}</strong></div>
-                    <div>Uso: <strong>{usageLabel.recv} ↓ / {usageLabel.sent} ↑</strong></div>
+                    <div>Speed: <strong>{formatSpeedLabel(port)}</strong></div>
+                    <div>Usage: <strong>{usageLabel.recv} ↓ / {usageLabel.sent} ↑</strong></div>
                     <div>PoE: <strong>{poeLabel}</strong></div>
                     {port.duplex && <div>Duplex: <strong>{port.duplex}</strong></div>}
-                    {port.negotiation && <div>Negociación: <strong>{port.negotiation}</strong></div>}
+                    {port.negotiation && <div>Negotiation: <strong>{port.negotiation}</strong></div>}
                   </div>
 
                   {uplink && (
                     <div style={{ fontSize: 12, color: '#1e293b', background: '#f1f5f9', borderRadius: 10, padding: '8px 10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
                       <div>IP: <strong>{uplink.ip || '-'}</strong></div>
-                      <div>IP pública: <strong>{uplink.publicIp || '-'}</strong></div>
+                      <div>Public IP: <strong>{uplink.publicIp || '-'}</strong></div>
                       <div>Gateway: <strong>{uplink.gateway || '-'}</strong></div>
                       <div>ISP: <strong>{uplink.provider || '-'}</strong></div>
                       {uplink.loss != null && <div>Loss: <strong>{uplink.loss}%</strong></div>}
-                      {uplink.latency != null && <div>Latencia: <strong>{uplink.latency} ms</strong></div>}
+                      {uplink.latency != null && <div>Latency: <strong>{uplink.latency} ms</strong></div>}
                       {uplink.jitter != null && <div>Jitter: <strong>{uplink.jitter} ms</strong></div>}
                     </div>
                   )}
