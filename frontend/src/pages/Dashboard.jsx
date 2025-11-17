@@ -172,164 +172,6 @@ const getPortStatusLabel = (port) => {
   return normalizeReachability(port.statusNormalized || port.status);
 };
 
-// Legacy components - conservados por si se necesitan más tarde
-/*
-const AppliancePortsSummary = ({ ports = [], summary }) => {
-  if (!ports.length && !summary) return null;
-
-  const totalPorts = summary?.total ?? ports.length;
-  const wanPorts = summary?.wan ?? ports.filter((p) => (p.isWan === true) || (p.role === 'wan') || (p.type === 'wan')).length;
-  const managementPorts = summary?.management ?? ports.filter((p) => (p.role || '').toLowerCase() === 'management').length;
-  const lanPorts = summary?.lan ?? Math.max(0, totalPorts - wanPorts - managementPorts);
-  const enabledPorts = summary?.enabled ?? ports.filter((p) => p.enabled !== false).length;
-  const connectedPorts = summary?.connected ?? ports.filter((p) => normalizeReachability(p.statusNormalized || p.status) === 'connected').length;
-  const poeActive = summary?.poeActive ?? ports.filter((p) => p.poeEnabled && normalizeReachability(p.statusNormalized || p.status) === 'connected').length;
-  const poeTotal = summary?.poePorts ?? ports.filter((p) => p.poeEnabled).length;
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px' }}>
-      <div><strong>{totalPorts}</strong> Puertos totales</div>
-      <div><strong>{lanPorts}</strong> LAN</div>
-      <div><strong>{wanPorts}</strong> WAN</div>
-      {managementPorts > 0 && <div><strong>{managementPorts}</strong> Gestión</div>}
-      <div><strong style={{ color: '#047857' }}>{enabledPorts}</strong> Habilitados</div>
-      <div><strong style={{ color: '#22c55e' }}>{connectedPorts}</strong> Conectados</div>
-      {poeTotal > 0 && (
-        <div><strong>{poeActive}/{poeTotal}</strong> PoE activos</div>
-      )}
-    </div>
-  );
-};
-
-const groupPortsByRole = (ports = []) => {
-  const groups = new Map();
-  ports.forEach((port) => {
-    const role = (port.role || port.type || 'LAN').toLowerCase();
-    if (!groups.has(role)) groups.set(role, []);
-    groups.get(role).push(port);
-  });
-  return groups;
-};
-
-const AppliancePortGrid = ({ ports = [] }) => {
-  if (!ports.length) return null;
-
-  const groups = groupPortsByRole(ports);
-  const preferredOrder = ['wan', 'management', 'lan', 'wifi', 'cellular', 'other'];
-  const orderedGroups = Array.from(groups.entries()).sort((a, b) => {
-    const ia = preferredOrder.indexOf(a[0]);
-    const ib = preferredOrder.indexOf(b[0]);
-    if (ia === -1 && ib === -1) return a[0].localeCompare(b[0]);
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-    return ia - ib;
-  });
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginBottom: 18 }}>
-      {orderedGroups
-        .filter(([role]) => role !== 'lan') // Ocultar sección LAN
-        .map(([role, rolePorts]) => (
-        <div key={role} style={{ flex: '1 1 260px', minWidth: 240, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.5, color: '#0f172a' }}>{role.toUpperCase()}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {rolePorts.map((port) => {
-              const alias = getPortAlias(port);
-              const statusLabel = getPortStatusLabel(port);
-              const statusColor = resolvePortColor(port);
-              const usageLabel = summarizeUsage(port);
-              const poeLabel = port.poeEnabled ? 'Sí' : 'No';
-              const vlanLabel = port.vlan || '-';
-              const uplink = port.uplink;
-              
-              // Determinar si el puerto está en uso
-              const isInUse = statusLabel.toLowerCase().includes('connected') || 
-                             statusLabel.toLowerCase().includes('active') ||
-                             statusLabel.toLowerCase().includes('ready');
-              const bgColor = isInUse ? '#fff' : '#94a3b8'; // Gris slate-400 para puertos no conectados
-
-              return (
-                <div
-                  key={`${role}-${port.number}-${alias}`}
-                  style={{
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 12,
-                    background: bgColor,
-                    padding: '12px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 8
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <div style={{ fontWeight: 700, color: '#0f172a' }}>{alias}</div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: statusColor, textTransform: 'uppercase' }}>{statusLabel}</span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 6, fontSize: 12, color: '#475569' }}>
-                    <div>Puerto: <strong>{port.number}</strong></div>
-                    <div>VLAN: <strong>{vlanLabel}</strong></div>
-                    <div>Velocidad: <strong>{formatSpeedLabel(port)}</strong></div>
-                    <div>Uso: <strong>{usageLabel}</strong></div>
-                    <div>PoE: <strong>{poeLabel}</strong></div>
-                    {port.duplex && <div>Duplex: <strong>{port.duplex}</strong></div>}
-                    {port.negotiation && <div>Negociación: <strong>{port.negotiation}</strong></div>}
-                  </div>
-
-                  {uplink && (
-                    <div style={{ fontSize: 12, color: '#1e293b', background: '#f1f5f9', borderRadius: 10, padding: '8px 10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
-                      <div>IP: <strong>{uplink.ip || '-'}</strong></div>
-                      <div>IP pública: <strong>{uplink.publicIp || '-'}</strong></div>
-                      <div>Gateway: <strong>{uplink.gateway || '-'}</strong></div>
-                      <div>ISP: <strong>{uplink.provider || '-'}</strong></div>
-                      {uplink.loss != null && <div>Loss: <strong>{uplink.loss}%</strong></div>}
-                      {uplink.latency != null && <div>Latencia: <strong>{uplink.latency} ms</strong></div>}
-                      {uplink.jitter != null && <div>Jitter: <strong>{uplink.jitter} ms</strong></div>}
-                    </div>
-                  )}
-
-                  {port.comment && (
-                    <div style={{ fontSize: 11, color: '#475569', background: '#f1f5f9', borderRadius: 8, padding: '6px 8px' }}>
-                      {port.comment}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-*/
-
-// Legacy utility functions - conservadas por compatibilidad
-/*
-const formatMetric = (value) => {
-  if (value == null) return '-';
-  if (value <= 0) return '0 Kbps';
-  if (value >= 1024) return `${(value / 1024).toFixed(1)} Mbps`;
-  if (value >= 1) return `${value.toFixed(1)} Kbps`;
-  return `${(value * 1000).toFixed(1)} bps`;
-};
-
-const formatDateTime = (value) => {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString();
-};
-
-const formatList = (value) => {
-  if (!value) return '-';
-  if (Array.isArray(value)) {
-    return value.length ? value.join(', ') : '-';
-  }
-  return value.toString();
-};
-*/
-
 const formatDuration = (seconds) => {
   const total = Number(seconds);
   if (!Number.isFinite(total) || total <= 0) return '0s';
@@ -343,7 +185,6 @@ const formatDuration = (seconds) => {
   return parts.slice(0, 2).join(' ');
 };
 
-// Intenta derivar números de puerto conectados a partir de topology.links
 const deriveConnectedPortsFromTopology = (applianceSerial, topology) => {
   try {
     if (!applianceSerial || !topology || !Array.isArray(topology.links)) return [];
@@ -1369,8 +1210,6 @@ export default function Dashboard({ onLogout }) {
 
           if (data && Array.isArray(data.accessPoints)) {
             setEnrichedAPs(data.accessPoints);
-          } else {
-            console.warn('Respuesta no contiene array accessPoints:', data);
           }
         } else {
           console.error('Respuesta no OK:', response.status, response.statusText);
@@ -1391,7 +1230,6 @@ export default function Dashboard({ onLogout }) {
     
     // Si ya está cargada y no es force, skip
     if (loadedSections.has(sectionKey) && !force) {
-        console.debug(`Sección '${sectionKey}' ya cargada, omitiendo`);
         return;
       }
     
@@ -1413,7 +1251,6 @@ export default function Dashboard({ onLogout }) {
       }
       
   const sectionData = await response.json();
-  console.debug(`Sección '${sectionKey}' cargada:`, sectionData);
       
       // Merge con summaryData existente
       setSummaryData(prev => {
@@ -1480,24 +1317,15 @@ export default function Dashboard({ onLogout }) {
       // Marcar todas las secciones como cargadas (modo completo)
       setLoadedSections(new Set(['topology', 'switches', 'access_points', 'appliance_status']));
       
-  // Debugging - suppressed from console
-      console.debug('networkMetadata:', data?.networkMetadata);
-      console.debug('predioInfo:', data?.networkMetadata?.predioInfo);
-      console.debug('wirelessInsights:', data?.wirelessInsights);
-      if (data?.wirelessInsights?.devices?.length > 0) {
-        console.debug('First wireless device from summary:', JSON.stringify(data.wirelessInsights.devices[0], null, 2));
-      }
+
       
       // Enriquecer selectedNetwork con predio_code si está disponible
       if (data?.networkMetadata?.predioInfo?.predio_code) {
-  console.log('Actualizando selectedNetwork con predio_code:', data.networkMetadata.predioInfo.predio_code);
         setSelectedNetwork(prev => ({
           ...prev,
           predio_code: data.networkMetadata.predioInfo.predio_code
         }));
-      } else {
-  console.warn('No se encontró predio_code en predioInfo');
-    }
+      }
     
     return data;
   };
@@ -1544,7 +1372,6 @@ export default function Dashboard({ onLogout }) {
     
     // Si la sección no está cargada, cargarla
     if (!loadedSections.has(section)) {
-      console.debug(`Sección '${section}' no cargada, iniciando carga...`);
       loadSection(section);
     }
   }, [section, selectedNetwork, summaryData, loadSection]); // Removed loadedSections from dependencies to avoid infinite loop
@@ -1592,7 +1419,7 @@ export default function Dashboard({ onLogout }) {
         const updated = [newPredio, ...filtered].slice(0, 10);
         localStorage.setItem('recentPredios', JSON.stringify(updated));
       } catch (e) {
-        console.debug('No se pudo guardar en predios recientes', e);
+        // Error al guardar en localStorage (silencioso)
       }
       
       // Cargar resumen completo (mantener para metadatos y flags)
@@ -2333,12 +2160,6 @@ export default function Dashboard({ onLogout }) {
           </div>
         );
         
-  // Debug check for enrichedAPs
-        if (accessPoints.length > 0) {
-          console.debug('First AP processed:', accessPoints[0].name, accessPoints[0].serial);
-          console.debug('Full wireless data:', JSON.stringify(accessPoints[0].wireless, null, 2));
-        }
-
         if (!accessPoints.length) {
           return (
             <div style={{ padding: '12px', color: '#64748b' }}>
@@ -2877,19 +2698,6 @@ export default function Dashboard({ onLogout }) {
                           hasMX: applianceStatus.some(a => (a.device?.model || '').toUpperCase().startsWith('MX'))
                         };
                         
-                        // Debug: log what we pass to the matrix so we can confirm model/ports in the browser console
-                        try {
-                          // eslint-disable-next-line no-console
-                          console.debug('Rendering AppliancePortsMatrix', {
-                            serial: appliance.device?.serial,
-                            model: appliance.device?.model,
-                            portsCount: Array.isArray(enrichedPorts) ? enrichedPorts.length : 0,
-                            uplinksCount: Array.isArray(appliance.uplinks) ? appliance.uplinks.length : 0,
-                            deviceCount
-                          });
-                        } catch (e) {
-                          // ignore
-                        }
                         return (
                           <AppliancePortsMatrix
                             ports={enrichedPorts}

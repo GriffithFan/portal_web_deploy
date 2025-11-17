@@ -64,7 +64,6 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
 
   const formatTimestamp = (ts) => {
     if (!ts) {
-      console.log('[formatTimestamp] No timestamp');
       return '';
     }
     
@@ -75,12 +74,10 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
       // Unix timestamp: si es mayor a 10 billones, ya está en ms
       date = ts > 10000000000 ? new Date(ts) : new Date(ts * 1000);
     } else {
-      console.log('[formatTimestamp] Unknown type:', typeof ts);
       return '';
     }
     
     if (isNaN(date.getTime())) {
-      console.log('[formatTimestamp] Invalid date from:', ts);
       return '';
     }
     
@@ -97,11 +94,8 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
   };
 
   const renderConnectivityChart = () => {
-    console.log('[ConnectivityChart] Rendering, data:', data);
-    console.log('[ConnectivityChart] Connectivity data:', data.connectivity);
     
     if (!data.connectivity || data.connectivity.length === 0) {
-      console.log('[ConnectivityChart] No connectivity data available');
       return (
         <div style={{ position: 'relative', marginTop: '4px' }}>
           <svg width="100%" height="8" style={{ display: 'block' }}>
@@ -171,21 +165,6 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
       acc[p.state] = (acc[p.state] || 0) + 1;
       return acc;
     }, {});
-    console.log('[ConnectivityChart] Estado de conectividad:', stateCount, 'Total puntos:', pointsWithState.length);
-    
-    // Mostrar primeros y últimos puntos para debug
-    console.log('[ConnectivityChart] Primeros 3 puntos:', pointsWithState.slice(0, 3).map(p => ({
-      ts: p.ts,
-      latency: p.latencyMs,
-      loss: p.lossPercent,
-      state: p.state
-    })));
-    console.log('[ConnectivityChart] Últimos 3 puntos:', pointsWithState.slice(-3).map(p => ({
-      ts: p.ts,
-      latency: p.latencyMs,
-      loss: p.lossPercent,
-      state: p.state
-    })));
 
     const handleMouseMove = (e) => {
       if (!svgRef.current) return;
@@ -308,13 +287,9 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
             const idx = Math.floor((points.length - 1) * pct / 100);
             const point = points[idx];
             if (!point) {
-              console.log(`[Axis] No point at index ${idx} (${i}/6)`);
               return <span key={i}>--</span>;
             }
             const timestamp = point.ts || point.startTs || point.timestamp || point.time || point.endTs;
-            if (i === 0 || i === 5) {
-              console.log(`[Axis] Point ${i}: idx=${idx}, ts=${timestamp}, point=`, point);
-            }
             const formatted = formatTimestamp(timestamp);
             return (
               <span 

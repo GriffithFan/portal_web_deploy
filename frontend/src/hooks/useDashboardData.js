@@ -70,8 +70,7 @@ export const useDashboardData = () => {
   const loadSection = useCallback(async (sectionKey, { force = false } = {}) => {
     if (!selectedNetwork?.id) return;
     
-    if (loadedSections.has(sectionKey) && !force) {
-      console.debug(`Sección '${sectionKey}' ya cargada`);
+    if (loadedSections.has(sectionKey)) {
       return;
     }
     
