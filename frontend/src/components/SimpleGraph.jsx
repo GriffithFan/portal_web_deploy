@@ -141,7 +141,7 @@ const cmpNodes = (nodeLookup) => (aId, bId) => {
   const b = nodeLookup.get(bId) || {};
   
   // Prioridad 1: si ambos tienen switchPort, ordenar solo por número de puerto
-  // Esto aplica a todos los dispositivos conectados a un switch (APs, switches, MR, etc.)
+  // Applies to all devices connected to a switch (APs, switches, MR, etc.)
   if (a.switchPort != null && b.switchPort != null) {
     return a.switchPort - b.switchPort;
   }
@@ -353,7 +353,7 @@ const buildLayout = (graph, deviceMap = new Map()) => {
     scaleFactor = 1.2;
     yGap = 180;
   } else if (apCount <= 60) {
-    // Redes muy grandes (41-60 APs): máximo espaciado
+    // Large networks (41-60 APs): maximum spacing
     scaleFactor = 1.3;
     yGap = 220;
   } else {
@@ -722,7 +722,7 @@ const resolveNodeOverlap = (nodes = []) => {
     const hasSwitches = group.some(n => n.kind === 'switch');
     if (hasSwitches) return;
     
-    // Espaciado para overlaps muy reducido
+    // Reduced overlap spacing
     const step = group.length > 5 ? 20 : 30;
     const center = (group.length - 1) / 2;
     group.sort((a, b) => (a.level - b.level) || a.id.localeCompare(b.id));
@@ -830,7 +830,7 @@ export default function SimpleGraph({ graph, devices = [] }) {
         
         // Ajustar espaciado según cantidad de APs para mantener etiquetas arriba del dispositivo
         if (apCount <= 4) {
-          // Redes muy pequeñas (<=4 APs): etiquetas arriba y más separación
+          // Small networks (<=4 APs): labels above with increased separation
           primaryY = -76;
           secondaryY = -48;
           tertiaryY = -24;

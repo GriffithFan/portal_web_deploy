@@ -43,7 +43,7 @@ echo ""
 echo "Paso 2/6: Verificando variables de entorno..."
 cd backend
 if [ ! -f ".env" ]; then
-    echo "Advertencia: Archivo .env no encontrado, copiando desde .env.production..."
+    echo "WARNING: File .env not found, copying from .env.production..."
     cp .env.production .env
     echo "OK - Variables de entorno configuradas"
 else
@@ -60,7 +60,7 @@ if pm2 describe portal-meraki-backend > /dev/null 2>&1; then
     pm2 restart portal-meraki-backend
     echo "OK - Backend reiniciado"
 else
-    echo "Advertencia: Backend no encontrado en PM2, iniciando..."
+    echo "WARNING: Backend not found in PM2, starting..."
     pm2 start ecosystem.config.js --env production
     pm2 save
     echo "OK - Backend iniciado y guardado"
@@ -84,14 +84,14 @@ echo "Paso 6/6: Recargando Nginx..."
 if command -v nginx > /dev/null 2>&1; then
     # Verificar configuración antes de recargar
     if nginx -t > /dev/null 2>&1; then
-        systemctl reload nginx 2>/dev/null || sudo systemctl reload nginx 2>/dev/null || echo "Advertencia: No se pudo recargar Nginx automáticamente"
+        systemctl reload nginx 2>/dev/null || sudo systemctl reload nginx 2>/dev/null || echo "WARNING: Could not reload Nginx automatically"
         echo "OK - Nginx recargado"
     else
-        echo "Advertencia: Configuración de Nginx tiene errores, saltando recarga"
+        echo "WARNING: Nginx configuration has errors, skipping reload"
         nginx -t
     fi
 else
-    echo "Advertencia: Nginx no instalado, saltando paso"
+    echo "WARNING: Nginx not installed, skipping step"
 fi
 
 cd "$PROJECT_DIR"
@@ -106,7 +106,7 @@ sleep 2  # Dar tiempo a que PM2 inicie el proceso
 if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
     echo "OK - Backend respondiendo correctamente"
 else
-    echo "Advertencia: Backend no responde en /api/health"
+    echo "WARNING: Backend not responding at /api/health"
     echo "Verifica con: pm2 logs portal-meraki-backend"
 fi
 

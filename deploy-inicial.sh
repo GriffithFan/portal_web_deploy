@@ -22,62 +22,62 @@ FRONTEND_DIR="$PROJECT_DIR/frontend"
 NGINX_CONF="/etc/nginx/sites-available/portal-meraki"
 NGINX_ENABLED="/etc/nginx/sites-enabled/portal-meraki"
 
-echo -e "${GREEN}✓${NC} Verificando que estamos en el directorio del proyecto..."
+echo -e "${GREEN}OK${NC} Verificando que estamos en el directorio del proyecto..."
 cd "$PROJECT_DIR"
 
 # 1. Instalar dependencias del sistema si no están
-echo -e "\n${YELLOW}→${NC} Verificando dependencias del sistema..."
+echo -e "\n${YELLOW}>>>${NC} Verificando dependencias del sistema..."
 if ! command -v node &> /dev/null; then
     echo "Node.js no está instalado. Por favor instala Node.js 18+ primero."
     exit 1
 fi
-echo -e "${GREEN}✓${NC} Node.js instalado: $(node --version)"
+echo -e "${GREEN}OK${NC} Node.js instalado: $(node --version)"
 
 if ! command -v npm &> /dev/null; then
     echo "npm no está instalado."
     exit 1
 fi
-echo -e "${GREEN}✓${NC} npm instalado: $(npm --version)"
+echo -e "${GREEN}OK${NC} npm instalado: $(npm --version)"
 
 if ! command -v pm2 &> /dev/null; then
-    echo -e "${YELLOW}→${NC} Instalando PM2..."
+    echo -e "${YELLOW}>>>${NC} Instalando PM2..."
     npm install -g pm2
 fi
-echo -e "${GREEN}✓${NC} PM2 instalado: $(pm2 --version)"
+echo -e "${GREEN}OK${NC} PM2 instalado: $(pm2 --version)"
 
 # 2. Instalar dependencias del backend
-echo -e "\n${YELLOW}→${NC} Instalando dependencias del backend..."
+echo -e "\n${YELLOW}>>>${NC} Instalando dependencias del backend..."
 cd "$BACKEND_DIR"
 npm install --production
 
 # 3. Verificar que existe .env.production
 if [ ! -f "$BACKEND_DIR/.env.production" ]; then
-    echo -e "${RED}✗${NC} Falta el archivo .env.production en backend/"
+    echo -e "${RED}FAIL${NC} Falta el archivo .env.production en backend/"
     exit 1
 fi
-echo -e "${GREEN}✓${NC} Archivo .env.production encontrado"
+echo -e "${GREEN}OK${NC} Archivo .env.production encontrado"
 
 # 4. Crear directorio de logs
 mkdir -p "$BACKEND_DIR/logs"
-echo -e "${GREEN}✓${NC} Directorio de logs creado"
+echo -e "${GREEN}OK${NC} Directorio de logs creado"
 
 # 5. Iniciar backend con PM2
-echo -e "\n${YELLOW}→${NC} Iniciando backend con PM2..."
+echo -e "\n${YELLOW}>>>${NC} Iniciando backend con PM2..."
 cd "$BACKEND_DIR"
 pm2 delete portal-meraki-backend 2>/dev/null || true
 pm2 start ecosystem.config.js --env production
 pm2 save
-echo -e "${GREEN}✓${NC} Backend iniciado con PM2"
+echo -e "${GREEN}OK${NC} Backend iniciado con PM2"
 
 # 6. Instalar dependencias y compilar frontend
-echo -e "\n${YELLOW}→${NC} Compilando frontend..."
+echo -e "\n${YELLOW}>>>${NC} Compilando frontend..."
 cd "$FRONTEND_DIR"
 npm install
 npm run build
-echo -e "${GREEN}✓${NC} Frontend compilado en frontend/dist/"
+echo -e "${GREEN}OK${NC} Frontend compilado en frontend/dist/"
 
 # 7. Configurar Nginx
-echo -e "\n${YELLOW}→${NC} Configurando Nginx..."
+echo -e "\n${YELLOW}>>>${NC} Configurando Nginx..."
 
 # Copiar configuración
 cp "$PROJECT_DIR/nginx-portal-meraki.conf" "$NGINX_CONF"
@@ -97,31 +97,31 @@ nginx -t
 
 # Recargar Nginx
 systemctl reload nginx
-echo -e "${GREEN}✓${NC} Nginx configurado y recargado"
+echo -e "${GREEN}OK${NC} Nginx configurado y recargado"
 
 # 8. Configurar PM2 para iniciar al arrancar el sistema
-echo -e "\n${YELLOW}→${NC} Configurando PM2 para iniciar al arrancar..."
+echo -e "\n${YELLOW}>>>${NC} Configurando PM2 para iniciar al arrancar..."
 pm2 startup systemd -u root --hp /root
 pm2 save
-echo -e "${GREEN}✓${NC} PM2 configurado para inicio automático"
+echo -e "${GREEN}OK${NC} PM2 configurado para inicio automático"
 
 # 9. Mostrar estado final
 echo -e "\n=========================================="
-echo -e "${GREEN}✓ DESPLIEGUE COMPLETADO${NC}"
+echo -e "${GREEN}DEPLOYMENT COMPLETED${NC}"
 echo "=========================================="
 echo ""
 echo "Estado de servicios:"
 pm2 status
 echo ""
 echo "Acceso:"
-echo "  → Por IP:     http://72.61.32.146"
-echo "  → Por dominio: http://portalmeraki.info"
+echo "  >>> Por IP:     http://72.61.32.146"
+echo "  >>> Por dominio: http://portalmeraki.info"
 echo ""
 echo "Comandos útiles:"
-echo "  → Ver logs backend:  pm2 logs portal-meraki-backend"
-echo "  → Reiniciar backend: pm2 restart portal-meraki-backend"
-echo "  → Ver logs Nginx:    tail -f /var/log/nginx/portal-meraki-error.log"
-echo "  → Actualizar:        cd $PROJECT_DIR && bash update.sh"
+echo "  >>> Ver logs backend:  pm2 logs portal-meraki-backend"
+echo "  >>> Reiniciar backend: pm2 restart portal-meraki-backend"
+echo "  >>> Ver logs Nginx:    tail -f /var/log/nginx/portal-meraki-error.log"
+echo "  >>> Actualizar:        cd $PROJECT_DIR && bash update.sh"
 echo ""
 echo "Siguiente paso: Configurar SSL con Certbot (opcional pero recomendado)"
 echo "  sudo certbot --nginx -d portalmeraki.info -d www.portalmeraki.info"

@@ -1,8 +1,8 @@
-# 🎨 Sistema de UX/UI - Portal Meraki
+# Sistema de UX/UI - Portal Meraki
 
 Sistema completo de componentes de interfaz para mejorar la experiencia de usuario con skeleton loaders, animaciones y preparación para dark mode.
 
-## 📦 Componentes Creados
+## Componentes Creados
 
 ### 1. **SkeletonLoaders** (`frontend/src/components/ui/SkeletonLoaders.jsx`)
 

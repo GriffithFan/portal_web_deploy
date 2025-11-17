@@ -109,9 +109,9 @@ app.use('/api', limiterGeneral);
 app.use(expressLogger());
 
 // Montaje de rutas principales
-// Nota: Arquitectura híbrida - ruta legacy inline en servidor.js + rutas modulares en rutas.js
-// Sistema de rutas modulares está en backend/src/routes/ pero solo admin.routes está activo vía rutas.js
-// Endpoints de Meraki/networks/predios están inline en servidor.js para compatibilidad legacy
+// Arquitectura híbrida: endpoints legacy en servidor.js + rutas modulares en /routes
+// Las rutas modulares en backend/src/routes/ están activas vía rutas.js
+// Los endpoints de Meraki/networks/predios permanecen inline para compatibilidad legacy
 app.use('/api', rutas);
 
 // Sistema avanzado de caché in-memory con TTL por categoría
@@ -2643,11 +2643,11 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
           connectedDevice: connectivity.deviceSerial,
           connectedDevicePort: connectivity.devicePort,
           connectedDeviceType: connectivity.deviceType,
-          // IMPORTANTE: Forzar status "connected" para que se ilumine en verde
+          // Force connected status for UI display (green indicator)
           statusNormalized: 'connected',
           status: 'active',
           _connectivitySource: connectivity._sourceMethod,
-          // Metadata para tooltip
+          // Tooltip metadata
           tooltipInfo: {
             type: connectivity.deviceType === 'ap' ? 'lan-ap-connection' : 'lan-switch-connection',
             deviceName: connectivity.deviceName,
@@ -5327,7 +5327,7 @@ app.get('/api/networks/:networkId/appliance/historical', async (req, res) => {
             }
             
             // Detectar problemas basados en el tráfico
-            // Si hay muy poco tráfico (< 1KB en el periodo), podría ser problema
+            // Low traffic threshold check (< 1KB in period)
             const hasLowTraffic = totalTraffic < 1000;
             
             // Añadir algo de variación natural para simular datos más realistas

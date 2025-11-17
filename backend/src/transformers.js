@@ -60,8 +60,8 @@ function toGraphFromLinkLayer(data, statusMap) {
         const portMatch = sourcePort.toString().match(/\d+/);
         const portNum = portMatch ? parseInt(portMatch[0], 10) : null;
         
-        // IMPORTANTE: Solo asignar si el TARGET aún NO tiene switchPort asignado
-        // O si queremos permitir múltiples conexiones, mantener la primera
+        // Only assign if target doesn't have switchPort assigned yet
+        // Preserves first connection to prevent overwriting
         if (portNum !== null && !targetNode.switchPort) {
           targetNode.switchPort = portNum;
           targetNode.switchPortRaw = sourcePort;
@@ -343,7 +343,7 @@ function buildTopologyFromLldp(devices = [], lldpBySerial = {}, statusMap = new 
         });
         
         // Enriquecer el nodo TARGET con el puerto LOCAL del switch donde está conectado
-        // Esto permite ordenar los dispositivos por el puerto del switch al que se conectan
+        // Enables device sorting by connected switch port
         if (nodes.has(targetId) && localPort) {
           const targetNode = nodes.get(targetId);
           // Extraer número del puerto local (ej: "1", "23", "Port 12" -> 12)

@@ -131,7 +131,7 @@ router.get('/prueba', (req, res) => {
   res.json({ mensaje: 'Ruta de prueba funcionando' });
 });
 
-// Nota: el login actual está implementado en servidor.js como POST /api/login
+// Login endpoint implementation is in servidor.js as POST /api/login
 
 // Aquí se agregarán más rutas para usuarios, Meraki, etc.
 

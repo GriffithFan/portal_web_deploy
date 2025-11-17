@@ -60,7 +60,7 @@ certbot --nginx -d portalmeraki.info -d www.portalmeraki.info
 
 ---
 
-## 🔄 Actualización
+## Actualización
 
 ### Método Simple (Recomendado)
 
@@ -70,11 +70,11 @@ cd /root/portal-meraki-deploy
 ```
 
 Este script automáticamente:
-1. ⬇️ Descarga cambios de GitHub (`git pull`)
-2. 📦 Actualiza dependencias del backend
-3. 🔄 Reinicia backend con PM2
-4. 🎨 Reconstruye frontend
-5. ♻️ Recarga Nginx
+1. Descarga cambios de GitHub (`git pull`)
+2. Actualiza dependencias del backend
+3. Reinicia backend con PM2
+4. Reconstruye frontend
+5. Recarga Nginx
 
 ### Actualización Manual Paso a Paso
 
@@ -186,7 +186,7 @@ pm2 status
 
 ---
 
-## 📝 Métodos Alternativos (Sin Nano)
+## Métodos Alternativos (Sin Nano)
 
 ### Opción 2: Con `echo` y Redirección (Una sola línea)
 
@@ -300,7 +300,7 @@ ENABLE_WARM_CACHE=true
 WARM_CACHE_SIZE=20
 
 # Performance (opcional)
-## ✅ Verificar que los cambios funcionan
+## Verificar que los cambios funcionan
 
 ### Verificar ADMIN_KEY
 
@@ -359,7 +359,7 @@ curl http://72.61.32.146/api/organizations \
 
 ---
 
-## 🔄 Script Automatizado (Recomendado)
+## Script Automatizado (Recomendado)
 
 Crear un script local para cambiar claves fácilmente:
 
@@ -655,7 +655,7 @@ curl -H "X-Cisco-Meraki-API-Key: TU_API_KEY" https://api.meraki.com/api/v1/organ
 
 ---
 
-## 📊 Monitoreo
+## Monitoreo
 
 ### Ver uso de recursos
 

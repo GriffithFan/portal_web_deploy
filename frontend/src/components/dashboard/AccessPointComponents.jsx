@@ -174,7 +174,7 @@ export const ConnectivityBar = ({ ap, device }) => {
   const SIGNAL_GOOD = 40;       // Buena
   const SIGNAL_FAIR = 25;       // Regular
   const SIGNAL_POOR = 15;       // Pobre
-  // < 15 = Muy mala
+  // < 15 = Poor quality
 
   // Crear segmentos con análisis de calidad de señal e interferencias
   const segments = history.map((sample) => {
@@ -211,10 +211,10 @@ export const ConnectivityBar = ({ ap, device }) => {
     
     // PRIORIDAD 3: Evaluar calidad de señal
     if (quality < SIGNAL_POOR) {
-      // Señal muy pobre (rojo oscuro)
+      // Poor signal (dark red)
       return { 
         color: '#dc2626', 
-        label: `Señal muy débil${timeLabel ? ' (' + timeLabel + ')' : ''}\nCalidad: ${quality}%`,
+        label: `Weak signal${timeLabel ? ' (' + timeLabel + ')' : ''}\nQuality: ${quality}%`,
         quality: quality
       };
     } else if (quality < SIGNAL_FAIR) {

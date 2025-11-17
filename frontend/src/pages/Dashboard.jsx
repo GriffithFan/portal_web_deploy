@@ -466,7 +466,7 @@ const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp })
           latencyMs = 400;
           lossPercent = 35;
         } else if (quality < 20) {
-          // Señal muy mala - ROJO
+          // Poor signal - RED
           latencyMs = 400;
           lossPercent = 35;
         } else if (quality < 40) {
@@ -1013,7 +1013,7 @@ const SwitchCard = ({ sw }) => {
               title={`Switch conectado a: ${uplinkInfo}`}
             >
               <span style={{ fontSize: '14px' }}>Uplink</span>
-              <span>→ {uplinkInfo}</span>
+              <span>&#8594; {uplinkInfo}</span>
             </div>
           )}
         </div>

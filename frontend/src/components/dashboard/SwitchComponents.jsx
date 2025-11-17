@@ -201,7 +201,7 @@ export const SwitchCard = ({ sw }) => {
               title={`Switch conectado a: ${uplinkInfo}`}
             >
               <span style={{ fontSize: '14px' }}>↑</span>
-              <span>→ {uplinkInfo}</span>
+              <span>&#8594; {uplinkInfo}</span>
             </div>
           )}
         </div>
