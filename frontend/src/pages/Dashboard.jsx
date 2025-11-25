@@ -1096,7 +1096,25 @@ const SwitchCard = ({ sw }) => {
 
 
 export default function Dashboard({ onLogout }) {
-  const [selectedNetwork, setSelectedNetwork] = useState(null);
+  // Detectar si es un page reload o navegación normal
+  const isPageReload = typeof window !== 'undefined' && 
+    window.performance && 
+    window.performance.navigation && 
+    window.performance.navigation.type === 1;
+  
+  // Solo cargar último predio si es un reload, no en login inicial
+  const initialNetwork = isPageReload 
+    ? (() => {
+        try {
+          const stored = localStorage.getItem('lastSelectedNetwork');
+          return stored ? JSON.parse(stored) : null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  const [selectedNetwork, setSelectedNetwork] = useState(initialNetwork);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [section, setSection] = useState('topology');
   const [summaryData, setSummaryData] = useState(null); // Estado único para todos los datos

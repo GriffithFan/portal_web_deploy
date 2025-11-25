@@ -8,7 +8,27 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
   const [recentPredios, setRecentPredios] = useState([]);
   const [drawerSearch, setDrawerSearch] = useState('');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [isSearchingBySerial, setIsSearchingBySerial] = useState(false);
   const inputRef = useRef(null);
+  
+  // Detectar si el query parece un serial de dispositivo Meraki
+  const looksLikeDeviceSerial = (query) => {
+    if (!query || query.length < 4) return false;
+    const trimmed = query.trim().toUpperCase();
+    
+    // Patrones conocidos de serials Meraki:
+    // Q2PD, Q3AJ (Access Points)
+    // Q2GW, Q2QW, Q3BD (Switches)
+    // Q2PN, Q2ZN (MX/Z Appliances)
+    // Q2EH, Q2HD (Cameras)
+    // Q2LP, Q2MP (Sensors)
+    const serialPattern = /^(Q[2-3][A-Z]{2}|MR\d{2}|MS\d{2,3}|MX\d{2,3}|Z[1-4]|MV\d{2}|MT\d{2})-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
+    
+    // También aceptar serials parciales (sin guiones) para búsqueda más flexible
+    const partialPattern = /^(Q[2-3][A-Z]{2}|MR\d{2}|MS\d{2,3}|MX\d{2,3}|Z[1-4]|MV\d{2}|MT\d{2})[A-Z0-9]{8,}$/i;
+    
+    return serialPattern.test(trimmed) || partialPattern.test(trimmed);
+  };
   
   const handleLogoutClick = () => {
     setShowConfirm(true);
@@ -23,10 +43,40 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
     setShowConfirm(false);
   };
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      onSearch(searchQuery.trim());
+    const query = searchQuery.trim();
+    if (!query) return;
+    
+    // Detectar si es búsqueda por serial
+    if (looksLikeDeviceSerial(query)) {
+      setIsSearchingBySerial(true);
+      try {
+        const response = await fetch(`/api/predios/find-by-serial/${encodeURIComponent(query)}`);
+        const data = await response.json();
+        
+        if (response.ok && data.success && data.predio) {
+          // Buscar el predio encontrado usando el código o ID
+          const predioId = data.predio.predio_code || data.predio.network_id;
+          if (predioId && predioId !== 'UNKNOWN') {
+            onSearch(predioId);
+          } else {
+            alert(`Dispositivo encontrado pero no está asociado a ningún predio registrado.`);
+          }
+        } else {
+          const errorMsg = data.error || 'No se encontró el dispositivo';
+          const extraMsg = data.message ? `\n\n${data.message}` : '';
+          alert(`${errorMsg}${extraMsg}`);
+        }
+      } catch (error) {
+        console.error('[TopBar] Error buscando por serial:', error);
+        alert(`Error buscando dispositivo con serial ${query}`);
+      } finally {
+        setIsSearchingBySerial(false);
+      }
+    } else {
+      // Búsqueda normal por código de predio
+      onSearch(query);
     }
   };
 
@@ -107,14 +157,21 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar predio por ID o nombre..."
-                  aria-label="Buscar predio"
+                  placeholder="Buscar predio por ID, nombre o serial de dispositivo..."
+                  aria-label="Buscar predio o dispositivo"
+                  disabled={isSearchingBySerial}
                 />
-                <button type="submit" className="search-submit" aria-label="Buscar">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                  </svg>
+                <button type="submit" className="search-submit" aria-label="Buscar" disabled={isSearchingBySerial}>
+                  {isSearchingBySerial ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spinner">
+                      <circle cx="12" cy="12" r="10" strokeDasharray="15 5" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                  )}
                 </button>
               </div>
             </form>
@@ -167,20 +224,62 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                 <div className="drawer-predio-box">{(selectedNetwork && (selectedNetwork.predio_code || selectedNetwork.id)) || ''}</div>
               </div>
 
-              <form className="drawer-search-form" onSubmit={(e) => { e.preventDefault(); if (drawerSearch && drawerSearch.trim()) { onSearch(drawerSearch.trim()); setShowDrawer(false); } }}>
+              <form className="drawer-search-form" onSubmit={async (e) => { 
+                e.preventDefault(); 
+                const query = drawerSearch.trim();
+                if (!query) return;
+                
+                // Detectar búsqueda por serial en drawer
+                if (looksLikeDeviceSerial(query)) {
+                  setIsSearchingBySerial(true);
+                  try {
+                    const response = await fetch(`/api/predios/find-by-serial/${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success && data.predio) {
+                      const predioId = data.predio.predio_code || data.predio.network_id;
+                      if (predioId && predioId !== 'UNKNOWN') {
+                        onSearch(predioId);
+                        setShowDrawer(false);
+                      } else {
+                        alert(`Dispositivo encontrado pero no está asociado a ningún predio registrado.`);
+                      }
+                    } else {
+                      const errorMsg = data.error || 'No se encontró';
+                      const extraMsg = data.message ? `\n\n${data.message}` : '';
+                      alert(`${errorMsg}${extraMsg}`);
+                    }
+                  } catch (error) {
+                    console.error('[Drawer] Error buscando por serial:', error);
+                    alert(`Error buscando dispositivo`);
+                  } finally {
+                    setIsSearchingBySerial(false);
+                  }
+                } else {
+                  onSearch(query);
+                  setShowDrawer(false);
+                }
+              }}>
                 <input
                   type="text"
                   value={drawerSearch}
                   onChange={(e) => setDrawerSearch(e.target.value)}
-                  placeholder="Buscar predio por ID o nombre..."
-                  aria-label="Buscar predio en drawer"
+                  placeholder="Buscar predio por ID, nombre o serial..."
+                  aria-label="Buscar predio o dispositivo en drawer"
                   className="drawer-search-input"
+                  disabled={isSearchingBySerial}
                 />
-                <button type="submit" className="drawer-search-button" aria-label="Buscar predio">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
+                <button type="submit" className="drawer-search-button" aria-label="Buscar predio" disabled={isSearchingBySerial}>
+                  {isSearchingBySerial ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spinner">
+                      <circle cx="12" cy="12" r="10" strokeDasharray="15 5" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m21 21-4.3-4.3" />
+                    </svg>
+                  )}
                 </button>
               </form>
 
@@ -213,11 +312,14 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar predio por ID o nombre..."
-                aria-label="Buscar predio"
+                placeholder="Buscar predio por ID, nombre o serial..."
+                aria-label="Buscar predio o dispositivo"
                 style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}
+                disabled={isSearchingBySerial}
               />
-              <button type="submit" style={{ background: '#2563eb', color: '#fff', borderRadius: 8, padding: '10px 14px', border: 'none' }}>Buscar</button>
+              <button type="submit" style={{ background: '#2563eb', color: '#fff', borderRadius: 8, padding: '10px 14px', border: 'none' }} disabled={isSearchingBySerial}>
+                {isSearchingBySerial ? 'Buscando...' : 'Buscar'}
+              </button>
               <button type="button" onClick={() => setShowMobileSearch(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '10px 12px' }}>Cerrar</button>
             </form>
           </div>
@@ -304,6 +406,13 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spinner {
+          animation: spin 1s linear infinite;
         }
         input::placeholder {
           color: rgba(255, 255, 255, 0.6);

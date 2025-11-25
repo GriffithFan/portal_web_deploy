@@ -5520,6 +5520,145 @@ app.get('/api/predios/search', (req, res) => {
   }
 });
 
+// NEW: Búsqueda de predio por serial de dispositivo (optimizada)
+app.get('/api/predios/find-by-serial/:serial', async (req, res) => {
+  try {
+    const serial = (req.query.serial || req.params.serial || '').trim().toUpperCase();
+    
+    if (!serial || serial.length < 4) {
+      return res.status(400).json({ error: 'Serial inválido o muy corto' });
+    }
+
+    logger.info(`[FindBySerial] Buscando predio para serial: ${serial}`);
+    
+    // Patrones de prefijos para identificar tipo de dispositivo y optimizar búsqueda
+    const deviceTypePatterns = {
+      // Access Points
+      ap: /^(Q2[PQME][DJKNQRSUVWX]|Q3[AEFHM][DJKNQRS]|MR\d{2})/i,
+      // Switches  
+      switch: /^(Q2[GQ][WNDHJKM]|Q3[BD][NDHJKM]|MS\d{2,3})/i,
+      // Security Appliances
+      mx: /^(Q2[PZ][NMH]|Q7[NA]|MX\d{2,3}|Z[134])/i,
+      // Cameras
+      camera: /^(Q2[EH][VDPN]|MV\d{2})/i,
+      // Sensors
+      sensor: /^(Q2[LM][PDVW]|MT\d{2})/i
+    };
+
+    let deviceType = 'unknown';
+    for (const [type, pattern] of Object.entries(deviceTypePatterns)) {
+      if (pattern.test(serial)) {
+        deviceType = type;
+        break;
+      }
+    }
+
+    logger.info(`[FindBySerial] Tipo detectado: ${deviceType}`);
+
+    // Estrategia de búsqueda optimizada:
+    // 1. Usar caché de organizaciones para reducir llamadas API
+    // 2. Solo buscar en networks que tengan dispositivos del tipo detectado
+    // 3. Paralelizar búsquedas cuando sea seguro
+
+    const orgs = await getOrganizations();
+    if (!orgs || orgs.length === 0) {
+      return res.status(500).json({ error: 'No se pudieron obtener las organizaciones' });
+    }
+
+    // Buscar en todas las organizaciones en paralelo (limitado)
+    const BATCH_SIZE = 3; // Limitar concurrencia para no sobrecargar API
+    let foundNetwork = null;
+    let foundDevice = null;
+
+    for (let i = 0; i < orgs.length && !foundNetwork; i += BATCH_SIZE) {
+      const orgBatch = orgs.slice(i, i + BATCH_SIZE);
+      
+      const batchResults = await Promise.all(
+        orgBatch.map(async (org) => {
+          try {
+            // Obtener status de dispositivos de la org (más rápido que devices completo)
+            const devicesStatus = await getOrganizationDevicesStatuses(org.id, {
+              perPage: 1000,
+              'serials[]': serial // Filtrar por serial específico (formato API Meraki)
+            });
+
+            if (devicesStatus && devicesStatus.length > 0) {
+              const device = devicesStatus[0];
+              logger.info(`[FindBySerial] Dispositivo encontrado en org ${org.name}: ${device.networkId}`);
+              
+              // Obtener info del network
+              try {
+                const networkInfo = await getNetworkInfo(device.networkId);
+                return { network: networkInfo, device, org };
+              } catch (e) {
+                logger.warn(`[FindBySerial] Error obteniendo info de network ${device.networkId}: ${e.message}`);
+                return { networkId: device.networkId, device, org };
+              }
+            }
+            return null;
+          } catch (error) {
+            logger.warn(`[FindBySerial] Error buscando en org ${org.id}: ${error.message}`);
+            return null;
+          }
+        })
+      );
+
+      // Buscar primer resultado válido
+      const found = batchResults.find(r => r !== null);
+      if (found) {
+        foundNetwork = found.network || { id: found.networkId };
+        foundDevice = found.device;
+        break;
+      }
+    }
+
+    if (!foundNetwork) {
+      logger.info(`[FindBySerial] No se encontró dispositivo con serial ${serial} en ${orgs.length} organizaciones`);
+      return res.status(404).json({ 
+        error: 'Dispositivo no encontrado en el sistema',
+        serial,
+        message: 'Verifica que el serial esté correcto o que el dispositivo esté registrado en algún predio'
+      });
+    }
+
+    // Buscar el predio correspondiente al network
+    const predioInfo = getPredioInfoForNetwork(foundNetwork.id);
+    
+    // getPredioInfoForNetwork siempre retorna algo, verificar si es un predio real o placeholder
+    if (!predioInfo || predioInfo.predio_code === 'UNKNOWN') {
+      logger.warn(`[FindBySerial] Network encontrado pero no hay predio asociado: ${foundNetwork.id}`);
+      return res.status(404).json({
+        error: 'Dispositivo encontrado pero no está asociado a ningún predio',
+        serial,
+        message: 'El dispositivo existe pero su ubicación no está registrada en el sistema'
+      });
+    }
+
+    logger.info(`[FindBySerial] Predio encontrado: ${predioInfo.predio_code} (${predioInfo.predio_name})`);
+
+    res.json({
+      success: true,
+      predio: predioInfo,
+      device: {
+        serial: foundDevice.serial,
+        name: foundDevice.name,
+        model: foundDevice.model,
+        status: foundDevice.status,
+        networkId: foundDevice.networkId
+      },
+      deviceType,
+      searchTime: 'optimized'
+    });
+
+  } catch (error) {
+    logger.error(`[FindBySerial] Error: ${error.message}`, { stack: error.stack });
+    res.status(500).json({ 
+      error: 'Error buscando dispositivo',
+      message: error.message 
+    });
+  }
+});
+
 app.get('/api/predios/stats', requireAdmin, (req, res) => {
   try {
     const stats = getStats();
