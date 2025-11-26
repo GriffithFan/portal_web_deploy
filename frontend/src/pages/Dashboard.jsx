@@ -1130,6 +1130,7 @@ export default function Dashboard({ onLogout }) {
   const [apConnectivityData, setApConnectivityData] = useState({}); // Datos de conectividad por serial
   const hasAppliedPreferredRef = useRef(false);
   const hasMarkedApsSectionRef = useRef(false); // Track if we already marked APs section as loaded
+  const hasAutoLoadedRef = useRef(false); // Track auto-load on page reload
 
   // Track window width to enable mobile-specific rendering without affecting desktop
   useEffect(() => {
@@ -1152,33 +1153,8 @@ export default function Dashboard({ onLogout }) {
     }
   }, [selectedNetwork]);
 
-  // Auto-cargar datos cuando hay initialNetwork (reload de página)
-  const hasAutoLoadedRef = useRef(false);
-  useEffect(() => {
-    if (initialNetwork && !hasAutoLoadedRef.current && !summaryData && !loading) {
-      hasAutoLoadedRef.current = true;
-      setLoading(true);
-      
-      loadSummary({ 
-        networkId: initialNetwork.id, 
-        timespan: DEFAULT_UPLINK_TIMESPAN, 
-        resolution: DEFAULT_UPLINK_RESOLUTION, 
-        keepPrevious: false
-      })
-      .then(() => {
-        console.log('✅ Datos auto-cargados desde reload');
-      })
-      .catch((err) => {
-        console.error('❌ Error auto-cargando datos:', err);
-        setError(err.message || 'Error al cargar los datos del predio');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-    }
-  }, [initialNetwork, summaryData, loading, loadSummary]);
-
   const isMobile = windowWidth <= 900;
+
 
   // Counts used in mobile section tiles (fall back to 0)
   const mobileCounts = {
@@ -1385,6 +1361,30 @@ export default function Dashboard({ onLogout }) {
     return data;
   }, [buildSummaryUrl]);
 
+  // Auto-cargar datos cuando hay initialNetwork (reload de página)
+  useEffect(() => {
+    if (initialNetwork && !hasAutoLoadedRef.current && !summaryData && !loading) {
+      hasAutoLoadedRef.current = true;
+      setLoading(true);
+      
+      loadSummary({ 
+        networkId: initialNetwork.id, 
+        timespan: DEFAULT_UPLINK_TIMESPAN, 
+        resolution: DEFAULT_UPLINK_RESOLUTION, 
+        keepPrevious: false
+      })
+      .then(() => {
+        console.log('✅ Datos auto-cargados desde reload');
+      })
+      .catch((err) => {
+        console.error('❌ Error auto-cargando datos:', err);
+        setError(err.message || 'Error al cargar los datos del predio');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    }
+  }, [initialNetwork, summaryData, loading, loadSummary]);
 
   useEffect(() => {
     if (!availableSections.length) return;
