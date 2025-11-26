@@ -979,31 +979,108 @@ app.get('/api/resolve-network', async (req, res) => {
   console.info(`Buscando predio: ${qRaw}`);
     const startTime = Date.now();
 
-    // Detectar si es un Serial o MAC address
-    const looksLikeSerial = (value) => {
-      if (!value) return false;
-      const text = value.toString().trim();
-      if (!text) return false;
-      const pattern = /^[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){2,}$/i;
-      if (pattern.test(text)) return true;
-      const compact = text.replace(/[^a-z0-9]/gi, '');
-      return compact.length >= 10 && /[a-z]/i.test(compact) && /\d/.test(compact);
-    };
-
+    // Detectar si es MAC address (VERIFICAR PRIMERO antes que Serial)
     const looksLikeMAC = (value) => {
       if (!value) return false;
       const text = value.toString().trim();
       if (!text) return false;
       const patterns = [
-        /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i,
-        /^([0-9a-f]{2}-){5}[0-9a-f]{2}$/i,
-        /^([0-9a-f]{4}\.){2}[0-9a-f]{4}$/i,
-        /^[0-9a-f]{12}$/i
+        /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i,   // e4:55:a8:55:f2:6d
+        /^([0-9a-f]{2}-){5}[0-9a-f]{2}$/i,   // e4-55-a8-55-f2-6d
+        /^([0-9a-f]{4}\.){2}[0-9a-f]{4}$/i,  // e455.a855.f26d
+        /^[0-9a-f]{12}$/i                    // e455a855f26d
       ];
       return patterns.some(pattern => pattern.test(text));
     };
 
-    // Si es un serial, buscar el dispositivo y luego buscar el predio
+    // Detectar si es Serial (después de verificar que NO es MAC)
+    const looksLikeSerial = (value) => {
+      if (!value) return false;
+      const text = value.toString().trim();
+      if (!text) return false;
+      
+      // Si es MAC, NO es serial
+      if (looksLikeMAC(text)) return false;
+      
+      // Pattern típico de seriales Meraki: Q2XX-XXXX-XXXX
+      const pattern = /^[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){2,}$/i;
+      if (pattern.test(text)) return true;
+      
+      // Backup: compact >= 10 chars con letras y números
+      const compact = text.replace(/[^a-z0-9]/gi, '');
+      return compact.length >= 10 && /[a-z]/i.test(compact) && /\d/.test(compact);
+    };
+
+    // ORDEN IMPORTANTE: Verificar MAC PRIMERO, luego Serial, luego búsqueda normal
+    
+    // Si es una MAC, buscar el dispositivo y luego buscar el predio
+    if (looksLikeMAC(qRaw)) {
+      logger.info(`[ResolveNetwork] Detectado como MAC: ${qRaw}`);
+      
+      const orgs = await getOrganizations();
+      if (orgs && orgs.length > 0) {
+        for (const org of orgs) {
+          try {
+            // Usar filtro de API directamente con el formato original de la MAC
+            const devices = await getOrganizationDevices(org.id, { mac: qRaw });
+            
+            if (devices && devices.length > 0) {
+              const device = devices[0]; // API retorna el dispositivo exacto
+              const networkId = device.networkId;
+              logger.info(`[ResolveNetwork] MAC encontrada - Serial: ${device.serial}, NetworkID: ${networkId}`);
+              
+              // Obtener info del predio
+              const predioInfo = getPredioInfoForNetwork(networkId);
+              
+              if (predioInfo && predioInfo.predio_code) {
+                // REDIRIGIR a búsqueda normal por código de predio
+                logger.info(`[ResolveNetwork] MAC pertenece al predio ${predioInfo.predio_code}, redirigiendo a búsqueda normal`);
+                
+                // Buscar el predio completo como si fuera búsqueda normal
+                const predio = findPredio(predioInfo.predio_code);
+                if (predio) {
+                  const network = await getNetworkInfo(predio.network_id);
+                  
+                  return res.json({
+                    source: 'mac-to-predio-search',
+                    cached: false,
+                    elapsedMs: Date.now() - startTime,
+                    device: { serial: device.serial, mac: device.mac, model: device.model },
+                    predio: {
+                      predio_code: predio.predio_code,
+                      predio_name: predio.predio_name,
+                      network_id: predio.network_id
+                    },
+                    organization: { id: network.organizationId },
+                    network
+                  });
+                }
+              }
+              
+              // Fallback: retornar info básica
+              logger.warn(`[ResolveNetwork] Predio no encontrado en catálogo para networkId ${networkId}`);
+              const network = await getNetworkInfo(networkId);
+              
+              return res.json({
+                source: 'mac-search-no-catalog',
+                cached: false,
+                elapsedMs: Date.now() - startTime,
+                device: { serial: device.serial, mac: device.mac, model: device.model },
+                predio: predioInfo,
+                organization: { id: network.organizationId },
+                network
+              });
+            }
+          } catch (err) {
+            logger.warn(`[ResolveNetwork] Error buscando MAC en org ${org.id}: ${err.message}`);
+          }
+        }
+      }
+      
+      return res.status(404).json({ error: `Dispositivo con MAC ${qRaw} no encontrado en ninguna organización` });
+    }
+
+    // Si es un Serial, buscar el dispositivo y luego buscar el predio
     if (looksLikeSerial(qRaw)) {
       logger.info(`[ResolveNetwork] Detectado como SERIAL: ${qRaw}`);
       const serial = qRaw.toUpperCase();
@@ -1071,73 +1148,6 @@ app.get('/api/resolve-network', async (req, res) => {
       }
       
       return res.status(404).json({ error: `Dispositivo con serial ${serial} no encontrado en ninguna organización` });
-    }
-
-    // Si es una MAC, buscar el dispositivo y luego buscar el predio
-    if (looksLikeMAC(qRaw)) {
-      logger.info(`[ResolveNetwork] Detectado como MAC: ${qRaw}`);
-      
-      const orgs = await getOrganizations();
-      if (orgs && orgs.length > 0) {
-        for (const org of orgs) {
-          try {
-            // Usar filtro de API directamente con el formato original de la MAC
-            const devices = await getOrganizationDevices(org.id, { mac: qRaw });
-            
-            if (devices && devices.length > 0) {
-              const device = devices[0]; // API retorna el dispositivo exacto
-              const networkId = device.networkId;
-              logger.info(`[ResolveNetwork] MAC encontrada - Serial: ${device.serial}, NetworkID: ${networkId}`);
-              
-              // Obtener info del predio
-              const predioInfo = getPredioInfoForNetwork(networkId);
-              
-              if (predioInfo && predioInfo.predio_code) {
-                // REDIRIGIR a búsqueda normal por código de predio
-                logger.info(`[ResolveNetwork] MAC pertenece al predio ${predioInfo.predio_code}, redirigiendo a búsqueda normal`);
-                
-                // Buscar el predio completo como si fuera búsqueda normal
-                const predio = findPredio(predioInfo.predio_code);
-                if (predio) {
-                  const network = await getNetworkInfo(predio.network_id);
-                  
-                  return res.json({
-                    source: 'mac-to-predio-search',
-                    cached: false,
-                    elapsedMs: Date.now() - startTime,
-                    device: { serial: device.serial, mac: device.mac, model: device.model },
-                    predio: {
-                      predio_code: predio.predio_code,
-                      predio_name: predio.predio_name,
-                      network_id: predio.network_id
-                    },
-                    organization: { id: network.organizationId },
-                    network
-                  });
-                }
-              }
-              
-              // Fallback: retornar info básica
-              logger.warn(`[ResolveNetwork] Predio no encontrado en catálogo para networkId ${networkId}`);
-              const network = await getNetworkInfo(networkId);
-              
-              return res.json({
-                source: 'mac-search-no-catalog',
-                cached: false,
-                elapsedMs: Date.now() - startTime,
-                device: { serial: device.serial, mac: device.mac, model: device.model },
-                predio: predioInfo,
-                organization: { id: network.organizationId },
-                network
-              });
-            }
-          } catch (err) {
-            logger.warn(`[ResolveNetwork] Error buscando MAC en org ${org.id}: ${err.message}`);
-          }
-        }
-      }
-      
-      return res.status(404).json({ error: `Dispositivo con MAC ${qRaw} no encontrado en ninguna organización` });
     }
 
     const triggerWarmup = (networkId, orgId) => {
