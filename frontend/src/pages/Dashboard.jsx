@@ -1449,6 +1449,11 @@ export default function Dashboard({ onLogout }) {
       if (resolveRes.ok) {
         const resolveData = await resolveRes.json();
         network = resolveData.network || (Array.isArray(resolveData.networks) && resolveData.networks[0]);
+        console.log('🔍 Respuesta de resolve-network:', {
+          source: resolveData.source,
+          network: network,
+          networkId: network?.id
+        });
       } else if (resolveRes.status === 404) {
         // Predio no encontrado en catálogo, pero puede ser un network ID válido
         // Intentar usar el query como network ID directamente
@@ -1460,6 +1465,7 @@ export default function Dashboard({ onLogout }) {
       
       if (!network) throw new Error('No se pudo determinar el network del predio');
       
+      console.log('✅ Network a guardar:', network);
       setSelectedNetwork(network);
       
       // Guardar en predios recientes
@@ -1480,6 +1486,7 @@ export default function Dashboard({ onLogout }) {
       }
       
       // Cargar resumen completo (mantener para metadatos y flags)
+      console.log('📡 Llamando loadSummary con networkId:', network.id);
       await loadSummary({ 
         networkId: network.id, 
         timespan: DEFAULT_UPLINK_TIMESPAN, 

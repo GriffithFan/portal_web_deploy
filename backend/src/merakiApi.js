@@ -128,6 +128,14 @@ async function getOrganizationDevicesStatuses(organizationId, params = {}) {
   return data;
 }
 
+async function getOrganizationDevices(organizationId, params = {}) {
+  // Obtiene lista completa de dispositivos, soporta filtrado por MAC
+  const { data } = await client.get(`/organizations/${organizationId}/devices`, {
+    params
+  });
+  return data;
+}
+
 async function getApplianceStatuses(networkId) {
   // Probar plural/singular por diferencias entre tenants o documentación
   try {
@@ -674,6 +682,7 @@ module.exports = {
   getNetworkTopologyNetworkLayer,
   getApplianceStatuses,
   getOrganizationDevicesStatuses,
+  getOrganizationDevices,
   // extras
   getOrgSwitchPortsTopologyDiscoveryByDevice,
   getNetworkApplianceConnectivityMonitoringDestinations,
