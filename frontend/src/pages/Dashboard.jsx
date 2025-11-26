@@ -1141,6 +1141,17 @@ export default function Dashboard({ onLogout }) {
     return undefined;
   }, []);
 
+  // Guardar último predio seleccionado para reload
+  useEffect(() => {
+    if (selectedNetwork) {
+      try {
+        localStorage.setItem('lastSelectedNetwork', JSON.stringify(selectedNetwork));
+      } catch (err) {
+        console.warn('No se pudo guardar lastSelectedNetwork:', err);
+      }
+    }
+  }, [selectedNetwork]);
+
   const isMobile = windowWidth <= 900;
 
   // Counts used in mobile section tiles (fall back to 0)
