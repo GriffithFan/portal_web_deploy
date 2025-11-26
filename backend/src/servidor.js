@@ -5659,6 +5659,118 @@ app.get('/api/predios/find-by-serial/:serial', async (req, res) => {
   }
 });
 
+// NEW: Búsqueda de predio por MAC address de dispositivo
+app.get('/api/predios/find-by-mac/:mac', async (req, res) => {
+  try {
+    const mac = (req.query.mac || req.params.mac || '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
+    
+    if (!mac || mac.length !== 12) {
+      return res.status(400).json({ error: 'MAC address inválida (debe tener 12 caracteres hexadecimales)' });
+    }
+
+    logger.info(`[FindByMAC] Buscando predio para MAC: ${mac}`);
+
+    const orgs = await getOrganizations();
+    if (!orgs || orgs.length === 0) {
+      return res.status(500).json({ error: 'No se pudieron obtener las organizaciones' });
+    }
+
+    // Buscar en todas las organizaciones
+    const BATCH_SIZE = 3;
+    let foundNetwork = null;
+    let foundDevice = null;
+
+    for (let i = 0; i < orgs.length && !foundNetwork; i += BATCH_SIZE) {
+      const orgBatch = orgs.slice(i, i + BATCH_SIZE);
+      
+      const batchResults = await Promise.all(
+        orgBatch.map(async (org) => {
+          try {
+            // Obtener todos los dispositivos de la organización
+            const devices = await getOrganizationDevices(org.id);
+
+            if (devices && devices.length > 0) {
+              // Buscar dispositivo por MAC
+              const device = devices.find(d => {
+                if (!d.mac) return false;
+                const deviceMac = d.mac.toLowerCase().replace(/[^0-9a-f]/g, '');
+                return deviceMac === mac;
+              });
+
+              if (device) {
+                logger.info(`[FindByMAC] Dispositivo encontrado en org ${org.name}: ${device.networkId}`);
+                
+                // Obtener info del network
+                try {
+                  const networkInfo = await getNetworkInfo(device.networkId);
+                  return { network: networkInfo, device, org };
+                } catch (e) {
+                  logger.warn(`[FindByMAC] Error obteniendo info de network ${device.networkId}: ${e.message}`);
+                  return { networkId: device.networkId, device, org };
+                }
+              }
+            }
+            return null;
+          } catch (error) {
+            logger.warn(`[FindByMAC] Error buscando en org ${org.id}: ${error.message}`);
+            return null;
+          }
+        })
+      );
+
+      const found = batchResults.find(r => r !== null);
+      if (found) {
+        foundNetwork = found.network || { id: found.networkId };
+        foundDevice = found.device;
+        break;
+      }
+    }
+
+    if (!foundNetwork) {
+      logger.info(`[FindByMAC] No se encontró dispositivo con MAC ${mac} en ${orgs.length} organizaciones`);
+      return res.status(404).json({ 
+        error: 'Dispositivo no encontrado en el sistema',
+        mac,
+        message: 'Verifica que la MAC esté correcta o que el dispositivo esté registrado en algún predio'
+      });
+    }
+
+    // Buscar el predio correspondiente
+    const predioInfo = getPredioInfoForNetwork(foundNetwork.id);
+    
+    if (!predioInfo || predioInfo.predio_code === 'UNKNOWN') {
+      logger.warn(`[FindByMAC] Network encontrado pero no hay predio asociado: ${foundNetwork.id}`);
+      return res.status(404).json({
+        error: 'Dispositivo encontrado pero no está asociado a ningún predio',
+        mac,
+        message: 'El dispositivo existe pero su ubicación no está registrada en el sistema'
+      });
+    }
+
+    logger.info(`[FindByMAC] Predio encontrado: ${predioInfo.predio_code} (${predioInfo.predio_name})`);
+
+    res.json({
+      success: true,
+      predio: predioInfo,
+      device: {
+        serial: foundDevice.serial,
+        mac: foundDevice.mac,
+        name: foundDevice.name,
+        model: foundDevice.model,
+        networkId: foundDevice.networkId
+      },
+      searchTime: 'mac-search'
+    });
+
+  } catch (error) {
+    logger.error(`[FindByMAC] Error: ${error.message}`, { stack: error.stack });
+    res.status(500).json({ 
+      error: 'Error buscando dispositivo por MAC',
+      message: error.message 
+    });
+  }
+});
+
 app.get('/api/predios/stats', requireAdmin, (req, res) => {
   try {
     const stats = getStats();

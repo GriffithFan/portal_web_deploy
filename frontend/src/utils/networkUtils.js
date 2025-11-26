@@ -60,3 +60,38 @@ export const looksLikeSerial = (value) => {
   const compact = text.replace(/[^a-z0-9]/gi, '');
   return compact.length >= 10 && /[a-z]/i.test(compact) && /\d/.test(compact);
 };
+
+/**
+ * Determina si un valor parece una dirección MAC
+ * @param {*} value - Valor a verificar
+ * @returns {boolean}
+ */
+export const looksLikeMAC = (value) => {
+  if (!value) return false;
+  const text = value.toString().trim();
+  if (!text) return false;
+  
+  // Formatos comunes de MAC:
+  // e4:55:a8:55:f2:6d (colon)
+  // e4-55-a8-55-f2-6d (guion)
+  // e455.a855.f26d (punto cisco)
+  // e455a855f26d (sin separador)
+  const patterns = [
+    /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i,           // xx:xx:xx:xx:xx:xx
+    /^([0-9a-f]{2}-){5}[0-9a-f]{2}$/i,           // xx-xx-xx-xx-xx-xx
+    /^([0-9a-f]{4}\.){2}[0-9a-f]{4}$/i,         // xxxx.xxxx.xxxx
+    /^[0-9a-f]{12}$/i                            // xxxxxxxxxxxx
+  ];
+  
+  return patterns.some(pattern => pattern.test(text));
+};
+
+/**
+ * Normaliza una dirección MAC a formato sin separadores
+ * @param {string} mac - Dirección MAC
+ * @returns {string} MAC normalizada (12 caracteres hexadecimales)
+ */
+export const normalizeMAC = (mac) => {
+  if (!mac) return '';
+  return mac.replace(/[^0-9a-f]/gi, '').toLowerCase();
+};
