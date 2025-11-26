@@ -979,6 +979,116 @@ app.get('/api/resolve-network', async (req, res) => {
   console.info(`Buscando predio: ${qRaw}`);
     const startTime = Date.now();
 
+    // Detectar si es un Serial o MAC address
+    const looksLikeSerial = (value) => {
+      if (!value) return false;
+      const text = value.toString().trim();
+      if (!text) return false;
+      const pattern = /^[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){2,}$/i;
+      if (pattern.test(text)) return true;
+      const compact = text.replace(/[^a-z0-9]/gi, '');
+      return compact.length >= 10 && /[a-z]/i.test(compact) && /\d/.test(compact);
+    };
+
+    const looksLikeMAC = (value) => {
+      if (!value) return false;
+      const text = value.toString().trim();
+      if (!text) return false;
+      const patterns = [
+        /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i,
+        /^([0-9a-f]{2}-){5}[0-9a-f]{2}$/i,
+        /^([0-9a-f]{4}\.){2}[0-9a-f]{4}$/i,
+        /^[0-9a-f]{12}$/i
+      ];
+      return patterns.some(pattern => pattern.test(text));
+    };
+
+    // Si es un serial, buscar el dispositivo primero
+    if (looksLikeSerial(qRaw)) {
+      logger.info(`[ResolveNetwork] Detectado como SERIAL: ${qRaw}`);
+      const serial = qRaw.toUpperCase();
+      
+      const orgs = await getOrganizations();
+      if (orgs && orgs.length > 0) {
+        for (const org of orgs) {
+          try {
+            const devicesStatus = await getOrganizationDevicesStatuses(org.id, {
+              perPage: 1000,
+              'serials[]': serial
+            });
+            
+            if (devicesStatus && devicesStatus.length > 0) {
+              const device = devicesStatus[0];
+              const networkId = device.networkId;
+              logger.info(`[ResolveNetwork] Serial encontrado en network: ${networkId}`);
+              
+              // Buscar predio info
+              const predioInfo = getPredioInfoForNetwork(networkId);
+              const network = await getNetworkInfo(networkId);
+              
+              return res.json({
+                source: 'serial-search',
+                cached: false,
+                elapsedMs: Date.now() - startTime,
+                predio: predioInfo,
+                organization: { id: network.organizationId },
+                network
+              });
+            }
+          } catch (err) {
+            logger.warn(`[ResolveNetwork] Error buscando serial en org ${org.id}: ${err.message}`);
+          }
+        }
+      }
+      
+      return res.status(404).json({ error: `Dispositivo con serial ${serial} no encontrado` });
+    }
+
+    // Si es una MAC, buscar el dispositivo primero
+    if (looksLikeMAC(qRaw)) {
+      logger.info(`[ResolveNetwork] Detectado como MAC: ${qRaw}`);
+      const mac = qRaw.toLowerCase().replace(/[^0-9a-f]/g, '');
+      
+      const orgs = await getOrganizations();
+      if (orgs && orgs.length > 0) {
+        for (const org of orgs) {
+          try {
+            const devices = await getOrganizationDevices(org.id);
+            
+            if (devices && devices.length > 0) {
+              const device = devices.find(d => {
+                if (!d.mac) return false;
+                const deviceMac = d.mac.toLowerCase().replace(/[^0-9a-f]/g, '');
+                return deviceMac === mac;
+              });
+              
+              if (device) {
+                const networkId = device.networkId;
+                logger.info(`[ResolveNetwork] MAC encontrada en network: ${networkId}`);
+                
+                // Buscar predio info
+                const predioInfo = getPredioInfoForNetwork(networkId);
+                const network = await getNetworkInfo(networkId);
+                
+                return res.json({
+                  source: 'mac-search',
+                  cached: false,
+                  elapsedMs: Date.now() - startTime,
+                  predio: predioInfo,
+                  organization: { id: network.organizationId },
+                  network
+                });
+              }
+            }
+          } catch (err) {
+            logger.warn(`[ResolveNetwork] Error buscando MAC en org ${org.id}: ${err.message}`);
+          }
+        }
+      }
+      
+      return res.status(404).json({ error: `Dispositivo con MAC ${qRaw} no encontrado` });
+    }
+
     const triggerWarmup = (networkId, orgId) => {
       if (!networkId || !orgId) return;
       setImmediate(async () => {

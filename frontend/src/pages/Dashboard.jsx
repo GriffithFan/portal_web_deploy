@@ -1441,39 +1441,14 @@ export default function Dashboard({ onLogout }) {
 
     setLoading(true);
     try {
-      let resolveRes;
-      
-      // Detectar si es un serial o MAC para búsqueda directa
-      if (looksLikeSerial(q)) {
-        console.log('🔍 Búsqueda por SERIAL detectada:', q);
-        resolveRes = await fetch(`/api/predios/find-by-serial/${encodeURIComponent(q)}`);
-      } else if (looksLikeMAC(q)) {
-        console.log('🔍 Búsqueda por MAC detectada:', q);
-        const normalizedMac = normalizeMAC(q);
-        resolveRes = await fetch(`/api/predios/find-by-mac/${encodeURIComponent(normalizedMac)}`);
-      } else {
-        // Búsqueda normal por predio code/nombre
-        resolveRes = await fetch(`/api/resolve-network?q=${encodeURIComponent(q)}`);
-      }
+      // Usar siempre resolve-network que detecta automáticamente serial/MAC
+      const resolveRes = await fetch(`/api/resolve-network?q=${encodeURIComponent(q)}`);
       
       let network = null;
       
       if (resolveRes.ok) {
         const resolveData = await resolveRes.json();
-        
-        // Respuesta de find-by-serial o find-by-mac
-        if (resolveData.success && resolveData.predio) {
-          network = {
-            id: resolveData.predio.network_id,
-            name: resolveData.predio.predio_name,
-            predio_code: resolveData.predio.predio_code,
-            predio_name: resolveData.predio.predio_name
-          };
-          console.log('✅ Dispositivo encontrado:', resolveData.device);
-        } else {
-          // Respuesta de resolve-network normal
-          network = resolveData.network || (Array.isArray(resolveData.networks) && resolveData.networks[0]);
-        }
+        network = resolveData.network || (Array.isArray(resolveData.networks) && resolveData.networks[0]);
       } else if (resolveRes.status === 404) {
         // Predio no encontrado en catálogo, pero puede ser un network ID válido
         // Intentar usar el query como network ID directamente
