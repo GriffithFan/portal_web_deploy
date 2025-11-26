@@ -7,8 +7,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt', // Cambiar de 'autoUpdate' a 'prompt' para control manual
-      injectRegister: false, // Deshabilitar registro automático temporalmente
+      registerType: 'autoUpdate', // Actualización automática del Service Worker
+      injectRegister: 'auto', // Registro automático
+      workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true, // Forzar actualización inmediata
+        clientsClaim: true // Tomar control inmediatamente
+      },
       includeAssets: ['icon-192.svg', 'icon-512.svg'],
       manifest: {
         name: 'Portal Meraki',
@@ -33,29 +38,8 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
-        // Cache conservador: Solo assets estáticos
-        runtimeCaching: [
-          {
-            // NO cachear llamadas API - siempre ir al servidor
-            urlPattern: /^.*\/api\/.*/i,
-            handler: 'NetworkOnly'
-          },
-          {
-            // Cachear assets estáticos con revalidación
-            urlPattern: /\.(js|css|html|ico|png|svg|jpg|jpeg|gif|woff|woff2|ttf|eot)$/i,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'static-resources',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 días
-              }
-            }
-          }
-        ],
-        // Limpiar caches antiguos
-        cleanupOutdatedCaches: true
+      devOptions: {
+        enabled: false // Service Worker solo en producción
       }
     })
   ],
