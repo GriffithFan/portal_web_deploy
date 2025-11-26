@@ -48,6 +48,18 @@ backend/debug-*.js
 frontend/src/pages/*.bak
 
 # Docker
+
+# Carpeta temporal de copia funcional
+portal_web_deploy/
+
+# Archivos de documentación vacíos
+ACTUALIZACION_v2_INFERENCIA.md
+GUIA_PRUEBAS_INFERENCIA.md
+GUIA_VISUAL_TOOLTIP.md
+INFERENCIA_VELOCIDAD_WAN.md
+INICIO_PRUEBAS.md
+LISTA_PRUEBAS_RAPIDA.md
+MANUAL_VELOCIDAD_PUERTOS.md
 portal-meraki-*.tar
 *.tar.gz
 dist.zip
