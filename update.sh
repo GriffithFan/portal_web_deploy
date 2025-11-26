@@ -37,7 +37,24 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 echo "Actualizando de $CURRENT_COMMIT a $(git rev-parse --short origin/main)..."
+
+# IMPORTANTE: Hacer backup de tecnicos.json antes de actualizar
+echo "Haciendo backup de tecnicos.json (credenciales de técnicos)..."
+if [ -f "backend/data/tecnicos.json" ]; then
+    cp backend/data/tecnicos.json /tmp/tecnicos.json.backup
+    echo "OK - Backup de tecnicos.json guardado"
+else
+    echo "WARNING - tecnicos.json no encontrado (puede ser primera instalación)"
+fi
+
+# Actualizar código desde GitHub
 git pull origin main
+
+# Restaurar tecnicos.json después de la actualización
+if [ -f "/tmp/tecnicos.json.backup" ]; then
+    cp /tmp/tecnicos.json.backup backend/data/tecnicos.json
+    echo "OK - tecnicos.json restaurado"
+fi
 
 echo ""
 echo "Paso 2/6: Verificando variables de entorno..."
