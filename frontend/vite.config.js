@@ -2,17 +2,43 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Archivo de configuración de Vite en español
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate', // Actualización automática del Service Worker
-      injectRegister: 'auto', // Registro automático
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
       workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
         cleanupOutdatedCaches: true,
-        skipWaiting: true, // Forzar actualización inmediata
-        clientsClaim: true // Tomar control inmediatamente
+        skipWaiting: true,
+        clientsClaim: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\.meraki\.com\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'meraki-api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 5 * 60
+              },
+              networkTimeoutSeconds: 10
+            }
+          },
+          {
+            urlPattern: /^https:\/\/portalmeraki\.info\/api\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'backend-api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 5 * 60
+              },
+              networkTimeoutSeconds: 10
+            }
+          }
+        ]
       },
       includeAssets: ['icon-192.svg', 'icon-512.svg'],
       manifest: {
@@ -23,6 +49,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
         icons: [
           {
             src: 'icon-192.svg',
@@ -39,7 +66,7 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: false // Service Worker solo en producción
+        enabled: false
       }
     })
   ],
@@ -64,7 +91,15 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'esbuild',
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          icons: ['lucide-react']
+        }
+      }
+    }
   },
   preview: {
     port: 5173,
