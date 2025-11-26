@@ -7,7 +7,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // Cambiar de 'autoUpdate' a 'prompt' para control manual
+      injectRegister: false, // Deshabilitar registro automático temporalmente
       includeAssets: ['icon-192.svg', 'icon-512.svg'],
       manifest: {
         name: 'Portal Meraki',

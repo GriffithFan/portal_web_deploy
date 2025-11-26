@@ -1152,6 +1152,32 @@ export default function Dashboard({ onLogout }) {
     }
   }, [selectedNetwork]);
 
+  // Auto-cargar datos cuando hay initialNetwork (reload de página)
+  const hasAutoLoadedRef = useRef(false);
+  useEffect(() => {
+    if (initialNetwork && !hasAutoLoadedRef.current && !summaryData && !loading) {
+      hasAutoLoadedRef.current = true;
+      setLoading(true);
+      
+      loadSummary({ 
+        networkId: initialNetwork.id, 
+        timespan: DEFAULT_UPLINK_TIMESPAN, 
+        resolution: DEFAULT_UPLINK_RESOLUTION, 
+        keepPrevious: false
+      })
+      .then(() => {
+        console.log('✅ Datos auto-cargados desde reload');
+      })
+      .catch((err) => {
+        console.error('❌ Error auto-cargando datos:', err);
+        setError(err.message || 'Error al cargar los datos del predio');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    }
+  }, [initialNetwork, summaryData, loading, loadSummary]);
+
   const isMobile = windowWidth <= 900;
 
   // Counts used in mobile section tiles (fall back to 0)
@@ -1318,7 +1344,7 @@ export default function Dashboard({ onLogout }) {
     }
   }, [selectedNetwork, loadedSections, uplinkRange]);
 
-  const buildSummaryUrl = (networkId, { timespan, resolution, quick = true } = {}) => {
+  const buildSummaryUrl = useCallback((networkId, { timespan, resolution, quick = true } = {}) => {
     const params = new URLSearchParams();
     const ts = timespan ?? uplinkRange ?? DEFAULT_UPLINK_TIMESPAN;
     const res = resolution ?? DEFAULT_UPLINK_RESOLUTION;
@@ -1327,9 +1353,9 @@ export default function Dashboard({ onLogout }) {
     if (quick) params.set('quick', 'true'); // Modo rápido por defecto
     const query = params.toString();
     return `/api/networks/${networkId}/summary${query ? `?${query}` : ''}`;
-  };
+  }, [uplinkRange]);
 
-  const loadSummary = async ({ networkId, timespan, resolution, keepPrevious = false }) => {
+  const loadSummary = useCallback(async ({ networkId, timespan, resolution, keepPrevious = false }) => {
     if (!networkId) return null;
 
     if (!keepPrevious) {
@@ -1357,7 +1383,8 @@ export default function Dashboard({ onLogout }) {
       }
     
     return data;
-  };
+  }, [buildSummaryUrl]);
+
 
   useEffect(() => {
     if (!availableSections.length) return;
