@@ -426,24 +426,8 @@ const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp })
     ? targetDevice.wireless 
     : {};
   
-  const historyArray = (wireless && Array.isArray(wireless.history)) ? wireless.history : [];
+  const historyArray = Array.isArray(wireless.history) ? wireless.history : [];
   const historyLength = historyArray.length;
-  
-  // Si targetDevice no existe, retornar barra gris
-  if (!targetDevice) {
-    return (
-      <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-        <div
-          style={{
-            width: '100%',
-            background: '#d1d5db',
-            transition: 'all 0.3s ease'
-          }}
-          title="Sin datos de dispositivo"
-        />
-      </div>
-    );
-  }
   
   const statusNormalized = normalizeReachability(targetDevice.status);
   const lastReportedAt = targetDevice.lastReportedAt || null;
@@ -1687,13 +1671,7 @@ export default function Dashboard({ onLogout }) {
   // El useEffect ya no es necesario para cargar secciones, ahora es síncrono
   
   const renderSection = () => {
-    // Mostrar loading durante búsqueda inicial o carga de secciones
-    if (loading || sectionLoading) {
-      const message = sectionLoading 
-        ? `Cargando ${sectionLoading === 'access_points' ? 'Access Points' : sectionLoading === 'switches' ? 'Switches' : sectionLoading === 'appliance_status' ? 'Appliances' : 'datos'}...`
-        : 'Cargando datos del predio...';
-      return <LoadingOverlay isLoading={true} message={message} variant="blur" />;
-    }
+    if (loading) return <LoadingOverlay isLoading={true} message="Cargando datos del predio..." variant="blur" />;
   if (!selectedNetwork) return <div className="empty-predio">Busca un predio en la barra superior…</div>;
     if (!summaryData) return <div>No hay datos disponibles para este predio.</div>;
 
@@ -1708,6 +1686,26 @@ export default function Dashboard({ onLogout }) {
       const raw = d.status || d.reachability || d.connectionStatus;
       return [d.serial, raw];
     }));
+
+    // Mostrar skeleton loader si esta sección está cargándose
+    if (sectionLoading === section) {
+      // Determinar qué skeleton mostrar según la sección
+      if (section === 'topology') {
+        return <SkeletonTopology />;
+      } else if (section === 'switches' || section === 'access_points' || section === 'appliance_status') {
+        return (
+          <div className="animate-fadeIn">
+            {section === 'switches' || section === 'access_points' ? (
+              <SkeletonDeviceList count={5} />
+            ) : (
+              <SkeletonTable rows={4} columns={5} />
+            )}
+          </div>
+        );
+      } else {
+        return <SkeletonTable rows={5} columns={4} />;
+      }
+    }
 
     switch (section) {
       case 'topology':
