@@ -983,97 +983,145 @@ const SummaryChip = ({ label, value, accent = '#1f2937' }) => (
 
 const SwitchPortsGrid = ({ ports = [] }) => {
   if (!ports.length) return <div style={{ fontSize: 13, color: '#64748b' }}>Sin información de puertos disponible.</div>;
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8, overflow: 'visible' }}>
-      {ports.map((port) => {
-        const color = resolvePortColor(port);
-        const label = port.status || port.statusNormalized || 'unknown';
-        const isConnected = normalizeReachability(port.statusNormalized || port.status) === 'connected';
-        const bgColor = isConnected ? '#a7f3d0' : '#fff'; // Verde más vibrante (era #d1fae5)
-        
-        // Construir tooltip para el puerto
-        const portTooltip = (
-          <div>
-            <div className="tooltip-title">Puerto {port.portId}</div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">Estado</span>
-              <span className="tooltip-value">{port.status || 'Desconocido'}</span>
-            </div>
-            {port.name && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Nombre</span>
-                <span className="tooltip-value">{port.name}</span>
-              </div>
-            )}
-            {port.vlan && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">VLAN</span>
-                <span className="tooltip-value">{port.vlan}</span>
-              </div>
-            )}
-            {port.type && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Tipo</span>
-                <span className="tooltip-value">{port.type}</span>
-              </div>
-            )}
-            {port.speed && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Velocidad</span>
-                <span className="tooltip-value">{port.speed}</span>
-              </div>
-            )}
-            {port.duplex && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Duplex</span>
-                <span className="tooltip-value">{port.duplex}</span>
-              </div>
-            )}
+  
+  // Separar puertos normales de uplinks
+  const regularPorts = ports.filter(p => {
+    const num = parseInt(p.portId);
+    return num <= 24;
+  });
+  
+  const uplinkPorts = ports.filter(p => {
+    const num = parseInt(p.portId);
+    return num > 24;
+  });
+  
+  const renderPort = (port) => {
+    const isConnected = normalizeReachability(port.statusNormalized || port.status) === 'connected';
+    const isDisabled = port.enabled === false;
+    
+    // Colores estilo Meraki
+    let bgColor = '#d1d5db'; // gris por defecto
+    if (isDisabled) {
+      bgColor = '#9ca3af'; // gris oscuro
+    } else if (isConnected) {
+      bgColor = '#10b981'; // verde
+    }
+    
+    const portTooltip = (
+      <div>
+        <div className="tooltip-title">Puerto {port.portId}</div>
+        <div className="tooltip-row">
+          <span className="tooltip-label">Estado</span>
+          <span className="tooltip-value">{port.status || 'Desconocido'}</span>
+        </div>
+        {port.name && (
+          <div className="tooltip-row">
+            <span className="tooltip-label">Nombre</span>
+            <span className="tooltip-value">{port.name}</span>
+          </div>
+        )}
+        {port.vlan && (
+          <div className="tooltip-row">
+            <span className="tooltip-label">VLAN</span>
+            <span className="tooltip-value">{port.vlan}</span>
+          </div>
+        )}
+        {port.type && (
+          <div className="tooltip-row">
+            <span className="tooltip-label">Tipo</span>
+            <span className="tooltip-value">{port.type}</span>
+          </div>
+        )}
+        {port.speed && (
+          <div className="tooltip-row">
+            <span className="tooltip-label">Velocidad</span>
+            <span className="tooltip-value">{port.speed}</span>
+          </div>
+        )}
+        {port.poeEnabled && (
+          <div className="tooltip-row">
+            <span className="tooltip-label">PoE</span>
+            <span className="tooltip-value">Habilitado</span>
+          </div>
+        )}
+        {port.isUplink && (
+          <div className="tooltip-row">
+            <span className="tooltip-label">Función</span>
+            <span className="tooltip-value">Puerto Uplink</span>
+          </div>
+        )}
+      </div>
+    );
+    
+    return (
+      <Tooltip key={port.portId} content={portTooltip} position="auto">
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          gap: '2px'
+        }}>
+          {/* Número arriba */}
+          <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500' }}>{port.portId}</div>
+          
+          {/* Puerto visual */}
+          <div style={{ 
+            width: '28px', 
+            height: '28px',
+            background: bgColor,
+            border: '1px solid #94a3b8',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s ease'
+          }}>
+            {/* Badge PoE */}
             {port.poeEnabled && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">PoE</span>
-                <span className="tooltip-value">Habilitado</span>
-              </div>
-            )}
-            {port.linkNegotiation && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Negociación</span>
-                <span className="tooltip-value">{port.linkNegotiation}</span>
-              </div>
-            )}
-            {port.isUplink && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Función</span>
-                <span className="tooltip-value">Puerto Uplink</span>
-              </div>
-            )}
-            {port.enabled !== undefined && (
-              <div className="tooltip-row">
-                <span className="tooltip-label">Habilitado</span>
-                <span className="tooltip-value">{port.enabled ? 'Sí' : 'No'}</span>
-              </div>
+              <div style={{
+                position: 'absolute',
+                bottom: '-2px',
+                right: '-2px',
+                width: '8px',
+                height: '8px',
+                background: '#facc15',
+                border: '1px solid #eab308',
+                borderRadius: '50%'
+              }} />
             )}
           </div>
-        );
-        
-        return (
-          <Tooltip key={port.portId} content={portTooltip} position="auto">
-            <div style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '6px 8px', background: bgColor, position: 'relative', cursor: 'pointer' }}>
-              <div style={{ fontWeight: 600, color: color }}>{port.portId}</div>
-              <div style={{ fontSize: 12, color: '#475569' }}>{label}</div>
-              {port.isUplink && (
-                <span style={{ position: 'absolute', top: 6, right: 8, fontSize: 10, background: '#1d4ed8', color: '#fff', borderRadius: 999, padding: '1px 6px' }}>Uplink</span>
-              )}
-              {port.poeEnabled && (
-                <span style={{ position: 'absolute', bottom: 6, right: 8, fontSize: 10, background: '#047857', color: '#fff', borderRadius: 999, padding: '1px 6px' }}>PoE</span>
-              )}
-              {port.vlan && (
-                <div style={{ fontSize: 11, color: '#64748b' }}>VLAN {port.vlan}</div>
-              )}
-            </div>
-          </Tooltip>
-        );
-      })}
+        </div>
+      </Tooltip>
+    );
+  };
+  
+  return (
+    <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'inline-block' }}>
+      {/* Puertos regulares (1-24) */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '8px', 
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start'
+      }}>
+        {regularPorts.map(renderPort)}
+      </div>
+      
+      {/* Puertos uplink/SFP si existen */}
+      {uplinkPorts.length > 0 && (
+        <div style={{ 
+          marginTop: '16px',
+          paddingTop: '12px',
+          borderTop: '1px solid #e2e8f0'
+        }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>Uplinks</div>
+          <div style={{ 
+            display: 'flex', 
+            gap: '12px'
+          }}>
+            {uplinkPorts.map(renderPort)}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
