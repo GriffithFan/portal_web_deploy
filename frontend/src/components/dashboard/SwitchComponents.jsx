@@ -8,6 +8,7 @@ import { normalizeReachability, getStatusColor, resolvePortColor } from '../../u
 import { SummaryChip } from './DashboardHelpers';
 import { SortableHeader } from './SortableHeader';
 import { SwitchIcon } from './DashboardIcons';
+import '../AppliancePorts.css';
 
 /**
  * Grid de puertos de un switch - Estilo Meraki
@@ -26,16 +27,18 @@ export const SwitchPortsGrid = ({ ports = [] }) => {
     return num > 24;
   });
   
-  const renderPort = (port) => {
+  const renderPort = (port, isUplink = false) => {
     const isConnected = normalizeReachability(port.statusNormalized || port.status) === 'connected';
     const isDisabled = port.enabled === false;
     
-    // Colores estilo Meraki
-    let bgColor = '#d1d5db'; // gris por defecto (no conectado)
+    // Determinar clase del puerto
+    let portClass = 'NodePort rj45';
     if (isDisabled) {
-      bgColor = '#9ca3af'; // gris oscuro (deshabilitado)
+      portClass += ' disabled';
     } else if (isConnected) {
-      bgColor = '#10b981'; // verde (conectado)
+      portClass += ' has_carrier';
+    } else {
+      portClass += ' passthrough';
     }
     
     const portTooltip = (
@@ -84,75 +87,82 @@ export const SwitchPortsGrid = ({ ports = [] }) => {
       </div>
     );
     
+    // Tamaño del SVG
+    const svgWidth = isUplink ? '36px' : '30px';
+    const svgHeight = isUplink ? '30px' : '25px';
+    
     return (
       <Tooltip key={port.portId} content={portTooltip} position="auto">
         <div style={{ 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center',
-          gap: '2px'
+          gap: '4px'
         }}>
           {/* Número arriba */}
-          <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500' }}>{port.portId}</div>
-          
-          {/* Puerto visual */}
           <div style={{ 
-            width: '28px', 
-            height: '28px',
-            background: bgColor,
-            border: '1px solid #94a3b8',
-            borderRadius: '3px',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease'
+            fontSize: '10px', 
+            color: '#1f2937',
+            fontWeight: '600'
           }}>
-            {/* Badge PoE */}
-            {port.poeEnabled && (
-              <div style={{
-                position: 'absolute',
-                bottom: '-2px',
-                right: '-2px',
-                width: '8px',
-                height: '8px',
-                background: '#facc15',
-                border: '1px solid #eab308',
-                borderRadius: '50%'
-              }} />
+            {port.portId}
+            {port.poeEnabled && isConnected && (
+              <span style={{ marginLeft: '2px', color: '#f59e0b' }}>⚡</span>
             )}
           </div>
+          
+          {/* Puerto RJ45 usando SVG como en AppliancePortsMatrix */}
+          <svg
+            viewBox="0 0 30 25"
+            preserveAspectRatio="none"
+            className={portClass}
+            style={{ 
+              width: svgWidth, 
+              height: svgHeight,
+              cursor: 'pointer'
+            }}
+          >
+            <g>
+              <polygon points="5,9 9,9 9,6 12,6 12,3 18,3 18,6 21,6 21,9 25,9 25,21 5,21" />
+            </g>
+          </svg>
         </div>
       </Tooltip>
     );
   };
   
   return (
-    <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'inline-block' }}>
-      {/* Puertos regulares (1-24) */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '8px', 
-        flexWrap: 'wrap',
-        justifyContent: 'flex-start'
-      }}>
-        {regularPorts.map(renderPort)}
-      </div>
-      
-      {/* Puertos uplink/SFP si existen */}
-      {uplinkPorts.length > 0 && (
+    <div className="PortMatrixWrapper" style={{ display: 'inline-block' }}>
+      <div className="NodePortTable" style={{ display: 'inline-block' }}>
+        {/* Puertos regulares (1-24) */}
         <div style={{ 
-          marginTop: '16px',
-          paddingTop: '12px',
-          borderTop: '1px solid #e2e8f0'
+          display: 'flex', 
+          gap: '8px', 
+          flexWrap: 'wrap',
+          justifyContent: 'flex-start',
+          maxWidth: '520px'
         }}>
-          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>Uplinks</div>
-          <div style={{ 
-            display: 'flex', 
-            gap: '12px'
-          }}>
-            {uplinkPorts.map(renderPort)}
-          </div>
+          {regularPorts.map(port => renderPort(port, false))}
         </div>
-      )}
+        
+        {/* Puertos uplink/SFP si existen */}
+        {uplinkPorts.length > 0 && (
+          <div style={{ 
+            marginTop: '16px',
+            paddingTop: '12px',
+            borderTop: '1px solid #cbd5e1'
+          }}>
+            <div style={{ fontSize: '11px', color: '#475569', marginBottom: '8px', fontWeight: '600' }}>Uplinks</div>
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px',
+              flexWrap: 'wrap'
+            }}>
+              {uplinkPorts.map(port => renderPort(port, true))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

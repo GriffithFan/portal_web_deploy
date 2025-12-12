@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
 /* eslint-disable no-unused-vars */
 // Algunas utilidades permanecen definidas para mantenimiento/depuración y pueden no usarse siempre.
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
 import AppliancePortsMatrix from '../components/AppliancePortsMatrix';
+import '../components/AppliancePorts.css'; // CSS para puertos RJ45
 import Tooltip from '../components/Tooltip';
 import { SkeletonTable, SkeletonDeviceList, SkeletonTopology } from '../components/ui/SkeletonLoaders';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
@@ -995,16 +996,18 @@ const SwitchPortsGrid = ({ ports = [] }) => {
     return num > 24;
   });
   
-  const renderPort = (port) => {
+  const renderPort = (port, isUplink = false) => {
     const isConnected = normalizeReachability(port.statusNormalized || port.status) === 'connected';
     const isDisabled = port.enabled === false;
     
-    // Colores estilo Meraki
-    let bgColor = '#d1d5db'; // gris por defecto
+    // Determinar clase del puerto
+    let portClass = 'NodePort rj45';
     if (isDisabled) {
-      bgColor = '#9ca3af'; // gris oscuro
+      portClass += ' disabled';
     } else if (isConnected) {
-      bgColor = '#10b981'; // verde
+      portClass += ' has_carrier';
+    } else {
+      portClass += ' passthrough';
     }
     
     const portTooltip = (
@@ -1053,75 +1056,82 @@ const SwitchPortsGrid = ({ ports = [] }) => {
       </div>
     );
     
+    // Tamaño del SVG
+    const svgWidth = isUplink ? '36px' : '30px';
+    const svgHeight = isUplink ? '30px' : '25px';
+    
     return (
       <Tooltip key={port.portId} content={portTooltip} position="auto">
         <div style={{ 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center',
-          gap: '2px'
+          gap: '4px'
         }}>
           {/* Número arriba */}
-          <div style={{ fontSize: '11px', color: '#475569', fontWeight: '500' }}>{port.portId}</div>
-          
-          {/* Puerto visual */}
           <div style={{ 
-            width: '28px', 
-            height: '28px',
-            background: bgColor,
-            border: '1px solid #94a3b8',
-            borderRadius: '3px',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s ease'
+            fontSize: '10px', 
+            color: '#1f2937',
+            fontWeight: '600'
           }}>
-            {/* Badge PoE */}
-            {port.poeEnabled && (
-              <div style={{
-                position: 'absolute',
-                bottom: '-2px',
-                right: '-2px',
-                width: '8px',
-                height: '8px',
-                background: '#facc15',
-                border: '1px solid #eab308',
-                borderRadius: '50%'
-              }} />
+            {port.portId}
+            {port.poeEnabled && isConnected && (
+              <span style={{ marginLeft: '2px', color: '#f59e0b' }}>⚡</span>
             )}
           </div>
+          
+          {/* Puerto RJ45 usando SVG como en AppliancePortsMatrix */}
+          <svg
+            viewBox="0 0 30 25"
+            preserveAspectRatio="none"
+            className={portClass}
+            style={{ 
+              width: svgWidth, 
+              height: svgHeight,
+              cursor: 'pointer'
+            }}
+          >
+            <g>
+              <polygon points="5,9 9,9 9,6 12,6 12,3 18,3 18,6 21,6 21,9 25,9 25,21 5,21" />
+            </g>
+          </svg>
         </div>
       </Tooltip>
     );
   };
   
   return (
-    <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', display: 'inline-block' }}>
-      {/* Puertos regulares (1-24) */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '8px', 
-        flexWrap: 'wrap',
-        justifyContent: 'flex-start'
-      }}>
-        {regularPorts.map(renderPort)}
-      </div>
-      
-      {/* Puertos uplink/SFP si existen */}
-      {uplinkPorts.length > 0 && (
+    <div className="PortMatrixWrapper" style={{ display: 'inline-block' }}>
+      <div className="NodePortTable" style={{ display: 'inline-block' }}>
+        {/* Puertos regulares (1-24) */}
         <div style={{ 
-          marginTop: '16px',
-          paddingTop: '12px',
-          borderTop: '1px solid #e2e8f0'
+          display: 'flex', 
+          gap: '8px', 
+          flexWrap: 'wrap',
+          justifyContent: 'flex-start',
+          maxWidth: '520px'
         }}>
-          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>Uplinks</div>
-          <div style={{ 
-            display: 'flex', 
-            gap: '12px'
-          }}>
-            {uplinkPorts.map(renderPort)}
-          </div>
+          {regularPorts.map(port => renderPort(port, false))}
         </div>
-      )}
+        
+        {/* Puertos uplink/SFP si existen */}
+        {uplinkPorts.length > 0 && (
+          <div style={{ 
+            marginTop: '16px',
+            paddingTop: '12px',
+            borderTop: '1px solid #cbd5e1'
+          }}>
+            <div style={{ fontSize: '11px', color: '#475569', marginBottom: '8px', fontWeight: '600' }}>Uplinks</div>
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px',
+              flexWrap: 'wrap'
+            }}>
+              {uplinkPorts.map(port => renderPort(port, true))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -1313,7 +1323,7 @@ export default function Dashboard({ onLogout }) {
   const [uplinkRange, setUplinkRange] = useState(DEFAULT_UPLINK_TIMESPAN);
   const [error, setError] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [switchesTab, setSwitchesTab] = useState('list'); // 'list' o 'ports'
+  const [expandedSwitch, setExpandedSwitch] = useState(null); // Serial del switch expandido para ver puertos
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
   const [loadingLLDP, setLoadingLLDP] = useState(false); // Estado de carga de datos LLDP
   const [apConnectivityData, setApConnectivityData] = useState({}); // Datos de conectividad por serial
@@ -2093,221 +2103,230 @@ export default function Dashboard({ onLogout }) {
               Switches
             </h2>
 
-            {/* Tabs */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '8px', 
-              borderBottom: '1px solid #cbd5e1',
-              marginBottom: '16px'
-            }}>
-              <button
-                onClick={() => setSwitchesTab('list')}
-                style={{
-                  padding: '8px 16px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: switchesTab === 'list' ? '2px solid #2563eb' : '2px solid transparent',
-                  color: switchesTab === 'list' ? '#2563eb' : '#64748b',
-                  fontWeight: switchesTab === 'list' ? '600' : '500',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Switches
-              </button>
-              <button
-                onClick={() => setSwitchesTab('ports')}
-                style={{
-                  padding: '8px 16px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: switchesTab === 'ports' ? '2px solid #2563eb' : '2px solid transparent',
-                  color: switchesTab === 'ports' ? '#2563eb' : '#64748b',
-                  fontWeight: switchesTab === 'ports' ? '600' : '500',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Puertos
-              </button>
-            </div>
+            {/* Summary chips */}
+            {switchesOverview && (
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '12px', 
+                marginBottom: '20px',
+                padding: '14px',
+                background: '#f1f5f9',
+                borderRadius: '10px'
+              }}>
+                <SummaryChip label="Total Switches" value={switchesOverview.totalSwitches} accent="#1f2937" />
+                <SummaryChip 
+                  label="Online" 
+                  value={switchesData.filter(sw => normalizeReachability(sw.status) === 'connected').length} 
+                  accent="#22c55e" 
+                />
+                <SummaryChip 
+                  label="Advertencia" 
+                  value={switchesData.filter(sw => normalizeReachability(sw.status) === 'warning').length} 
+                  accent="#f59e0b" 
+                />
+                <SummaryChip 
+                  label="Offline" 
+                  value={switchesData.filter(sw => normalizeReachability(sw.status) === 'disconnected').length} 
+                  accent="#ef4444" 
+                />
+              </div>
+            )}
 
-            {/* Contenido según tab */}
-            {switchesTab === 'list' ? (
-              <>
-                {switchesOverview && (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexWrap: 'wrap', 
-                    gap: '12px', 
-                    marginBottom: '20px',
-                    padding: '14px',
-                    background: '#f1f5f9',
-                    borderRadius: '10px'
-                  }}>
-                    <SummaryChip label="Total Switches" value={switchesOverview.totalSwitches} accent="#1f2937" />
-                    <SummaryChip 
-                      label="Online" 
-                      value={switchesData.filter(sw => normalizeReachability(sw.status) === 'connected').length} 
-                      accent="#22c55e" 
-                    />
-                    <SummaryChip 
-                      label="Advertencia" 
-                      value={switchesData.filter(sw => normalizeReachability(sw.status) === 'warning').length} 
-                      accent="#f59e0b" 
-                    />
-                    <SummaryChip 
-                      label="Offline" 
-                      value={switchesData.filter(sw => normalizeReachability(sw.status) === 'disconnected').length} 
-                      accent="#ef4444" 
-                    />
-                  </div>
-                )}
-
-                <div style={{ overflowX: 'visible', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                  <table className="modern-table" style={{ tableLayout: 'fixed', width: '100%' }}>
-                    <thead>
-                      <tr>
-                        <SortableHeader label="Status" sortKey="status" align="center" width="8%" />
-                        <SortableHeader label="Name" sortKey="name" align="left" width="18%" />
-                        <SortableHeader label="Model" sortKey="model" align="left" width="12%" />
-                        <SortableHeader label="Serial" sortKey="serial" align="left" width="15%" />
-                        <th style={{ textAlign: 'left', width: '22%' }}>Connectivity (UTC-3)</th>
-                        <SortableHeader label="MAC address" sortKey="mac" align="left" width="15%" />
-                        <SortableHeader label="LAN IP" sortKey="lanIp" align="left" width="10%" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortData(switchesData, sortConfig.key, sortConfig.direction).map((sw) => {
-                        const statusColor = getStatusColor(sw.status);
-                        const statusNormalized = normalizeReachability(sw.status);
-                        
-                        // Construir tooltip para la tabla (igual que en SwitchCard)
-                        const switchTooltip = sw.tooltipInfo ? (
-                          <div>
-                            <div className="tooltip-title">{sw.tooltipInfo.name}</div>
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Modelo</span>
-                              <span className="tooltip-value">{sw.tooltipInfo.model}</span>
-                            </div>
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Serial</span>
-                              <span className="tooltip-value">{sw.tooltipInfo.serial}</span>
-                            </div>
-                            {sw.tooltipInfo.mac && (
-                              <div className="tooltip-row">
-                                <span className="tooltip-label">MAC</span>
-                                <span className="tooltip-value">{sw.tooltipInfo.mac}</span>
-                              </div>
-                            )}
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Firmware</span>
-                              <span className="tooltip-value">{sw.tooltipInfo.firmware || 'N/A'}</span>
-                            </div>
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">LAN IP</span>
-                              <span className="tooltip-value">{sw.tooltipInfo.lanIp || 'N/A'}</span>
-                            </div>
-                            <div className="tooltip-row">
-                              <span className="tooltip-label">Puertos activos</span>
-                              <span className="tooltip-value">{sw.tooltipInfo.connectedPorts}/{sw.tooltipInfo.totalPorts}</span>
-                            </div>
-                            {sw.tooltipInfo.poePorts > 0 && (
-                              <div className="tooltip-row">
-                                <span className="tooltip-label">PoE</span>
-                                <span className="tooltip-value">{sw.tooltipInfo.poeActivePorts}/{sw.tooltipInfo.poePorts} activos</span>
-                              </div>
-                            )}
-                            {sw.tooltipInfo.connectedTo && sw.tooltipInfo.connectedTo !== '-' && (
-                              <>
-                                <div className="tooltip-row">
-                                  <span className="tooltip-label">Conectado a</span>
-                                  <span className="tooltip-value">{sw.tooltipInfo.connectedTo}</span>
-                                </div>
-                                <div className="tooltip-row">
-                                  <span className="tooltip-label">Detección</span>
-                                  <span className="tooltip-value">{sw.tooltipInfo.detectionMethod}</span>
-                                </div>
-                              </>
-                            )}
+            <div style={{ overflowX: 'visible', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+              <table className="modern-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <SortableHeader label="Status" sortKey="status" align="center" width="8%" />
+                    <SortableHeader label="Name" sortKey="name" align="left" width="18%" />
+                    <SortableHeader label="Model" sortKey="model" align="left" width="12%" />
+                    <SortableHeader label="Serial" sortKey="serial" align="left" width="15%" />
+                    <th style={{ textAlign: 'left', width: '22%' }}>Connectivity (UTC-3)</th>
+                    <SortableHeader label="MAC address" sortKey="mac" align="left" width="15%" />
+                    <SortableHeader label="LAN IP" sortKey="lanIp" align="left" width="10%" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortData(switchesData, sortConfig.key, sortConfig.direction).map((sw) => {
+                    const statusColor = getStatusColor(sw.status);
+                    const statusNormalized = normalizeReachability(sw.status);
+                    const isExpanded = expandedSwitch === sw.serial;
+                    
+                    // Buscar datos detallados del switch para obtener puertos
+                    const switchDetail = switchesDetailed?.find(s => s.serial === sw.serial);
+                    const ports = switchDetail?.ports || [];
+                    
+                    // Construir tooltip para la tabla
+                    const switchTooltip = sw.tooltipInfo ? (
+                      <div>
+                        <div className="tooltip-title">{sw.tooltipInfo.name}</div>
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">Modelo</span>
+                          <span className="tooltip-value">{sw.tooltipInfo.model}</span>
+                        </div>
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">Serial</span>
+                          <span className="tooltip-value">{sw.tooltipInfo.serial}</span>
+                        </div>
+                        {sw.tooltipInfo.mac && (
+                          <div className="tooltip-row">
+                            <span className="tooltip-label">MAC</span>
+                            <span className="tooltip-value">{sw.tooltipInfo.mac}</span>
                           </div>
-                        ) : null;
-                        
-                        return (
-                          <tr key={sw.serial}>
-                            <td style={{ textAlign: 'center', padding: '10px 6px' }}>
-                              <span 
-                                style={{ 
+                        )}
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">Firmware</span>
+                          <span className="tooltip-value">{sw.tooltipInfo.firmware || 'N/A'}</span>
+                        </div>
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">LAN IP</span>
+                          <span className="tooltip-value">{sw.tooltipInfo.lanIp || 'N/A'}</span>
+                        </div>
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">Puertos activos</span>
+                          <span className="tooltip-value">{sw.tooltipInfo.connectedPorts}/{sw.tooltipInfo.totalPorts}</span>
+                        </div>
+                        {sw.tooltipInfo.poePorts > 0 && (
+                          <div className="tooltip-row">
+                            <span className="tooltip-label">PoE</span>
+                            <span className="tooltip-value">{sw.tooltipInfo.poeActivePorts}/{sw.tooltipInfo.poePorts} activos</span>
+                          </div>
+                        )}
+                        {sw.tooltipInfo.connectedTo && sw.tooltipInfo.connectedTo !== '-' && (
+                          <>
+                            <div className="tooltip-row">
+                              <span className="tooltip-label">Conectado a</span>
+                              <span className="tooltip-value">{sw.tooltipInfo.connectedTo}</span>
+                            </div>
+                            <div className="tooltip-row">
+                              <span className="tooltip-label">Detección</span>
+                              <span className="tooltip-value">{sw.tooltipInfo.detectionMethod}</span>
+                            </div>
+                          </>
+                        )}
+                        <div style={{ marginTop: '8px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                          Click para {isExpanded ? 'ocultar' : 'ver'} puertos
+                        </div>
+                      </div>
+                    ) : null;
+                    
+                    return (
+                      <React.Fragment key={sw.serial}>
+                        <tr 
+                          style={{ 
+                            cursor: 'pointer',
+                            background: isExpanded ? '#f0f9ff' : 'transparent',
+                            transition: 'background 0.2s ease'
+                          }}
+                          onClick={() => setExpandedSwitch(isExpanded ? null : sw.serial)}
+                        >
+                          <td style={{ textAlign: 'center', padding: '10px 6px' }}>
+                            <span 
+                              style={{ 
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '50%',
+                                background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef3c7' : statusNormalized === 'disconnected' ? '#fee2e2' : '#f1f5f9',
+                              }}
+                            >
+                              <span style={{ 
+                                width: '9px', 
+                                height: '9px', 
+                                borderRadius: '50%', 
+                                background: statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'warning' ? '#f59e0b' : statusNormalized === 'disconnected' ? '#ef4444' : '#94a3b8'
+                              }} />
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'left', fontSize: '14px', padding: '10px 12px', overflow: 'visible', position: 'relative' }}>
+                            <Tooltip content={switchTooltip || "Click para ver puertos"} position="auto">
+                              <span style={{ 
+                                color: '#2563eb', 
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                position: 'relative',
+                                zIndex: 1
+                              }}>
+                                <span style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  width: '22px',
-                                  height: '22px',
-                                  borderRadius: '50%',
-                                  background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef3c7' : statusNormalized === 'disconnected' ? '#fee2e2' : '#f1f5f9',
-                                }}
-                              >
-                                <span style={{ 
-                                  width: '9px', 
-                                  height: '9px', 
-                                  borderRadius: '50%', 
-                                  background: statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'warning' ? '#f59e0b' : statusNormalized === 'disconnected' ? '#ef4444' : '#94a3b8'
-                                }} />
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'left', fontSize: '14px', padding: '10px 12px', overflow: 'visible', position: 'relative' }}>
-                              <Tooltip content={switchTooltip || "Switch sin tooltipInfo"} position="auto">
-                                <span style={{ 
-                                  color: '#2563eb', 
-                                  fontWeight: '700',
-                                  cursor: 'pointer',
-                                  display: 'inline-block',
-                                  position: 'relative',
-                                  zIndex: 1
+                                  width: '16px',
+                                  height: '16px',
+                                  fontSize: '10px',
+                                  color: '#64748b',
+                                  transition: 'transform 0.2s ease',
+                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
                                 }}>
-                                  {sw.name || sw.serial}
+                                  ▶
                                 </span>
-                              </Tooltip>
-                            </td>
-                            <td style={{ textAlign: 'left', fontSize: '13px', color: '#64748b', padding: '10px 12px' }}>
-                              {sw.model || '-'}
-                            </td>
-                            <td style={{ textAlign: 'left', fontSize: '12px', color: '#64748b', padding: '10px 12px', fontFamily: 'monospace' }}>
-                              {sw.serial}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <ConnectivityBar device={sw} />
-                            </td>
-                            <td style={{ textAlign: 'left', fontSize: '12px', color: '#64748b', padding: '10px 12px', fontFamily: 'monospace' }}>
-                              {sw.mac || '-'}
-                            </td>
-                            <td style={{ textAlign: 'left', fontSize: '13px', color: '#64748b', padding: '10px 12px', fontFamily: 'monospace' }}>
-                              {sw.lanIp || '-'}
+                                {sw.name || sw.serial}
+                              </span>
+                            </Tooltip>
+                          </td>
+                          <td style={{ textAlign: 'left', fontSize: '13px', color: '#64748b', padding: '10px 12px' }}>
+                            {sw.model || '-'}
+                          </td>
+                          <td style={{ textAlign: 'left', fontSize: '12px', color: '#64748b', padding: '10px 12px', fontFamily: 'monospace' }}>
+                            {sw.serial}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <ConnectivityBar device={sw} />
+                          </td>
+                          <td style={{ textAlign: 'left', fontSize: '12px', color: '#64748b', padding: '10px 12px', fontFamily: 'monospace' }}>
+                            {sw.mac || '-'}
+                          </td>
+                          <td style={{ textAlign: 'left', fontSize: '13px', color: '#64748b', padding: '10px 12px', fontFamily: 'monospace' }}>
+                            {sw.lanIp || '-'}
+                          </td>
+                        </tr>
+                        
+                        {/* Fila expandible con puertos */}
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan="7" style={{ 
+                              padding: '16px 24px', 
+                              background: '#f8fafc',
+                              borderTop: '1px solid #e2e8f0'
+                            }}>
+                              <div style={{ marginBottom: '12px' }}>
+                                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#1e293b', fontWeight: '600' }}>
+                                  PUERTOS ({ports.length})
+                                </h4>
+                                {/* Estadísticas rápidas */}
+                                <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
+                                  <span>
+                                    <strong style={{ color: '#22c55e' }}>{ports.filter(p => normalizeReachability(p.status) === 'connected').length}</strong> Activos
+                                  </span>
+                                  <span>
+                                    <strong style={{ color: '#ef4444' }}>{ports.filter(p => normalizeReachability(p.status) !== 'connected').length}</strong> Inactivos
+                                  </span>
+                                  <span>
+                                    <strong style={{ color: '#f59e0b' }}>{ports.filter(p => p.poeEnabled).length}</strong> PoE
+                                  </span>
+                                </div>
+                              </div>
+                              {ports.length > 0 ? (
+                                <SwitchPortsGrid ports={ports} />
+                              ) : (
+                                <div style={{ color: '#94a3b8', fontSize: '13px' }}>
+                                  No hay información de puertos disponible para este switch.
+                                </div>
+                              )}
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 18, overflow: 'visible' }}>
-                  {switchesDetailed && switchesDetailed.length > 0 ? (
-                    switchesDetailed.map(sw => (
-                      <SwitchCard key={sw.serial} sw={sw} />
-                    ))
-                  ) : (
-                    <div style={{ padding: '12px', color: '#64748b' }}>
-                      No hay información detallada de puertos disponible
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       }
