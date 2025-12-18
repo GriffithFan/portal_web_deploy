@@ -12,8 +12,8 @@ function App() {
   // Admin key for privileged operations
   const [adminKey, setAdminKey] = useState(() => localStorage.getItem('adminKey') || '');
 
-  // 15 minute idle timeout before auto-logout for security
-  const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+  // 8 hour idle timeout (full work shift) before auto-logout for security
+  const IDLE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
   const lastActivityRef = useRef(Number(localStorage.getItem('lastActivity') || Date.now()));
   const idleTimerRef = useRef(null);
 
@@ -38,7 +38,7 @@ function App() {
         setTechUser('');
         setToken(null);
         lastActivityRef.current = 0;
-        try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
+        try { localStorage.removeItem('lastActivity'); localStorage.removeItem('currentPredio'); } catch (e) { console.debug('localStorage remove failed', e); }
       }, IDLE_TIMEOUT_MS);
     };
 
@@ -53,12 +53,12 @@ function App() {
     if (since >= IDLE_TIMEOUT_MS) {
       // Session already expired, logout immediately
       setTechUser(''); setToken(null);
-      try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
+      try { localStorage.removeItem('lastActivity'); localStorage.removeItem('currentPredio'); } catch (e) { console.debug('localStorage remove failed', e); }
     } else {
       // Schedule logout for remaining time
       idleTimerRef.current = setTimeout(() => {
         setTechUser(''); setToken(null);
-        try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
+        try { localStorage.removeItem('lastActivity'); localStorage.removeItem('currentPredio'); } catch (e) { console.debug('localStorage remove failed', e); }
       }, IDLE_TIMEOUT_MS - since);
     }
 
@@ -80,7 +80,11 @@ function App() {
   const handleLogout = () => {
     setTechUser('');
     setToken(null);
-    try { localStorage.removeItem('lastActivity'); } catch (e) { console.debug('localStorage remove failed', e); }
+    // Limpiar predio guardado para que no se cargue en próxima sesión
+    try { 
+      localStorage.removeItem('lastActivity'); 
+      localStorage.removeItem('currentPredio');
+    } catch (e) { console.debug('localStorage remove failed', e); }
   };
 
   const handleAdminLogin = (key) => {

@@ -460,29 +460,54 @@ const ConnectivityTimeline = ({ series }) => {
   const totalDuration = parsed[parsed.length - 1].time - parsed[0].time;
   if (totalDuration <= 0) return null;
 
+  // Detectar el intervalo promedio entre muestras para identificar gaps
+  const intervals = [];
+  for (let i = 1; i < parsed.length; i += 1) {
+    intervals.push(parsed[i].time - parsed[i - 1].time);
+  }
+  const avgInterval = intervals.length > 0 
+    ? intervals.reduce((a, b) => a + b, 0) / intervals.length 
+    : 300000; // 5 min por defecto
+  const gapThreshold = Math.max(avgInterval * 2.5, 600000); // 2.5x el intervalo o mínimo 10 min
+
   const segments = [];
   for (let i = 0; i < parsed.length - 1; i += 1) {
     const current = parsed[i];
     const next = parsed[i + 1];
     const duration = next.time - current.time;
     if (duration <= 0) continue;
-    segments.push({
-      status: current.status,
-      duration,
-    });
+    
+    // Si hay un gap grande entre puntos, rellenar con 'disconnected' (rojo)
+    if (duration > gapThreshold) {
+      // El estado actual se extiende por un intervalo normal
+      segments.push({
+        status: current.status,
+        duration: avgInterval,
+      });
+      // El resto del gap se marca como disconnected (sin datos = offline)
+      segments.push({
+        status: 'disconnected',
+        duration: duration - avgInterval,
+      });
+    } else {
+      segments.push({
+        status: current.status,
+        duration,
+      });
+    }
   }
 
   if (!segments.length) return null;
 
+  // Solo 3 colores como Meraki: verde (conectado), rojo (sin conectividad), gris (disabled)
   const statusColor = (status) => {
-    if (status === 'connected') return '#22c55e';
-    if (status === 'warning' || status === 'degraded' || status === 'alerting') return '#f59e0b';
-    if (status === 'disabled') return '#94a3b8';
-    return '#f97316';
+    if (status === 'connected') return '#22c55e';  // Verde
+    if (status === 'disabled') return '#94a3b8';   // Gris (solo para puertos disabled)
+    return '#ef4444';  // Rojo para todo lo demás (disconnected, warning, unknown, etc.)
   };
 
   return (
-    <div style={{ display: 'flex', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1', height: 10, width: '100%' }}>
+    <div style={{ display: 'flex', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1', height: 10, width: '100%', background: '#ef4444' }}>
       {segments.map((segment, idx) => (
         <div
           key={`${segment.status}-${idx}`}
@@ -735,10 +760,10 @@ const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp })
     }
   }, [isAP, historyLength, connectivityDataProp, statusNormalized, historyArray]);
   
-  // Si no hay datos, mostrar barra verde si está online (para switches), o gris si no
+  // Si no hay datos, mostrar barra verde si está online (para switches), o rojo si no (como Meraki)
   if (!connectivityData || connectivityData.length === 0) {
-    const barColor = statusNormalized === 'online' || statusNormalized === 'connected' ? '#22c55e' : '#d1d5db';
-    const barLabel = statusNormalized === 'online' || statusNormalized === 'connected' ? 'Conectado (sin datos de tráfico)' : 'Sin datos';
+    const barColor = statusNormalized === 'online' || statusNormalized === 'connected' ? '#22c55e' : '#ef4444';
+    const barLabel = statusNormalized === 'online' || statusNormalized === 'connected' ? 'Conectado (sin datos de tráfico)' : 'Sin conectividad';
     
     return (
       <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
@@ -759,23 +784,24 @@ const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp })
     const hasLatency = point.latencyMs !== null && point.latencyMs !== undefined;
     const hasLoss = point.lossPercent !== null && point.lossPercent !== undefined;
     
-    let color = '#d1d5db';
-    let label = 'Sin datos';
+    let color = '#ef4444';  // Rojo por defecto (sin datos = offline, como en Meraki)
+    let label = 'Sin conectividad';
     
+    // Solo 3 colores como Meraki: verde, rojo, gris
     if (!hasLatency && !hasLoss) {
-      color = '#d1d5db';
-      label = 'Sin datos';
+      // Sin datos = rojo (como en Meraki dashboard)
+      color = '#ef4444';
+      label = 'Sin conectividad';
     } else {
       const loss = point.lossPercent || 0;
       const latency = point.latencyMs || 0;
       
-      if (loss > 30 || latency > 500) {
+      // Cualquier problema de conectividad = rojo
+      if (loss > 5 || latency > 100) {
         color = '#ef4444';
         label = 'Sin conectividad';
-      } else if (loss > 10 || latency > 200) {
-        color = '#f97316';
-        label = 'Conectividad degradada';
       } else {
+        // Conectividad OK = verde
         color = '#22c55e';
         label = 'Conectado';
       }
@@ -796,14 +822,13 @@ const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp })
   const segmentWidth = connectivityData.length > 0 ? (100 / connectivityData.length) : 100;
   
   return (
-    <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+    <div style={{ display: 'flex', height: '10px', borderRadius: '3px', overflow: 'hidden', border: '1px solid #cbd5e1', background: '#ef4444' }}>
       {segments.map((segment, idx) => (
         <div
           key={idx}
           style={{
-            flex: `0 0 ${segmentWidth}%`,
+            flex: 1,
             background: segment.color,
-            transition: 'all 0.2s ease',
             minWidth: '1px',
             cursor: 'help'
           }}
@@ -982,156 +1007,346 @@ const SummaryChip = ({ label, value, accent = '#1f2937' }) => (
   </div>
 );
 
-const SwitchPortsGrid = ({ ports = [] }) => {
-  if (!ports.length) return <div style={{ fontSize: 13, color: '#64748b' }}>Sin información de puertos disponible.</div>;
+// Componente de puerto estilo Meraki Dashboard - Réplica exacta usando sprite oficial
+// Sprite de Meraki con las formas de puerto RJ45 oficiales (82x38px)
+// El sprite contiene la FORMA del puerto (silueta trapezoidal RJ45)
+// El ícono (rayito/flecha) se superpone usando FontAwesome o SVG
+const MERAKI_PORT_SPRITE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFIAAAAmCAYAAABXn8xMAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4AEEETIF6GxmfAAAAQJJREFUaN7tmtsNwyAMRZMqE7APHT7exyu0P60UUd6ECJpzP8GW4MhGss2qqq8FNWsLbRhjnr51Vd1LfUJ+OfYxm1GkqvuWuJw42/a7HwEqnjUbOUeOvVwAYzHG1PjYWERKYt2WHnSGyGpO7ZpLHn1i6X5VRI30RpZcVjLT9jZ6gACQgAQkAiQgAQlIBEhAAhL91tpn1cw9au/u9XxpC831WemQk9rjpXZr07XHWGDmUUNt87XHWGC6UQOpzRsJSEAiQAISkIBEgAQkINFHoX5kqrblv48P5PE3WW63JeMHWi54+beI9F1czorE0h+704N0+oC2IhJLYduTbJrEqGEQvQFrqmF3hSA1VgAAAABJRU5ErkJggg==';
+
+const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipped = false }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   
-  // Separar puertos normales de uplinks
-  const regularPorts = ports.filter(p => {
-    const num = parseInt(p.portId);
-    return num <= 24;
-  });
+  // Normalizar el status - el API de Meraki devuelve "Connected" con mayúscula
+  const portStatus = (port.status || port.statusNormalized || '').toLowerCase();
+  const isConnected = portStatus === 'connected' || portStatus === 'active';
+  const isDisabled = port.enabled === false;
+  const hasPoe = port.poeEnabled === true;
   
-  const uplinkPorts = ports.filter(p => {
-    const num = parseInt(p.portId);
-    return num > 24;
-  });
+  const portName = port.name || '';
+  const portNum = port.portId;
   
-  const renderPort = (port, isUplink = false) => {
-    const isConnected = normalizeReachability(port.statusNormalized || port.status) === 'connected';
-    const isDisabled = port.enabled === false;
+  // Obtiene la velocidad real del puerto desde los datos del API
+  const getSpeed = () => {
+    if (!isConnected) return '';
+    // Verificar múltiples campos donde puede venir la velocidad
+    const speedValue = port.speed || port.speedMbps || port.linkSpeed || port.speedLabel;
+    if (!speedValue) return '';
     
-    // Determinar clase del puerto
-    let portClass = 'NodePort rj45';
-    if (isDisabled) {
-      portClass += ' disabled';
-    } else if (isConnected) {
-      portClass += ' has_carrier';
-    } else {
-      portClass += ' passthrough';
+    // Si es un número (Mbps), convertir a formato legible
+    if (typeof speedValue === 'number') {
+      if (speedValue >= 10000) return '10 Gbps';
+      if (speedValue >= 1000) return '1 Gbps';
+      if (speedValue >= 100) return '100 Mbps';
+      if (speedValue >= 10) return '10 Mbps';
+      return `${speedValue} Mbps`;
     }
     
-    const portTooltip = (
-      <div>
-        <div className="tooltip-title">Puerto {port.portId}</div>
-        <div className="tooltip-row">
-          <span className="tooltip-label">Estado</span>
-          <span className="tooltip-value">{port.status || 'Desconocido'}</span>
-        </div>
-        {port.name && (
-          <div className="tooltip-row">
-            <span className="tooltip-label">Nombre</span>
-            <span className="tooltip-value">{port.name}</span>
-          </div>
-        )}
-        {port.vlan && (
-          <div className="tooltip-row">
-            <span className="tooltip-label">VLAN</span>
-            <span className="tooltip-value">{port.vlan}</span>
-          </div>
-        )}
-        {port.type && (
-          <div className="tooltip-row">
-            <span className="tooltip-label">Tipo</span>
-            <span className="tooltip-value">{port.type}</span>
-          </div>
-        )}
-        {port.speed && (
-          <div className="tooltip-row">
-            <span className="tooltip-label">Velocidad</span>
-            <span className="tooltip-value">{port.speed}</span>
-          </div>
-        )}
-        {port.poeEnabled && (
-          <div className="tooltip-row">
-            <span className="tooltip-label">PoE</span>
-            <span className="tooltip-value">Habilitado</span>
-          </div>
-        )}
-        {port.isUplink && (
-          <div className="tooltip-row">
-            <span className="tooltip-label">Función</span>
-            <span className="tooltip-value">Puerto Uplink</span>
-          </div>
-        )}
-      </div>
-    );
+    // Si es string, normalizar el formato
+    const speedStr = String(speedValue).toLowerCase();
+    if (speedStr.includes('10000') || speedStr.includes('10 gbps') || speedStr.includes('10gbps')) return '10 Gbps';
+    if (speedStr.includes('1000') || speedStr.includes('1 gbps') || speedStr.includes('1gbps')) return '1 Gbps';
+    if (speedStr.includes('100')) return '100 Mbps';
+    if (speedStr.includes('10')) return '10 Mbps';
     
-    // Tamaño del SVG
-    const svgWidth = isUplink ? '36px' : '30px';
-    const svgHeight = isUplink ? '30px' : '25px';
-    
-    return (
-      <Tooltip key={port.portId} content={portTooltip} position="auto">
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
+    return speedValue; // Retornar el valor original si no coincide con nada
+  };
+  
+  const portType = port.type || 'trunk';
+  const vlan = port.vlan || port.accessPolicyNumber || 1;
+  
+  const handleMouseEnter = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+    setShowTooltip(true);
+  };
+
+  // Colores de Meraki
+  const MERAKI_GREEN = '#67b346';
+  
+  // Posiciones del sprite oficial de Meraki:
+  // (0, 0) = Forma RJ45 con área para flecha blanca
+  // (0, -19px) = Forma RJ45 con área para rayito PoE
+  // (-18px, -19px) = Forma SFP (rectángulo, ancho 23px)
+  // (-39px, 0) = Stack port (ancho 45px)
+  const getSpritePosition = () => {
+    if (isStackPort) return '-39px 0';
+    if (isUplink) return '-18px -19px';
+    // Puertos RJ45 (1-24) siempre usan forma RJ45
+    if (hasPoe) return '0 -19px';  // Forma para rayito
+    return '0 0';  // Forma para flecha
+  };
+  
+  // Renderizado del puerto usando el sprite oficial de Meraki
+  const getPortContent = () => {
+    // Puerto RJ45 regular (1-24)
+    if (!isUplink && !isStackPort) {
+      return (
+        <div style={{
+          width: '20px',
+          height: '21px',
+          backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
+          backgroundPosition: getSpritePosition(),
+          backgroundColor: isConnected ? MERAKI_GREEN : '#000',
+          border: '1px solid #000',
+          cursor: 'pointer',
+          boxSizing: 'border-box',
+          position: 'relative',
+          display: 'flex',
           alignItems: 'center',
-          gap: '4px'
+          justifyContent: 'center',
+          transform: isFlipped ? 'rotate(180deg)' : 'none'
         }}>
-          {/* Número arriba */}
-          <div style={{ 
-            fontSize: '10px', 
-            color: '#1f2937',
-            fontWeight: '600'
-          }}>
-            {port.portId}
-            {port.poeEnabled && isConnected && (
-              <span style={{ marginLeft: '2px', color: '#f59e0b' }}>⚡</span>
-            )}
-          </div>
-          
-          {/* Puerto RJ45 usando SVG como en AppliancePortsMatrix */}
-          <svg
-            viewBox="0 0 30 25"
-            preserveAspectRatio="none"
-            className={portClass}
-            style={{ 
-              width: svgWidth, 
-              height: svgHeight,
-              cursor: 'pointer'
-            }}
-          >
-            <g>
-              <polygon points="5,9 9,9 9,6 12,6 12,3 18,3 18,6 21,6 21,9 25,9 25,21 5,21" />
-            </g>
-          </svg>
+          {/* Ícono superpuesto - solo visible en puertos conectados */}
+          {isConnected && hasPoe && (
+            // Rayito PoE - SVG amarillo más ancho como el original
+            <svg width="12" height="16" viewBox="0 0 12 16" style={{ 
+              position: 'absolute', 
+              top: '2px', 
+              left: '4px',
+              transform: isFlipped ? 'rotate(180deg)' : 'none'
+            }}>
+              <path d="M7 0 L2 8 L5 8 L4 16 L9 6 L6 6 Z" fill="#ff0" stroke="#000" strokeWidth="0.8"/>
+            </svg>
+          )}
+          {isConnected && !hasPoe && (
+            // Flecha hacia arriba - SVG blanca
+            <svg width="10" height="14" viewBox="0 0 10 14" style={{ 
+              position: 'absolute', 
+              top: '3px', 
+              left: '5px',
+              transform: isFlipped ? 'rotate(180deg)' : 'none'
+            }}>
+              <path d="M5 0 L9 6 L6 6 L6 14 L4 14 L4 6 L1 6 Z" fill="#fff" stroke="#000" strokeWidth="0.3"/>
+            </svg>
+          )}
         </div>
-      </Tooltip>
-    );
+      );
+    }
+    
+    // Puerto SFP (25-28) - rectángulo simple
+    if (isUplink) {
+      return (
+        <div style={{
+          width: '23px',
+          height: '21px',
+          backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
+          backgroundPosition: '-18px -19px',
+          backgroundColor: isConnected ? MERAKI_GREEN : '#000',
+          border: '1px solid #000',
+          cursor: 'pointer',
+          boxSizing: 'border-box'
+        }} />
+      );
+    }
+    
+    // Stack Port (>28)
+    if (isStackPort) {
+      return (
+        <div style={{
+          width: '45px',
+          height: '21px',
+          backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
+          backgroundPosition: '-39px 0',
+          backgroundColor: '#000',
+          border: '1px solid #000',
+          cursor: 'pointer',
+          boxSizing: 'border-box'
+        }} />
+      );
+    }
   };
   
   return (
-    <div className="PortMatrixWrapper" style={{ display: 'inline-block' }}>
-      <div className="NodePortTable" style={{ display: 'inline-block' }}>
-        {/* Puertos regulares (1-24) */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '8px', 
-          flexWrap: 'wrap',
-          justifyContent: 'flex-start',
-          maxWidth: '520px'
+    <div 
+      style={{ position: 'relative', display: 'inline-block' }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {getPortContent()}
+      
+      {/* Tooltip estilo Meraki - fondo amarillo */}
+      {showTooltip && (
+        <div style={{
+          position: 'fixed',
+          left: tooltipPos.x,
+          top: tooltipPos.y,
+          transform: 'translate(-50%, -100%)',
+          background: '#fffde7',
+          border: '1px solid #fbc02d',
+          borderRadius: '2px',
+          padding: '6px 10px',
+          fontSize: '12px',
+          color: '#222',
+          whiteSpace: 'nowrap',
+          zIndex: 9999,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+          pointerEvents: 'none',
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
         }}>
-          {regularPorts.map(port => renderPort(port, false))}
-        </div>
-        
-        {/* Puertos uplink/SFP si existen */}
-        {uplinkPorts.length > 0 && (
-          <div style={{ 
-            marginTop: '16px',
-            paddingTop: '12px',
-            borderTop: '1px solid #cbd5e1'
-          }}>
-            <div style={{ fontSize: '11px', color: '#475569', marginBottom: '8px', fontWeight: '600' }}>Uplinks</div>
-            <div style={{ 
-              display: 'flex', 
-              gap: '12px',
-              flexWrap: 'wrap'
-            }}>
-              {uplinkPorts.map(port => renderPort(port, true))}
-            </div>
+          <div style={{ fontWeight: '600', marginBottom: '2px' }}>
+            {isStackPort ? `Stack port ${portNum}` : isUplink ? `SFP port ${portNum}` : `Port ${portNum}`}
+            {portName && ` : ${portName}`}
           </div>
-        )}
-      </div>
+          <div style={{ color: isConnected ? '#67b346' : '#666' }}>
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </div>
+          <div style={{ color: '#666' }}>
+            Auto negotiate{isConnected && getSpeed() ? ` (${getSpeed()})` : ''}
+          </div>
+          <div style={{ color: '#666' }}>
+            {portType === 'trunk' ? `Trunk: native VLAN ${vlan}` : `Access: VLAN ${vlan}`}
+          </div>
+          {hasPoe && (
+            <div style={{ color: '#67b346' }}>
+              PoE enabled
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SwitchPortsGrid = ({ ports = [] }) => {
+  if (!ports.length) return <div style={{ fontSize: 13, color: '#64748b' }}>Sin información de puertos disponible.</div>;
+  
+  // Separar puertos por tipo - IMPORTANTE: los puertos 1-24 son RJ45 aunque tengan isUplink
+  const regularPorts = ports.filter(p => {
+    const num = parseInt(p.portId);
+    // Puertos 1-24 siempre son RJ45 regulares (incluyendo el 23 aunque sea uplink)
+    return num >= 1 && num <= 24;
+  }).sort((a, b) => parseInt(a.portId) - parseInt(b.portId));
+  
+  // Puertos SFP son 25-28 (o los que tengan portId mayor a 24 y menor o igual a 28)
+  const sfpPorts = ports.filter(p => {
+    const num = parseInt(p.portId);
+    return num >= 25 && num <= 28;
+  }).sort((a, b) => parseInt(a.portId) - parseInt(b.portId));
+  
+  // Stack ports son los mayores a 28
+  const stackPorts = ports.filter(p => {
+    const num = parseInt(p.portId);
+    return num > 28 || p.isStackPort;
+  });
+  
+  // Separar puertos impares (fila superior: 1,3,5...23) y pares (fila inferior: 2,4,6...24)
+  const oddPorts = regularPorts.filter(p => parseInt(p.portId) % 2 === 1);
+  const evenPorts = regularPorts.filter(p => parseInt(p.portId) % 2 === 0);
+  
+  return (
+    <div style={{ 
+      display: 'inline-flex', 
+      alignItems: 'center', 
+      gap: '8px',
+      background: '#eee',
+      padding: '3px',
+      whiteSpace: 'nowrap',
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
+    }}>
+      {/* Contenedor de puertos RJ45 con tabla exacta de Meraki */}
+      <table style={{ borderCollapse: 'separate', borderSpacing: '2px' }}>
+        <tbody>
+          {/* Fila de números superiores (impares: 1,3,5...23) */}
+          <tr>
+            {oddPorts.map(port => (
+              <td key={`num-top-${port.portId}`} style={{ 
+                textAlign: 'center', 
+                fontSize: '10px', 
+                color: '#000',
+                fontWeight: '400',
+                padding: '0',
+                fontFamily: 'arial, sans-serif',
+                verticalAlign: 'bottom',
+                height: '14px'
+              }}>
+                {port.portId}
+              </td>
+            ))}
+          </tr>
+          {/* Fila superior - puertos impares (1,3,5,7...23) */}
+          <tr>
+            {oddPorts.map(port => (
+              <td key={`port-${port.portId}`} style={{ padding: 0, verticalAlign: 'top' }}>
+                <MerakiSwitchPort port={port} />
+              </td>
+            ))}
+          </tr>
+          {/* Fila inferior - puertos pares (2,4,6,8...24) - ROTADOS 180° */}
+          <tr>
+            {evenPorts.map(port => (
+              <td key={`port-${port.portId}`} style={{ padding: 0, verticalAlign: 'top' }}>
+                <MerakiSwitchPort port={port} isFlipped={true} />
+              </td>
+            ))}
+          </tr>
+          {/* Fila de números inferiores (pares: 2,4,6...24) */}
+          <tr>
+            {evenPorts.map(port => (
+              <td key={`num-bottom-${port.portId}`} style={{ 
+                textAlign: 'center', 
+                fontSize: '10px', 
+                color: '#000',
+                fontWeight: '400',
+                padding: '0',
+                fontFamily: 'arial, sans-serif',
+                verticalAlign: 'top',
+                height: '14px'
+              }}>
+                {port.portId}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      
+      {/* Puertos SFP (25-28) */}
+      {sfpPorts.length > 0 && (
+        <table style={{ borderCollapse: 'separate', borderSpacing: '2px' }}>
+          <tbody>
+            {/* Números superiores */}
+            <tr>
+              {sfpPorts.map(port => (
+                <td key={`sfp-num-${port.portId}`} style={{ 
+                  textAlign: 'center', 
+                  fontSize: '10px', 
+                  color: '#000',
+                  padding: '0',
+                  fontFamily: 'arial, sans-serif',
+                  verticalAlign: 'bottom',
+                  height: '14px'
+                }}>
+                  {port.portId}
+                </td>
+              ))}
+            </tr>
+            {/* Puertos SFP - en una sola fila */}
+            <tr>
+              {sfpPorts.map(port => (
+                <td key={`sfp-port-${port.portId}`} style={{ padding: 0, verticalAlign: 'top' }}>
+                  <MerakiSwitchPort port={port} isUplink={true} />
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      )}
+      
+      {/* Stack Ports */}
+      {stackPorts.length > 0 && (
+        <table style={{ borderCollapse: 'separate', borderSpacing: '4px' }}>
+          <tbody>
+            <tr>
+              {stackPorts.map((port, idx) => (
+                <td key={`stack-${port.portId}`} style={{ padding: 0, textAlign: 'center' }}>
+                  <MerakiSwitchPort port={port} isStackPort={true} />
+                  <div style={{ fontSize: '9px', color: '#000', marginTop: '2px' }}>{idx + 1}</div>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };
@@ -1293,17 +1508,22 @@ const SwitchCard = ({ sw }) => {
         </div>
       </div>
 
-      {/* Ports grid */}
+      {/* Ports grid - estilo Meraki */}
       <div>
         <div style={{ 
-          fontSize: '12px', 
-          fontWeight: '600', 
-          color: '#475569', 
-          marginBottom: '10px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px'
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '10px'
         }}>
-          Puertos ({portsToShow.length})
+          <span style={{ 
+            fontSize: '16px', 
+            fontWeight: '600', 
+            color: '#1e293b'
+          }}>
+            Ports
+          </span>
+
         </div>
         <SwitchPortsGrid ports={portsToShow} />
       </div>
@@ -1323,12 +1543,24 @@ export default function Dashboard({ onLogout }) {
   const [uplinkRange, setUplinkRange] = useState(DEFAULT_UPLINK_TIMESPAN);
   const [error, setError] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const initialLoadDoneRef = useRef(false);
+
+  // Función para actualizar la URL sin recargar la página
+  const updateURL = useCallback((predio, sectionKey) => {
+    const params = new URLSearchParams();
+    if (predio) params.set('predio', predio);
+    if (sectionKey) params.set('section', sectionKey);
+    const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    window.history.replaceState({}, '', newURL);
+  }, []);
+
   const [expandedSwitch, setExpandedSwitch] = useState(null); // Serial del switch expandido para ver puertos
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
   const [loadingLLDP, setLoadingLLDP] = useState(false); // Estado de carga de datos LLDP
   const [apConnectivityData, setApConnectivityData] = useState({}); // Datos de conectividad por serial
   const hasAppliedPreferredRef = useRef(false);
   const hasMarkedApsSectionRef = useRef(false); // Track if we already marked APs section as loaded
+  const applianceStatusRef = useRef(null); // Ref para captura de Appliance Status
 
   // Track window width to enable mobile-specific rendering without affecting desktop
   useEffect(() => {
@@ -1636,6 +1868,21 @@ export default function Dashboard({ onLogout }) {
       
       setSelectedNetwork(network);
       
+      // Actualizar URL con el predio
+      updateURL(network.predio_code || network.id, section);
+      
+      // Guardar predio actual en localStorage para persistir al recargar
+      try {
+        localStorage.setItem('currentPredio', JSON.stringify({
+          id: network.id,
+          predio_code: network.predio_code || network.id,
+          name: network.name || '',
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.debug('No se pudo guardar predio actual', e);
+      }
+      
       // Guardar en predios recientes
       try {
         const recentPredios = JSON.parse(localStorage.getItem('recentPredios') || '[]');
@@ -1669,6 +1916,70 @@ export default function Dashboard({ onLogout }) {
       setLoading(false);
     }
   };
+
+  // Función para cambiar de sección y actualizar URL
+  const handleSectionChange = useCallback((newSection) => {
+    setSection(newSection);
+    const predio = selectedNetwork?.predio_code || selectedNetwork?.id;
+    if (predio) {
+      updateURL(predio, newSection);
+    }
+  }, [selectedNetwork, updateURL]);
+
+  // Función para refrescar el predio actual
+  const refreshPredio = useCallback(() => {
+    const predio = selectedNetwork?.predio_code || selectedNetwork?.id;
+    if (predio) {
+      search(predio);
+    }
+  }, [selectedNetwork]);
+
+  // Generar URL para abrir en nueva pestaña
+  const getPredioURL = useCallback((predio, sectionKey) => {
+    const params = new URLSearchParams();
+    if (predio) params.set('predio', predio);
+    if (sectionKey) params.set('section', sectionKey);
+    return `${window.location.pathname}?${params.toString()}`;
+  }, []);
+
+  // Efecto para cargar predio desde URL o localStorage al inicio
+  useEffect(() => {
+    if (initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
+    
+    const params = new URLSearchParams(window.location.search);
+    const predioParam = params.get('predio');
+    const sectionParam = params.get('section');
+    
+    if (sectionParam && DEFAULT_SECTIONS.some(s => s.k === sectionParam)) {
+      setSection(sectionParam);
+    }
+    
+    // Prioridad: 1) URL param, 2) localStorage
+    let predioToLoad = predioParam;
+    
+    if (!predioToLoad) {
+      // Intentar recuperar desde localStorage
+      try {
+        const saved = localStorage.getItem('currentPredio');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // Solo usar si tiene menos de 24 horas
+          if (parsed.predio_code && (Date.now() - parsed.timestamp) < 24 * 60 * 60 * 1000) {
+            predioToLoad = parsed.predio_code;
+          }
+        }
+      } catch (e) {
+        console.debug('No se pudo recuperar predio guardado', e);
+      }
+    }
+    
+    if (predioToLoad) {
+      // Usar setTimeout para evitar conflictos con el render inicial
+      setTimeout(() => search(predioToLoad), 150);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Solo ejecutar al montar
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -2295,20 +2606,11 @@ export default function Dashboard({ onLogout }) {
                               borderTop: '1px solid #e2e8f0'
                             }}>
                               <div style={{ marginBottom: '12px' }}>
-                                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#1e293b', fontWeight: '600' }}>
-                                  PUERTOS ({ports.length})
-                                </h4>
-                                {/* Estadísticas rápidas */}
-                                <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
-                                  <span>
-                                    <strong style={{ color: '#22c55e' }}>{ports.filter(p => normalizeReachability(p.status) === 'connected').length}</strong> Activos
-                                  </span>
-                                  <span>
-                                    <strong style={{ color: '#ef4444' }}>{ports.filter(p => normalizeReachability(p.status) !== 'connected').length}</strong> Inactivos
-                                  </span>
-                                  <span>
-                                    <strong style={{ color: '#f59e0b' }}>{ports.filter(p => p.poeEnabled).length}</strong> PoE
-                                  </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                                  <h4 style={{ margin: '0', fontSize: '16px', color: '#1e293b', fontWeight: '600' }}>
+                                    Ports
+                                  </h4>
+
                                 </div>
                               </div>
                               {ports.length > 0 ? (
@@ -2867,18 +3169,121 @@ export default function Dashboard({ onLogout }) {
           );
         }
 
+        // Funciones de captura para Appliance Status
+        const captureApplianceJPG = async () => {
+          if (!applianceStatusRef.current) return;
+          try {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const canvas = await html2canvas(applianceStatusRef.current, {
+              backgroundColor: '#ffffff',
+              scale: 2,
+              logging: false,
+              useCORS: true
+            });
+            const fileName = `Appliance Status ${selectedNetwork?.predio_codigo || 'export'}.jpg`;
+            canvas.toBlob((blob) => {
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = fileName;
+              link.click();
+              URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.95);
+          } catch (error) {
+            console.error('Error capturing JPG:', error);
+          }
+        };
+
+        const captureAppliancePDF = async () => {
+          if (!applianceStatusRef.current) return;
+          try {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const canvas = await html2canvas(applianceStatusRef.current, {
+              backgroundColor: '#ffffff',
+              scale: 2,
+              logging: false,
+              useCORS: true
+            });
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdf = new jsPDF({
+              orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+              unit: 'px',
+              format: [canvas.width, canvas.height]
+            });
+            pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+            const fileName = `Appliance Status ${selectedNetwork?.predio_codigo || 'export'}.pdf`;
+            pdf.save(fileName);
+          } catch (error) {
+            console.error('Error capturing PDF:', error);
+          }
+        };
+
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h2 style={{ 
-              margin: '0 0 20px 0', 
-              color: '#1e293b', 
-              fontSize: '20px', 
-              fontWeight: '600',
-              borderBottom: '2px solid #cbd5e1',
-              paddingBottom: '12px'
-            }}>
-              Appliance status
-            </h2>
+          <div ref={applianceStatusRef} style={{ display: 'flex', flexDirection: 'column', gap: '20px', background: '#ffffff', padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '12px', marginBottom: '20px' }}>
+              <h2 style={{ 
+                margin: '0', 
+                color: '#1e293b', 
+                fontSize: '20px', 
+                fontWeight: '600'
+              }}>
+                Appliance status
+              </h2>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={captureApplianceJPG}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#1d4ed8'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#2563eb'}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  JPG
+                </button>
+                <button
+                  onClick={captureAppliancePDF}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#b91c1c'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#dc2626'}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  PDF
+                </button>
+              </div>
+            </div>
 
             {applianceStatus.map((appliance) => {
               const uplinks = Array.isArray(appliance.uplinks) ? appliance.uplinks : [];
@@ -3083,7 +3488,7 @@ export default function Dashboard({ onLogout }) {
 
   return (
     <div style={{ width: '100vw', overflow: 'visible' }}>
-  <TopBar onSearch={search} onLogout={onLogout} onSelectSection={setSection} sections={availableSections} selectedSection={section} selectedNetwork={selectedNetwork} />
+  <TopBar onSearch={search} onLogout={onLogout} onSelectSection={handleSectionChange} sections={availableSections} selectedSection={section} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'auto minmax(0, 1fr)', 
@@ -3096,7 +3501,7 @@ export default function Dashboard({ onLogout }) {
         boxSizing: 'border-box'
       }}>
         <div className="dashboard-sidebar">
-          <Sidebar section={section} setSection={setSection} sections={availableSections} selectedNetwork={selectedNetwork} />
+          <Sidebar section={section} setSection={handleSectionChange} sections={availableSections} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
         </div>
         <main className="dashboard-container" style={{ 
           width: '100%', 

@@ -26,8 +26,18 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
     const fetchHistorical = async () => {
       setLoading(true);
       try {
-        // Valores válidos de resolution según Meraki API: 60, 600, 3600, 86400
-        const resolution = timespan <= 7200 ? 60 : timespan <= 86400 ? 600 : timespan <= 604800 ? 3600 : 86400;
+        // Resoluciones más precisas para coincidir mejor con Meraki dashboard
+        // Valores válidos según Meraki API: 60, 300, 600, 1200, 3600, 14400, 86400
+        let resolution;
+        if (timespan <= 7200) {
+          resolution = 60;      // 2 horas: cada 1 min (120 puntos)
+        } else if (timespan <= 86400) {
+          resolution = 300;     // 1 día: cada 5 min (288 puntos) - más preciso
+        } else if (timespan <= 604800) {
+          resolution = 600;     // 1 semana: cada 10 min (1008 puntos) - más preciso que 1 hora
+        } else {
+          resolution = 3600;    // Más de 1 semana: cada 1 hora
+        }
         const response = await fetch(
           `/api/networks/${networkId}/appliance/historical?timespan=${timespan}&resolution=${resolution}`,
           { credentials: 'include' }
@@ -136,32 +146,23 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
       const hasLatency = latency !== null && Number.isFinite(latency) && latency >= 0;
       const hasLoss = loss !== null && Number.isFinite(loss) && loss >= 0;
       
-      // Si ambos son null, verificar el estado del uplink
+      // Lógica de Meraki:
+      // - ROJO: lossPercent >= 90% o (latencyMs null + lossPercent alto) = sin conexión de red
+      // - VERDE: Conectividad normal (loss < 90%)
+      // - GRIS: Sin datos en absoluto (dispositivo completamente offline/apagado)
+      
       if (!hasLatency && !hasLoss) {
-        // Distinguir entre offline total y failed connection
-        if (p.uplinkStatus === 'offline') {
-          state = 'offline'; // Gris - dispositivo completamente offline/no reportando
-        } else if (p.uplinkStatus === 'failed') {
-          state = 'no_signal'; // Rojo - dispositivo reporta pero sin conexión
-        } else {
-          state = 'offline'; // Gris por defecto - sin datos
-        }
+        // Sin datos de ningún tipo = dispositivo completamente offline (gris)
+        state = 'offline';
+      } else if (hasLoss && loss >= 90) {
+        // Pérdida >= 90% = sin conexión de red (ROJO)
+        state = 'no_signal';
+      } else if (!hasLatency && hasLoss && loss >= 60) {
+        // Sin latencia medible + pérdida alta = sin conexión (ROJO)
+        state = 'no_signal';
       } else {
-        // Offline: latencia extrema (>10000ms) o pérdida casi total (>80%)
-        const seemsOffline = (hasLatency && latency > 10000) || (hasLoss && loss > 80);
-        
-        if (seemsOffline) {
-          state = 'offline'; // Gris
-        } else {
-          // Problemas: loss > 10% o latency > 200ms (más sensible)
-          const poorConnection = (hasLoss && loss > 10) || (hasLatency && latency > 200);
-          
-          if (poorConnection) {
-            state = 'no_signal'; // Rojo
-          } else {
-            state = 'connected'; // Verde
-          }
-        }
+        // Cualquier conectividad con loss < 90% = verde
+        state = 'connected';
       }
 
       return { ...p, lossPercent: loss, latencyMs: latency, state };
@@ -342,30 +343,43 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
       );
     }
 
-    const chartHeight = 200;
+    const chartHeight = 180;
     const chartMarginTop = 10;
     const chartMarginBottom = 10;
     const actualChartHeight = chartHeight - chartMarginTop - chartMarginBottom;
     const points = data.uplinkUsage;
     
-    // Calcular valores máximos en MB/s
-    const intervalSeconds = 300; // 5 minutos
+    // Calcular intervalo basado en timespan
+    const intervalSeconds = timespan <= 86400 ? 300 : timespan <= 604800 ? 600 : 3600;
     
     // Procesar byInterface que puede ser array u objeto
-    const maxReceivedMbps = Math.max(...points.flatMap(p => {
+    const allMbpsValues = points.flatMap(p => {
       const interfaces = Array.isArray(p.byInterface) ? p.byInterface : Object.values(p.byInterface || {});
-      return interfaces.map(i => (i.received || 0) / intervalSeconds / 1048576);
-    }), 0.1);
+      return interfaces.map(i => (i.received || 0) / intervalSeconds / 125000); // Convertir a Mbps (bytes/s a Mbps)
+    });
+    const maxReceivedMbps = Math.max(...allMbpsValues, 0.1);
+    
+    // Escala automática más inteligente como Meraki
+    const getSmartScale = (maxVal) => {
+      if (maxVal <= 1) return { max: 1.5, step: 0.5, decimals: 1 };
+      if (maxVal <= 3) return { max: 4.5, step: 1.5, decimals: 1 };
+      if (maxVal <= 6) return { max: 6, step: 1.5, decimals: 1 };
+      if (maxVal <= 10) return { max: 12, step: 3, decimals: 0 };
+      if (maxVal <= 20) return { max: 20, step: 4, decimals: 0 };
+      if (maxVal <= 50) return { max: 50, step: 10, decimals: 0 };
+      if (maxVal <= 100) return { max: 100, step: 20, decimals: 0 };
+      return { max: Math.ceil(maxVal / 50) * 50, step: Math.ceil(maxVal / 50) * 10, decimals: 0 };
+    };
+    
+    const scale = getSmartScale(maxReceivedMbps);
+    const maxScale = scale.max;
+    const gridStep = scale.step;
+    const gridLines = Math.round(maxScale / gridStep);
     
     const formatMbps = (mbps) => {
-      if (mbps >= 1000) return `${Math.round(mbps / 1000)} Gb/s`;
+      if (scale.decimals > 0) return `${mbps.toFixed(1)} Mb/s`;
       return `${Math.round(mbps)} Mb/s`;
     };
-
-    // Calcular escala del eje Y (redondear hacia arriba a un número bonito)
-    const maxScale = Math.ceil(maxReceivedMbps / 20) * 20;
-    const gridLines = 5;
-    const gridStep = maxScale / gridLines;
 
     // Agrupar datos por interfaz
     const wanInterfaces = {};
@@ -374,7 +388,7 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
       interfaces.forEach(ifaceData => {
         const ifaceName = ifaceData.interface || 'unknown';
         if (!wanInterfaces[ifaceName]) wanInterfaces[ifaceName] = [];
-        const receivedMbps = (ifaceData.received || 0) / intervalSeconds / 1048576;
+        const receivedMbps = (ifaceData.received || 0) / intervalSeconds / 125000;
         wanInterfaces[ifaceName].push({
           ts: p.ts,
           received: receivedMbps
@@ -382,49 +396,61 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
       });
     });
 
-    // Color celeste brillante como Meraki original
+    // Colores exactos de Meraki - azul más intenso
     const colors = {
-      wan1: '#00bcd4',  // Celeste brillante Material Design
-      wan2: '#00bcd4',  // Celeste brillante Material Design
-      cellular: '#ffc107'  // Amarillo
+      wan1: '#5b9bd5',  // Azul Meraki
+      wan2: '#41b6c4',  // Cian Meraki
+      cellular: '#ffc107'
+    };
+
+    // Formatear timestamp estilo Meraki: "Dec 11 12:00"
+    const formatAxisTime = (ts) => {
+      if (!ts) return '';
+      let date;
+      if (typeof ts === 'string') {
+        date = new Date(ts);
+      } else if (typeof ts === 'number') {
+        date = ts > 10000000000 ? new Date(ts) : new Date(ts * 1000);
+      } else {
+        return '';
+      }
+      if (isNaN(date.getTime())) return '';
+      
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = months[date.getMonth()];
+      const day = date.getDate();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const mins = date.getMinutes().toString().padStart(2, '0');
+      
+      // Para timespan > 1 día, mostrar fecha + hora
+      if (timespan > 86400) {
+        return `${month} ${day} ${hours}:${mins}`;
+      }
+      return `${hours}:${mins}`;
     };
 
     return (
-      <div style={{ position: 'relative', marginTop: '20px' }}>
-        {/* Leyenda - más visible */}
+      <div style={{ position: 'relative', marginTop: '16px' }}>
+        {/* Leyenda estilo Meraki - arriba a la derecha */}
         <div style={{
           display: 'flex',
-          gap: '20px',
-          marginBottom: '16px',
+          gap: '16px',
+          marginBottom: '12px',
           fontSize: '12px',
           justifyContent: 'flex-end',
           alignItems: 'center'
         }}>
           {Object.keys(wanInterfaces).map(iface => {
-            // Formatear nombre de interfaz para mostrar
-            let displayName = iface;
-            if (iface.toLowerCase().startsWith('wan')) {
-              displayName = iface.toUpperCase().replace('WAN', 'WAN ');
-            } else {
-              displayName = iface.charAt(0).toUpperCase() + iface.slice(1);
-            }
-            
+            let displayName = iface.toUpperCase().replace('WAN', 'WAN ');
             return (
-              <div key={iface} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div key={iface} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{
-                  width: '14px',
-                  height: '14px',
+                  width: '12px',
+                  height: '12px',
                   background: colors[iface.toLowerCase()] || '#64748b',
-                  borderRadius: '3px',
-                  border: '1px solid rgba(0,0,0,0.1)'
+                  borderRadius: '2px'
                 }} />
-                <span style={{ 
-                  color: '#374151', 
-                  textTransform: 'uppercase', 
-                  fontSize: '11px', 
-                  fontWeight: '600', 
-                  letterSpacing: '0.5px' 
-                }}>
+                <span style={{ color: '#374151', fontWeight: '500', fontSize: '12px' }}>
                   {displayName}
                 </span>
               </div>
@@ -432,12 +458,12 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
           })}
         </div>
 
-        {/* Gráfica con grid */}
-        <div style={{ position: 'relative' }}>
+        {/* Gráfica */}
+        <div style={{ position: 'relative', marginLeft: '50px' }}>
           {/* Etiquetas del eje Y */}
           <div style={{
             position: 'absolute',
-            left: '-55px',
+            left: '-50px',
             top: chartMarginTop,
             height: actualChartHeight,
             display: 'flex',
@@ -446,8 +472,7 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
             fontSize: '11px',
             color: '#6b7280',
             textAlign: 'right',
-            width: '50px',
-            fontWeight: '500'
+            width: '45px'
           }}>
             {Array.from({ length: gridLines + 1 }).map((_, i) => (
               <span key={i} style={{ transform: 'translateY(-50%)' }}>
@@ -460,8 +485,8 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
             <defs>
               {Object.keys(wanInterfaces).map(iface => (
                 <linearGradient key={iface} id={`gradient-${iface}`} x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor={colors[iface.toLowerCase()] || '#64748b'} stopOpacity="0.2" />
-                  <stop offset="100%" stopColor={colors[iface.toLowerCase()] || '#64748b'} stopOpacity="0.02" />
+                  <stop offset="0%" stopColor={colors[iface.toLowerCase()] || '#64748b'} stopOpacity="0.5" />
+                  <stop offset="100%" stopColor={colors[iface.toLowerCase()] || '#64748b'} stopOpacity="0.1" />
                 </linearGradient>
               ))}
             </defs>
@@ -488,24 +513,24 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
               const pathData = ifacePoints.map((point, idx) => {
                 const x = (idx / Math.max(ifacePoints.length - 1, 1)) * 100;
                 const yValue = chartMarginTop + actualChartHeight - ((point.received / maxScale) * actualChartHeight);
-                return `${idx === 0 ? 'M' : 'L'} ${x} ${yValue}`;
+                return `${idx === 0 ? 'M' : 'L'} ${x} ${Math.max(chartMarginTop, Math.min(yValue, chartHeight - chartMarginBottom))}`;
               }).join(' ');
 
               const fillPath = `${pathData} L 100 ${chartHeight - chartMarginBottom} L 0 ${chartHeight - chartMarginBottom} Z`;
 
               return (
                 <g key={iface}>
-                  {/* Área sombreada */}
+                  {/* Área sombreada con más opacidad */}
                   <path
                     d={fillPath}
                     fill={`url(#gradient-${iface})`}
                   />
-                  {/* Línea */}
+                  {/* Línea más delgada como Meraki */}
                   <path
                     d={pathData}
                     fill="none"
                     stroke={colors[iface.toLowerCase()] || '#64748b'}
-                    strokeWidth="2"
+                    strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     vectorEffect="non-scaling-stroke"
@@ -515,37 +540,36 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
             })}
           </svg>
 
-          {/* Etiquetas del eje X - Tiempo */}
+          {/* Etiquetas del eje X - Tiempo estilo Meraki (más etiquetas) */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
-            fontSize: '11px',
+            fontSize: '10px',
             color: '#6b7280',
-            marginTop: '8px',
-            fontWeight: '500'
+            marginTop: '6px',
+            overflow: 'hidden'
           }}>
-            {[0, 16, 33, 50, 66, 83, 100].map(pct => {
-              const idx = Math.floor((points.length - 1) * pct / 100);
-              const point = points[idx];
-              if (!point) return <span key={pct} style={{ minWidth: '40px' }}></span>;
-              const formatted = formatTimestamp(point.ts);
-              return (
-                <span key={pct} style={{ minWidth: '40px', textAlign: 'center' }}>
-                  {formatted || ''}
-                </span>
-              );
-            })}
+            {(() => {
+              // Calcular cuántas etiquetas mostrar basado en timespan
+              const numLabels = timespan <= 86400 ? 7 : timespan <= 604800 ? 14 : 10;
+              const labels = [];
+              for (let i = 0; i < numLabels; i++) {
+                const pct = (i / (numLabels - 1)) * 100;
+                const idx = Math.floor((points.length - 1) * pct / 100);
+                const point = points[idx];
+                if (!point) {
+                  labels.push(<span key={i} style={{ flex: 1, textAlign: 'center' }}></span>);
+                } else {
+                  labels.push(
+                    <span key={i} style={{ flex: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {formatAxisTime(point.ts)}
+                    </span>
+                  );
+                }
+              }
+              return labels;
+            })()}
           </div>
-        </div>
-
-        {/* Max value display */}
-        <div style={{
-          fontSize: '10px',
-          color: '#9ca3af',
-          marginTop: '6px',
-          textAlign: 'right'
-        }}>
-          Max: {formatMbps(maxReceivedMbps)}
         </div>
       </div>
     );
@@ -569,15 +593,17 @@ const ApplianceHistoricalCharts = ({ networkId }) => {
         alignItems: 'center',
         marginBottom: '16px'
       }}>
-        <h3 style={{ 
-          margin: 0, 
-          fontSize: '18px', 
-          fontWeight: '400', 
-          color: '#111827',
-          letterSpacing: '-0.01em'
-        }}>
-          Historical device data
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h3 style={{ 
+            margin: 0, 
+            fontSize: '18px', 
+            fontWeight: '400', 
+            color: '#111827',
+            letterSpacing: '-0.01em'
+          }}>
+            Historical device data
+          </h3>
+        </div>
         
         {/* Dropdown estilo Meraki */}
         <div style={{ position: 'relative' }}>

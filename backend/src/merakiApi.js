@@ -664,6 +664,85 @@ async function getOrgDevicesAvailabilitiesChangeHistory(organizationId, params =
   }
 }
 
+// =============================================
+// LIVE TOOLS - Cable Test para velocidad real
+// =============================================
+
+/**
+ * Inicia un Cable Test en un puerto específico del dispositivo
+ * @param {string} serial - Serial del dispositivo
+ * @param {string[]} ports - Array de puertos a probar (ej: ["1", "2"])
+ * @returns {object} - { cableTestId, url, status }
+ */
+async function createDeviceLiveToolsCableTest(serial, ports) {
+  try {
+    const { data } = await client.post(`/devices/${serial}/liveTools/cableTest`, {
+      ports: ports
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error creating cable test for ${serial}:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene el resultado de un Cable Test previamente iniciado
+ * @param {string} serial - Serial del dispositivo
+ * @param {string} cableTestId - ID del cable test
+ * @returns {object} - Resultados del cable test incluyendo speedMbps
+ */
+async function getDeviceLiveToolsCableTest(serial, cableTestId) {
+  try {
+    const { data } = await client.get(`/devices/${serial}/liveTools/cableTest/${cableTestId}`);
+    return data;
+  } catch (error) {
+    console.error(`Error getting cable test ${cableTestId} for ${serial}:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Ejecuta un Cable Test completo y espera los resultados
+ * @param {string} serial - Serial del dispositivo
+ * @param {string[]} ports - Array de puertos a probar
+ * @param {number} maxWaitMs - Tiempo máximo de espera en ms (default: 30000)
+ * @param {number} pollIntervalMs - Intervalo de polling en ms (default: 2000)
+ * @returns {object} - Resultados completos del cable test
+ */
+async function runCableTestAndWait(serial, ports, maxWaitMs = 30000, pollIntervalMs = 2000) {
+  try {
+    // Iniciar el test
+    const startResult = await createDeviceLiveToolsCableTest(serial, ports);
+    const cableTestId = startResult.cableTestId;
+    
+    if (!cableTestId) {
+      throw new Error('No se recibió cableTestId de la API');
+    }
+    
+    // Polling hasta obtener resultado o timeout
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitMs) {
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      
+      const result = await getDeviceLiveToolsCableTest(serial, cableTestId);
+      
+      if (result.status === 'complete' || result.status === 'completed') {
+        return result;
+      }
+      
+      if (result.status === 'failed' || result.status === 'error') {
+        throw new Error(`Cable test failed: ${result.error || 'Unknown error'}`);
+      }
+    }
+    
+    throw new Error(`Cable test timeout after ${maxWaitMs}ms`);
+  } catch (error) {
+    console.error(`Error running cable test for ${serial}:`, error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   getOrganizations,
   getNetworks,
@@ -740,5 +819,9 @@ module.exports = {
   // Wireless ethernet statuses
   getOrgWirelessDevicesEthernetStatuses,
   // Device availabilities
-  getOrgDevicesAvailabilitiesChangeHistory
+  getOrgDevicesAvailabilitiesChangeHistory,
+  // Live Tools - Cable Test
+  createDeviceLiveToolsCableTest,
+  getDeviceLiveToolsCableTest,
+  runCableTestAndWait
 };

@@ -231,6 +231,123 @@ const buildPortClassName = (port, { rotated } = {}) => {
 const NodePortIcon = ({ port, rotated = false }) => {
   if (!port) return null;
   
+  // Determinar estado del puerto
+  const isWanPort = port.role === 'wan' || port.type === 'wan' || !!port.uplink;
+  const uplink = port.uplink || {};
+  const isDisconnected = !port.hasCarrier && 
+    (port.statusNormalized === 'disconnected' || 
+     port.status === 'Disconnected' || 
+     (!port.uplink && !port.connection && !port.tooltipInfo));
+  
+  // Tooltip simple para puertos desconectados
+  const disconnectedTooltip = isDisconnected && !isWanPort ? (
+    <div>
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Status</span>
+        <span className="tooltip-badge error">Disconnected</span>
+      </div>
+    </div>
+  ) : null;
+  
+  // Tooltip específico para puertos WAN con información de uplink
+  const wanTooltipContent = isWanPort ? (
+    <div>
+      <div className="tooltip-title">{uplink.interface?.toUpperCase() || `WAN ${port.number || port.displayNumber}`}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Status</span>
+        <span className={`tooltip-badge ${port.statusNormalized === 'connected' ? 'success' : port.statusNormalized === 'warning' ? 'warning' : port.statusNormalized === 'disconnected' ? 'error' : ''}`}>
+          {port.status || uplink.status || 'Unknown'}
+        </span>
+      </div>
+      {uplink.ip && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">IP Address</span>
+          <span className="tooltip-value">{uplink.ip}</span>
+        </div>
+      )}
+      {uplink.publicIp && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Public IP</span>
+          <span className="tooltip-value">{uplink.publicIp}</span>
+        </div>
+      )}
+      {uplink.gateway && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Gateway</span>
+          <span className="tooltip-value">{uplink.gateway}</span>
+        </div>
+      )}
+      {uplink.provider && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Provider</span>
+          <span className="tooltip-value">{uplink.provider}</span>
+        </div>
+      )}
+      {(uplink.latency !== undefined && uplink.latency !== null) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Latency</span>
+          <span className="tooltip-value">{uplink.latency} ms</span>
+        </div>
+      )}
+      {(uplink.loss !== undefined && uplink.loss !== null) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Packet Loss</span>
+          <span className={`tooltip-value ${uplink.loss > 0 ? 'text-warning' : ''}`}>{uplink.loss}%</span>
+        </div>
+      )}
+      {(uplink.jitter !== undefined && uplink.jitter !== null) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Jitter</span>
+          <span className="tooltip-value">{uplink.jitter} ms</span>
+        </div>
+      )}
+      {(port.speedLabel || uplink.speedLabel || uplink.speed || uplink.throughput) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Speed</span>
+          <span className="tooltip-value">{port.speedLabel || uplink.speedLabel || uplink.speed || uplink.throughput}</span>
+        </div>
+      )}
+      {uplink.connectionType && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Connection</span>
+          <span className="tooltip-value">{uplink.connectionType}</span>
+        </div>
+      )}
+    </div>
+  ) : null;
+  
+  // Tooltip para puertos LAN conectados (ej: conexión con switch)
+  const lanConnectionTooltip = !isWanPort && port.connection ? (
+    <div>
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Connected to</span>
+        <span className="tooltip-value">{port.connection.deviceName || 'Device'}</span>
+      </div>
+      {port.connection.deviceSerial && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Serial</span>
+          <span className="tooltip-value">{port.connection.deviceSerial}</span>
+        </div>
+      )}
+      {port.connection.remotePort && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Remote Port</span>
+          <span className="tooltip-value">Port {port.connection.remotePort}</span>
+        </div>
+      )}
+      <div className="tooltip-row">
+        <span className="tooltip-label">Speed</span>
+        <span className="tooltip-value">{port.connection.speed || port.speedLabel || '1 Gbps'}</span>
+      </div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Status</span>
+        <span className="tooltip-badge success">Connected</span>
+      </div>
+    </div>
+  ) : null;
+  
   // Construir contenido del tooltip
   // If port has explicit tooltipInfo use it, otherwise if topology provided a connection object
   // render a simple connection tooltip so connected endpoints (APs) show info.
@@ -261,6 +378,10 @@ const NodePortIcon = ({ port, rotated = false }) => {
           <div className="tooltip-row">
             <span className="tooltip-label">Detection</span>
             <span className="tooltip-value">{port.tooltipInfo.detectionMethod || 'LLDP'}</span>
+          </div>
+          <div className="tooltip-row">
+            <span className="tooltip-label">Speed</span>
+            <span className="tooltip-value">{port.tooltipInfo.speed || port.speedLabel || port.connection?.speed || '1 Gbps'}</span>
           </div>
           <div className="tooltip-row">
             <span className="tooltip-label">Status</span>
@@ -319,9 +440,10 @@ const NodePortIcon = ({ port, rotated = false }) => {
     </div>
   ) : null;
   // If no tooltipInfo but topology connection exists, show basic connection tooltip
+  // WAN tooltip takes priority if it's a WAN port with uplink data
   
   return (
-  <Tooltip content={tooltipContent || topologyTooltip} position="top">
+  <Tooltip content={wanTooltipContent || lanConnectionTooltip || tooltipContent || topologyTooltip || disconnectedTooltip} position="top">
       <svg
         viewBox="0 0 30 25"
         preserveAspectRatio="none"
@@ -337,6 +459,123 @@ const NodePortIcon = ({ port, rotated = false }) => {
 
 const NodePortIconSfp = ({ port, rotated = false }) => {
   if (!port) return null;
+  
+  // Determinar estado del puerto
+  const isWanPort = port.role === 'wan' || port.type === 'wan' || !!port.uplink;
+  const uplink = port.uplink || {};
+  const isDisconnected = !port.hasCarrier && 
+    (port.statusNormalized === 'disconnected' || 
+     port.status === 'Disconnected' || 
+     (!port.uplink && !port.connection && !port.tooltipInfo));
+  
+  // Tooltip simple para puertos desconectados
+  const disconnectedTooltip = isDisconnected && !isWanPort ? (
+    <div>
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Status</span>
+        <span className="tooltip-badge error">Disconnected</span>
+      </div>
+    </div>
+  ) : null;
+  
+  // Tooltip específico para puertos WAN con información de uplink
+  const wanTooltipContent = isWanPort ? (
+    <div>
+      <div className="tooltip-title">{uplink.interface?.toUpperCase() || `WAN ${port.number || port.displayNumber}`}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Status</span>
+        <span className={`tooltip-badge ${port.statusNormalized === 'connected' ? 'success' : port.statusNormalized === 'warning' ? 'warning' : port.statusNormalized === 'disconnected' ? 'error' : ''}`}>
+          {port.status || uplink.status || 'Unknown'}
+        </span>
+      </div>
+      {uplink.ip && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">IP Address</span>
+          <span className="tooltip-value">{uplink.ip}</span>
+        </div>
+      )}
+      {uplink.publicIp && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Public IP</span>
+          <span className="tooltip-value">{uplink.publicIp}</span>
+        </div>
+      )}
+      {uplink.gateway && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Gateway</span>
+          <span className="tooltip-value">{uplink.gateway}</span>
+        </div>
+      )}
+      {uplink.provider && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Provider</span>
+          <span className="tooltip-value">{uplink.provider}</span>
+        </div>
+      )}
+      {(uplink.latency !== undefined && uplink.latency !== null) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Latency</span>
+          <span className="tooltip-value">{uplink.latency} ms</span>
+        </div>
+      )}
+      {(uplink.loss !== undefined && uplink.loss !== null) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Packet Loss</span>
+          <span className={`tooltip-value ${uplink.loss > 0 ? 'text-warning' : ''}`}>{uplink.loss}%</span>
+        </div>
+      )}
+      {(uplink.jitter !== undefined && uplink.jitter !== null) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Jitter</span>
+          <span className="tooltip-value">{uplink.jitter} ms</span>
+        </div>
+      )}
+      {(port.speedLabel || uplink.speedLabel || uplink.speed || uplink.throughput) && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Speed</span>
+          <span className="tooltip-value">{port.speedLabel || uplink.speedLabel || uplink.speed || uplink.throughput}</span>
+        </div>
+      )}
+      {uplink.connectionType && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Connection</span>
+          <span className="tooltip-value">{uplink.connectionType}</span>
+        </div>
+      )}
+    </div>
+  ) : null;
+  
+  // Tooltip para puertos LAN conectados (ej: conexión con switch)
+  const lanConnectionTooltip = !isWanPort && port.connection ? (
+    <div>
+      <div className="tooltip-title">Port {port.number || port.displayNumber}</div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Connected to</span>
+        <span className="tooltip-value">{port.connection.deviceName || 'Device'}</span>
+      </div>
+      {port.connection.deviceSerial && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Serial</span>
+          <span className="tooltip-value">{port.connection.deviceSerial}</span>
+        </div>
+      )}
+      {port.connection.remotePort && (
+        <div className="tooltip-row">
+          <span className="tooltip-label">Remote Port</span>
+          <span className="tooltip-value">Port {port.connection.remotePort}</span>
+        </div>
+      )}
+      <div className="tooltip-row">
+        <span className="tooltip-label">Speed</span>
+        <span className="tooltip-value">{port.connection.speed || port.speedLabel || '1 Gbps'}</span>
+      </div>
+      <div className="tooltip-row">
+        <span className="tooltip-label">Status</span>
+        <span className="tooltip-badge success">Connected</span>
+      </div>
+    </div>
+  ) : null;
   
   // Construir contenido del tooltip (mismo que NodePortIcon)
   const tooltipContent = port?.tooltipInfo ? (
@@ -365,6 +604,10 @@ const NodePortIconSfp = ({ port, rotated = false }) => {
           <div className="tooltip-row">
             <span className="tooltip-label">Detection</span>
             <span className="tooltip-value">{port.tooltipInfo.detectionMethod || 'LLDP'}</span>
+          </div>
+          <div className="tooltip-row">
+            <span className="tooltip-label">Speed</span>
+            <span className="tooltip-value">{port.tooltipInfo.speed || port.speedLabel || port.connection?.speed || '1 Gbps'}</span>
           </div>
           <div className="tooltip-row">
             <span className="tooltip-label">Status</span>
@@ -424,7 +667,7 @@ const NodePortIconSfp = ({ port, rotated = false }) => {
   ) : null;
 
   return (
-    <Tooltip content={tooltipContent || topologyTooltipSfp} position="top">
+    <Tooltip content={wanTooltipContent || lanConnectionTooltip || tooltipContent || topologyTooltipSfp || disconnectedTooltip} position="top">
       <svg
         viewBox="0 0 30 25"
         preserveAspectRatio="none"

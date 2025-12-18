@@ -9,6 +9,8 @@ const { logger, expressLogger, logSecurity, logError, logAdmin } = require('./co
 const axios = require('axios');
 const { validarTecnico, listarTecnicos, agregarTecnico, eliminarTecnico } = require('./usuario');
 const { getOrganizations, getNetworks, getNetworkDevices, getNetworkTopology, getNetworkTopologyLinkLayer, getNetworkTopologyNetworkLayer, getApplianceStatuses, getOrganizationDevicesStatuses, getNetworkInfo, getOrgSwitchPortsTopologyDiscoveryByDevice, getNetworkApplianceConnectivityMonitoringDestinations, getNetworkWirelessSSIDs, getNetworkWirelessSSID, getOrgWirelessDevicesRadsecAuthorities, getOrgWirelessSignalQualityByNetwork, getOrgWirelessSignalQualityByDevice, getOrgWirelessSignalQualityByClient, getNetworkWirelessSignalQualityHistory, getDeviceLldpCdp, getNetworkSwitchPortsStatuses, getDeviceSwitchPortsStatuses, getOrgApplianceUplinksStatuses, getOrgTopAppliancesByUtilization, getOrgDevicesUplinksAddressesByDevice, getOrganizationUplinksStatuses, getAppliancePerformance, getDeviceAppliancePerformance, getApplianceUplinks, getDeviceUplink, getApplianceClientSecurity, getOrganizationApplianceSecurityIntrusion, getApplianceTrafficShaping, getNetworkClientsBandwidthUsage, getNetworkApplianceSecurityMalware, getAppliancePorts, getDeviceAppliancePortsStatuses, getOrgApplianceUplinksLossAndLatency, getOrgApplianceUplinksUsageByDevice, getDeviceSwitchPorts, getNetworkSwitchAccessControlLists, getOrgSwitchPortsBySwitch, getNetworkSwitchStackRoutingInterfaces, getNetworkCellularGatewayConnectivityMonitoringDestinations, getDeviceWirelessConnectionStats, getNetworkWirelessConnectionStats, getNetworkWirelessLatencyStats, getDeviceWirelessLatencyStats, getNetworkWirelessFailedConnections, getDeviceLossAndLatencyHistory, getOrgDevicesUplinksLossAndLatency, getOrgWirelessDevicesPacketLossByClient, getOrgWirelessDevicesPacketLossByDevice, getNetworkApplianceConnectivityMonitoringDests, getNetworkAppliancePortsConfig, getOrgApplianceUplinkStatuses, getNetworkApplianceVlans, getNetworkApplianceVlan, getNetworkApplianceSettings, getOrgApplianceSdwanInternetPolicies, getOrgUplinksStatuses, getDeviceApplianceUplinksSettings, getNetworkApplianceTrafficShapingUplinkSelection, getOrgApplianceUplinksUsageByNetwork, getNetworkApplianceUplinksUsageHistory, getOrgApplianceUplinksStatusesOverview, getOrgWirelessDevicesEthernetStatuses, getOrgDevicesAvailabilitiesChangeHistory } = require('./merakiApi');
+// Import full merakiApi module for cable test functions
+const merakiApi = require('./merakiApi');
 const { toGraphFromLinkLayer, toGraphFromDiscoveryByDevice, toGraphFromLldpCdp, buildTopologyFromLldp } = require('./transformers');
 const { findPredio, searchPredios, getNetworkIdForPredio, getPredioInfoForNetwork, refreshCache, getStats } = require('./prediosManager');
 const { warmUpFrequentPredios, getTopPredios } = require('./warmCache');
@@ -1767,6 +1769,14 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
     const uplinks = [];
     const pushEntry = (entry = {}, meta = {}) => {
       if (!entry) return;
+      
+      // DEBUG: Log ALL raw uplink fields to find speed data
+      const rawKeys = Object.keys(entry);
+      if (rawKeys.length > 0) {
+        logger.debug(`[UplinkDebug] Raw uplink entry keys: ${rawKeys.join(', ')}`);
+        logger.debug(`[UplinkDebug] Full entry: ${JSON.stringify(entry)}`);
+      }
+      
       const statusLabel = entry.status || entry.reachability || meta.status || 'unknown';
       const statusNormalized = normalizeStatus(statusLabel, { defaultStatus: statusLabel });
       uplinks.push({
@@ -1786,6 +1796,9 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
         provider: entry.provider,
         signalStat: entry.signalStat || entry.signalStatistics,
         signalType: entry.signalType,
+        // Add any potential speed-related fields
+        speed: entry.speed || entry.linkSpeed || entry.speedMbps || entry.negotiatedSpeed || null,
+        speedLabel: entry.speedLabel || entry.linkNegotiation?.speed || null,
         raw: entry
       });
     };
@@ -5223,7 +5236,10 @@ app.get('/api/networks/:networkId/appliance/historical', async (req, res) => {
     let connectivityData = [];
     
     // Usar el endpoint correcto de Meraki: /devices/{serial}/lossAndLatencyHistory
-    console.log(`[HISTORICAL] Trying device-level loss/latency endpoint for ${uplinkDevice.serial}`);
+    // Resoluciones válidas: 60, 600, 3600
+    // Para 1 día: 60s (1440 puntos), Para semana: 600s (1008 puntos)
+    const connectivityResolution = timespan <= 86400 ? 60 : 600;
+    console.log(`[HISTORICAL] Trying device-level loss/latency endpoint for ${uplinkDevice.serial} with resolution ${connectivityResolution}s`);
     try {
       const response = await axios.get(
         `https://api.meraki.com/api/v1/devices/${uplinkDevice.serial}/lossAndLatencyHistory`,
@@ -5231,7 +5247,7 @@ app.get('/api/networks/:networkId/appliance/historical', async (req, res) => {
           headers: { 'X-Cisco-Meraki-API-Key': process.env.MERAKI_API_KEY },
           params: {
             timespan: timespan,
-            resolution: resolution,
+            resolution: connectivityResolution,
             uplink: 'wan1',
             ip: '8.8.8.8' // Google DNS
           }
@@ -5447,6 +5463,64 @@ app.get('/api/organizations/:orgId/uplinks/statuses', requireAdmin, async (req, 
   } catch (error) {
     console.error('Error /organizations/:orgId/uplinks/statuses', error.response?.data || error.message);
     res.status(500).json({ error: 'Error obteniendo estados de uplinks' });
+  }
+});
+
+// =============================================
+// LIVE TOOLS - Cable Test para velocidad de puertos
+// =============================================
+
+/**
+ * POST /api/devices/:serial/cable-test
+ * Ejecuta un cable test en los puertos especificados
+ * Body: { ports: ["1", "2"] }
+ * Respuesta: Resultados del cable test incluyendo speedMbps
+ */
+app.post('/api/devices/:serial/cable-test', requireAdmin, async (req, res) => {
+  try {
+    const { serial } = req.params;
+    const { ports } = req.body;
+    
+    if (!ports || !Array.isArray(ports) || ports.length === 0) {
+      return res.status(400).json({ 
+        error: 'Se requiere un array de puertos', 
+        example: { ports: ["1", "2"] } 
+      });
+    }
+    
+    logger.info(`[CableTest] Iniciando test para ${serial} en puertos: ${ports.join(', ')}`);
+    
+    const result = await merakiApi.runCableTestAndWait(serial, ports);
+    
+    logger.info(`[CableTest] Completado para ${serial}:`, JSON.stringify(result));
+    
+    res.json(result);
+  } catch (error) {
+    logger.error(`[CableTest] Error para ${req.params.serial}:`, error.message);
+    res.status(500).json({ 
+      error: 'Error ejecutando cable test',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/devices/:serial/cable-test/:cableTestId
+ * Obtiene el resultado de un cable test previamente iniciado
+ */
+app.get('/api/devices/:serial/cable-test/:cableTestId', requireAdmin, async (req, res) => {
+  try {
+    const { serial, cableTestId } = req.params;
+    
+    const result = await merakiApi.getDeviceLiveToolsCableTest(serial, cableTestId);
+    
+    res.json(result);
+  } catch (error) {
+    logger.error(`[CableTest] Error obteniendo resultado ${req.params.cableTestId}:`, error.message);
+    res.status(500).json({ 
+      error: 'Error obteniendo resultado de cable test',
+      message: error.message 
+    });
   }
 });
 

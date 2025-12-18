@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-export default function TopBar({ onSearch, onLogout, onSelectSection, sections = [], selectedSection, selectedNetwork }) {
+export default function TopBar({ onSearch, onLogout, onSelectSection, sections = [], selectedSection, selectedNetwork, onRefreshPredio, getPredioURL }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -164,7 +164,15 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
 
               <div className="mobile-drawer-predio">
                 <div className="drawer-label">PREDIO</div>
-                <div className="drawer-predio-box">{(selectedNetwork && (selectedNetwork.predio_code || selectedNetwork.id)) || ''}</div>
+                <a
+                  href={getPredioURL ? getPredioURL(selectedNetwork?.predio_code || selectedNetwork?.id, selectedSection) : '#'}
+                  onClick={(e) => { e.preventDefault(); if (onRefreshPredio) { onRefreshPredio(); setShowDrawer(false); } }}
+                  title="Click para refrescar • Click derecho para abrir en nueva pestaña"
+                  className="drawer-predio-box"
+                  style={{ textDecoration: 'none', cursor: 'pointer' }}
+                >
+                  {(selectedNetwork && (selectedNetwork.predio_code || selectedNetwork.id)) || ''}
+                </a>
               </div>
 
               <form className="drawer-search-form" onSubmit={(e) => { e.preventDefault(); if (drawerSearch && drawerSearch.trim()) { onSearch(drawerSearch.trim()); setShowDrawer(false); } }}>

@@ -53,10 +53,28 @@ const defaultSections = [
   { k: 'appliance_status', t: 'Appliance Status', IconComponent: ServerIcon }
 ];
 
-export default function Sidebar({ section, setSection, sections, selectedNetwork }) {
+export default function Sidebar({ section, setSection, sections, selectedNetwork, onRefreshPredio, getPredioURL }) {
   const [collapsed, setCollapsed] = useState(false);
   const items = Array.isArray(sections) && sections.length ? sections : defaultSections;
   
+  // Handler para click en predio (refrescar datos)
+  const handlePredioClick = (e) => {
+    e.preventDefault();
+    if (onRefreshPredio) {
+      onRefreshPredio();
+    }
+  };
+
+  // Handler para click en sección
+  const handleSectionClick = (e, sectionKey) => {
+    e.preventDefault();
+    setSection(sectionKey);
+  };
+
+  // Obtener URL del predio para click derecho
+  const predioCode = selectedNetwork?.predio_code || selectedNetwork?.predioCode || selectedNetwork?.id;
+  const predioURL = getPredioURL ? getPredioURL(predioCode, section) : '#';
+
   return (
     <div className={"app-sidebar" + (collapsed ? ' collapsed' : '')}>
       {/* Header con Network info y botón de colapsar */}
@@ -74,14 +92,25 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
             }}>
               Predio
             </div>
-            <div style={{
-              fontSize: '15px',
-              fontWeight: '700',
-              color: '#1e293b'
-            }}>
+            <a
+              href={predioURL}
+              onClick={handlePredioClick}
+              title="Click para refrescar • Click derecho para abrir en nueva pestaña"
+              style={{
+                fontSize: '15px',
+                fontWeight: '700',
+                color: '#1e293b',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                display: 'block',
+                transition: 'color 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.color = '#2563eb'}
+              onMouseLeave={(e) => e.target.style.color = '#1e293b'}
+            >
               {/* Mostrar nombre del predio si existe, si no mostrar predio_code o id */}
               {selectedNetwork.name || selectedNetwork.predio_code || selectedNetwork.predioCode || selectedNetwork.id}
-            </div>
+            </a>
             {selectedNetwork.name && (
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{selectedNetwork.id}</div>
             )}
@@ -116,13 +145,15 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
         {items.map(s => {
           const isActive = section === s.k;
           const Icon = s.IconComponent;
+          const sectionURL = getPredioURL ? getPredioURL(predioCode, s.k) : '#';
           return (
-            <button 
+            <a 
               key={s.k} 
-              type="button"
-              onClick={() => setSection(s.k)}
-              title={collapsed ? s.t : ''}
+              href={sectionURL}
+              onClick={(e) => handleSectionClick(e, s.k)}
+              title={collapsed ? s.t : 'Click derecho para abrir en nueva pestaña'}
               className={"sidebar-item" + (isActive ? ' active' : '') + (collapsed ? ' collapsed' : '')}
+              style={{ textDecoration: 'none' }}
             >
               <span style={{ 
                 display: 'flex',
@@ -136,7 +167,7 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
                 {Icon && <Icon />}
               </span>
               <span className="sidebar-item-label">{s.t}</span>
-            </button>
+            </a>
           );
         })}
       </div>
