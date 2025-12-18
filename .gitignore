@@ -70,3 +70,9 @@ ayuda.txt
 coverage/
 .nyc_output/
 
+# Archivos de referencia y temporales (solo locales)
+Styles_*.css
+sprite_*.png
+*.env.txt
+frontend/ayuda.txt
+docs/INVESTIGACION_*.md
