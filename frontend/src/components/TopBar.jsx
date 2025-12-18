@@ -153,13 +153,24 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
         )}
       </div>
 
-      {/* Mobile drawer: menú lateral que ocupa el 75% del ancho y 100% alto */}
+      {/* Mobile drawer: menu lateral que ocupa el 75% del ancho y 100% alto */}
       {showDrawer && (
         <div className="mobile-drawer" role="dialog" aria-modal="true">
           <div className="mobile-drawer-backdrop" onClick={() => setShowDrawer(false)} />
           <div className="mobile-drawer-content">
             <div className="mobile-drawer-header">
                 <div className="mobile-drawer-appname">Portal Meraki</div>
+                <button 
+                  type="button" 
+                  className="mobile-drawer-close" 
+                  onClick={() => setShowDrawer(false)}
+                  aria-label="Cerrar menu"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
               </div>
 
               <div className="mobile-drawer-predio">
@@ -167,11 +178,11 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                 <a
                   href={getPredioURL ? getPredioURL(selectedNetwork?.predio_code || selectedNetwork?.id, selectedSection) : '#'}
                   onClick={(e) => { e.preventDefault(); if (onRefreshPredio) { onRefreshPredio(); setShowDrawer(false); } }}
-                  title="Click para refrescar • Click derecho para abrir en nueva pestaña"
+                  title="Click para refrescar - Click derecho para abrir en nueva pestana"
                   className="drawer-predio-box"
                   style={{ textDecoration: 'none', cursor: 'pointer' }}
                 >
-                  {(selectedNetwork && (selectedNetwork.predio_code || selectedNetwork.id)) || ''}
+                  {(selectedNetwork && (selectedNetwork.predio_code || selectedNetwork.id)) || 'Sin seleccionar'}
                 </a>
               </div>
 
@@ -191,6 +202,26 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                   </svg>
                 </button>
               </form>
+
+            {/* Navegacion de secciones */}
+            {sections.length > 0 && (
+              <div className="drawer-sections">
+                <div className="drawer-section-title">Secciones</div>
+                <div className="drawer-sections-list">
+                  {sections.map((s) => (
+                    <button
+                      key={s.k}
+                      type="button"
+                      className={`drawer-section-item${selectedSection === s.k ? ' active' : ''}`}
+                      onClick={() => { if (onSelectSection) onSelectSection(s.k); setShowDrawer(false); }}
+                    >
+                      {s.IconComponent && <s.IconComponent />}
+                      <span>{s.t}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="drawer-recent">
               <div className="drawer-section-title">Predios frecuentes</div>

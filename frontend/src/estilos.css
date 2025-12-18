@@ -518,12 +518,11 @@ html, body {
     padding-right: 12px !important;
     background: linear-gradient(180deg, #071233 0%, #081428 100%);
     color: #fff;
+    z-index: 1200;
   }
 
-  /* Push main dashboard content below the fixed topbar on small screens.
-     Use a slightly smaller reserve to avoid too much whitespace. */
+  /* El padding-top del dashboard se maneja en React con isMobile */
   .dashboard-container {
-    margin-top: 65px; /* Ajustado para que coincida con la altura del topbar y elimine el borde blanco */
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
@@ -638,12 +637,35 @@ html, body {
     -webkit-overflow-scrolling: touch;
   }
 
+  .mobile-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
   .mobile-drawer-appname {
     font-weight: 800;
     font-size: 18px;
     letter-spacing: 0.4px;
     color: #ffffff;
-    margin-bottom: 12px;
+  }
+
+  .mobile-drawer-close {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+  .mobile-drawer-close:hover,
+  .mobile-drawer-close:active {
+    background: rgba(255,255,255,0.15);
   }
 
   .mobile-drawer-predio { margin: 12px 0 18px 0; }
@@ -670,7 +692,47 @@ html, body {
     cursor: pointer;
   }
 
-  .drawer-recent { margin-top: 6px; padding-bottom: 40px; }
+  /* Navegacion de secciones en drawer */
+  .drawer-sections { margin: 16px 0; }
+  .drawer-sections-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 6px; 
+  }
+  .drawer-section-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+    text-align: left;
+  }
+  .drawer-section-item:hover {
+    background: rgba(255,255,255,0.08);
+  }
+  .drawer-section-item:active {
+    transform: scale(0.98);
+  }
+  .drawer-section-item.active {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    border-color: rgba(255,255,255,0.1);
+    font-weight: 600;
+  }
+  .drawer-section-item svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .drawer-recent { margin-top: 16px; padding-bottom: 40px; }
   .drawer-section-title { font-size: 13px; color: rgba(255,255,255,0.85); margin-bottom: 8px; font-weight: 700 }
   .drawer-recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .drawer-recent-item { width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); color: #fff }

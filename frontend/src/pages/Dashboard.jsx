@@ -3491,18 +3491,21 @@ export default function Dashboard({ onLogout }) {
   <TopBar onSearch={search} onLogout={onLogout} onSelectSection={handleSectionChange} sections={availableSections} selectedSection={section} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'auto minmax(0, 1fr)', 
-        gap: 16, 
-        padding: '16px', 
+        gridTemplateColumns: isMobile ? '1fr' : 'auto minmax(0, 1fr)', 
+        gap: isMobile ? 0 : 16, 
+        padding: isMobile ? '0' : '16px', 
+        paddingTop: isMobile ? '56px' : '16px',
         alignItems: 'start', 
         background: '#f1f5f9', 
         minHeight: 'calc(100vh - 42px)',
         maxWidth: '100vw',
         boxSizing: 'border-box'
       }}>
-        <div className="dashboard-sidebar">
-          <Sidebar section={section} setSection={handleSectionChange} sections={availableSections} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
-        </div>
+        {!isMobile && (
+          <div className="dashboard-sidebar">
+            <Sidebar section={section} setSection={handleSectionChange} sections={availableSections} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
+          </div>
+        )}
         <main className="dashboard-container" style={{ 
           width: '100%', 
           maxWidth: '100%',
