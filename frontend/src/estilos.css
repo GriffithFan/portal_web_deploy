@@ -1174,18 +1174,17 @@ html, body {
   /* Mobile graph wrapper: allow horizontal pan and pinch-to-zoom gestures */
   .mobile-topology-graph-wrapper {
     width: 100%;
-    overflow: hidden;
+    overflow: visible; /* NO hidden - permitir que el hijo haga scroll */
     padding: 6px 0 12px 0;
     position: relative;
     z-index: 1; /* Asegurar que esté debajo de la sidebar */
   }
   .mobile-topology-graph {
     width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
+    overflow: auto !important; /* scroll en ambas direcciones */
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pinch-zoom; /* allow horizontal pan and pinch-to-zoom */
-    overscroll-behavior-x: contain; /* keep horizontal pan from scrolling the whole page */
+    touch-action: pan-x pan-y pinch-zoom; /* allow pan in both directions and pinch-to-zoom */
+    overscroll-behavior: contain; /* keep panning inside from scrolling the page */
     background: #ffffff; /* stable white card so it doesn't visually break */
     padding: 8px;
     border-radius: 12px;
@@ -1197,33 +1196,15 @@ html, body {
   }
   /* Inner container sets a minimum width so the graph can be scrolled horizontally on mobile */
   .mobile-topology-graph-inner {
-    width: max(1000px, 100%); /* ensure inner area can overflow horizontally when graph is wide */
-    display: inline-block;
-    vertical-align: top;
-  }
-
-  /* Encourage SVG inside the graph to preserve its aspect and be scrollable horizontally */
-  .mobile-topology-graph {
-    width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pinch-zoom; /* allow horizontal pan and pinch-to-zoom */
-    overscroll-behavior-x: contain; /* keep horizontal pan from scrolling the whole page */
-    background: transparent; /* allow the graph to render naturally */
-    padding: 6px 0;
-    min-height: 220px; /* reserve space so layout doesn't jump */
-    max-height: 70vh;
-  }
-  .mobile-topology-graph-inner {
-    width: 100%;
-    min-width: auto; /* do not force large fixed widths that break layout */
+    min-width: 800px; /* ensure inner area can overflow horizontally when graph is wide */
+    min-height: 600px; /* ensure inner area can overflow vertically */
     display: block;
+    width: max-content;
   }
 
   /* Small visual scrollbar for hinting horizontal scroll on mobile */
-  .mobile-topology-graph::-webkit-scrollbar { height: 8px; }
-  .mobile-topology-graph::-webkit-scrollbar-thumb { background: rgba(2,6,23,0.06); border-radius: 6px; }
+  .mobile-topology-graph::-webkit-scrollbar { height: 8px; width: 8px; }
+  .mobile-topology-graph::-webkit-scrollbar-thumb { background: rgba(2,6,23,0.15); border-radius: 6px; }
   
   /* Estilos base de appliance cards en móvil (mejorados) */
   .mobile-appliance-card {
@@ -2370,11 +2351,15 @@ h1 {
     box-sizing: border-box !important;
   }
 
-  /* Grid de tiles mejorado */
+  /* Grid de tiles mejorado - ASEGURAR GRID 2x2 */
   .mobile-section-tiles {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 12px !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Tiles con mejor estética y efectos de pulsación */
