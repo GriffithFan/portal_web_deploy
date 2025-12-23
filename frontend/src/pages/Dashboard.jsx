@@ -1587,8 +1587,13 @@ export default function Dashboard({ onLogout }) {
   const applianceStatusRef = useRef(null); // Ref para captura de Appliance Status
 
   // Track window width to enable mobile-specific rendering without affecting desktop
+  const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 900);
+  
   useEffect(() => {
-    const onResize = () => setWindowWidth(window.innerWidth);
+    const onResize = () => {
+      setWindowWidth(window.innerWidth);
+      setWindowHeight(window.innerHeight);
+    };
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('resize', onResize);
       return () => window.removeEventListener('resize', onResize);
@@ -1596,7 +1601,9 @@ export default function Dashboard({ onLogout }) {
     return undefined;
   }, []);
 
-  const isMobile = windowWidth <= 900;
+  // Detectar móvil: ancho <= 900 O landscape con altura pequeña (< 500px típico de celulares)
+  const isLandscapeMobile = windowHeight <= 500 && windowWidth > windowHeight && windowWidth <= 1024;
+  const isMobile = windowWidth <= 900 || isLandscapeMobile;
 
   // Counts used in mobile section tiles (fall back to 0)
   const mobileCounts = {

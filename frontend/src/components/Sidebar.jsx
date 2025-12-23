@@ -46,6 +46,13 @@ const ServerIcon = () => (
   </svg>
 );
 
+const LocationIcon = ({ size = 14, color = '#64748b' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="10" r="3"></circle>
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+  </svg>
+);
+
 const defaultSections = [
   { k: 'topology', t: 'Topology', IconComponent: TopologyIcon },
   { k: 'switches', t: 'Switches', IconComponent: SwitchIcon },
@@ -56,6 +63,7 @@ const defaultSections = [
 export default function Sidebar({ section, setSection, sections, selectedNetwork, onRefreshPredio, getPredioURL }) {
   const [collapsed, setCollapsed] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [location, setLocation] = useState({ lat: null, lng: null, error: null, loading: true });
   const items = Array.isArray(sections) && sections.length ? sections : defaultSections;
   
   // Actualizar fecha y hora cada segundo
@@ -65,6 +73,113 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Fallback: obtener ubicación por IP
+  const getLocationByIP = async () => {
+    try {
+      const response = await fetch('https://ipapi.co/json/');
+      const data = await response.json();
+      if (data.latitude && data.longitude) {
+        setLocation({
+          lat: data.latitude,
+          lng: data.longitude,
+          error: null,
+          loading: false,
+          source: 'IP'
+        });
+        return true;
+      }
+    } catch {
+      // Si falla, intentar con otro servicio
+      try {
+        const response = await fetch('https://ip-api.com/json/?fields=lat,lon');
+        const data = await response.json();
+        if (data.lat && data.lon) {
+          setLocation({
+            lat: data.lat,
+            lng: data.lon,
+            error: null,
+            loading: false,
+            source: 'IP'
+          });
+          return true;
+        }
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  };
+
+  // Obtener ubicación GPS
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      // Sin GPS, intentar por IP
+      getLocationByIP().then(success => {
+        if (!success) {
+          setLocation({ lat: null, lng: null, error: 'Sin ubicación', loading: false });
+        }
+      });
+      return;
+    }
+
+    // Primero intentar con getCurrentPosition (más rápido)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          error: null,
+          loading: false,
+          source: 'GPS'
+        });
+      },
+      () => {
+        // GPS falló, intentar por IP
+        getLocationByIP().then(success => {
+          if (!success) {
+            setLocation({ lat: null, lng: null, error: 'Sin ubicación', loading: false });
+          }
+        });
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  }, []);
+
+  // Función para reintentar obtener ubicación
+  const retryLocation = () => {
+    setLocation({ lat: null, lng: null, error: null, loading: true });
+    
+    if (!navigator.geolocation) {
+      getLocationByIP().then(success => {
+        if (!success) {
+          setLocation({ lat: null, lng: null, error: 'Sin ubicación', loading: false });
+        }
+      });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          error: null,
+          loading: false,
+          source: 'GPS'
+        });
+      },
+      () => {
+        // GPS falló, intentar por IP
+        getLocationByIP().then(success => {
+          if (!success) {
+            setLocation({ lat: null, lng: null, error: 'Sin ubicación', loading: false });
+          }
+        });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
 
   // Formatear fecha y hora
   const formatDateTime = (date) => {
@@ -225,6 +340,60 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
             }}>
               {formatDateTime(currentDateTime)}
             </div>
+            {/* Ubicación GPS */}
+            <div style={{
+              marginTop: '12px',
+              paddingTop: '12px',
+              borderTop: '1px solid #e2e8f0'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                fontSize: '10px',
+                fontWeight: '600',
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '4px'
+              }}>
+                <LocationIcon size={12} color="#94a3b8" />
+                Ubicación GPS
+              </div>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: '600',
+                color: location.error ? '#ef4444' : '#475569',
+                fontFamily: 'monospace',
+                letterSpacing: '0.3px'
+              }}>
+                {location.loading ? (
+                  <span style={{ color: '#94a3b8' }}>Obteniendo...</span>
+                ) : location.error ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <span>{location.error}</span>
+                    <button
+                      onClick={retryLocation}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '10px',
+                        background: '#e2e8f0',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        color: '#475569',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : (
+                  <span>{location.lat?.toFixed(7)}, {location.lng?.toFixed(7)}</span>
+                )}
+              </div>
+            </div>
           </>
         ) : (
           <div style={{
@@ -233,8 +402,9 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
             color: '#475569',
             fontFamily: 'monospace',
             lineHeight: '1.4'
-          }} title={formatDateTime(currentDateTime)}>
+          }} title={`${formatDateTime(currentDateTime)}${location.lat ? ` | GPS: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : ''}`}>
             <div>{currentDateTime.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+            <div style={{ marginTop: '4px' }}><LocationIcon size={12} color="#475569" /></div>
           </div>
         )}
       </div>
