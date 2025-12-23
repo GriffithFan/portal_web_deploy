@@ -4,7 +4,6 @@ import { SummaryChip } from './DashboardHelpers';
 import { SortableHeader } from './SortableHeader';
 import { normalizeReachability, getStatusColor } from '../../utils/networkUtils';
 import Tooltip from '../Tooltip';
-import { SwitchIcon } from './DashboardIcons';
 
 export default function SwitchesSection({
   devices,

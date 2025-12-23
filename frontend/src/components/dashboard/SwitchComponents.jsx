@@ -4,10 +4,7 @@
  */
 
 import Tooltip from '../Tooltip';
-import { normalizeReachability, getStatusColor, resolvePortColor } from '../../utils/networkUtils';
-import { SummaryChip } from './DashboardHelpers';
-import { SortableHeader } from './SortableHeader';
-import { SwitchIcon } from './DashboardIcons';
+import { normalizeReachability, getStatusColor } from '../../utils/networkUtils';
 import '../AppliancePorts.css';
 
 /**
