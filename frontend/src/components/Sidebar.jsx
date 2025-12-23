@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const TopologyIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -55,7 +55,30 @@ const defaultSections = [
 
 export default function Sidebar({ section, setSection, sections, selectedNetwork, onRefreshPredio, getPredioURL }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const items = Array.isArray(sections) && sections.length ? sections : defaultSections;
+  
+  // Actualizar fecha y hora cada segundo
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Formatear fecha y hora
+  const formatDateTime = (date) => {
+    const options = {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+    return date.toLocaleString('es-MX', options);
+  };
   
   // Handler para click en predio (refrescar datos)
   const handlePredioClick = (e) => {
@@ -170,6 +193,50 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
             </a>
           );
         })}
+      </div>
+      
+      {/* Indicador de fecha y hora para capturas */}
+      <div className="sidebar-datetime" style={{
+        marginTop: 'auto',
+        padding: collapsed ? '12px 8px' : '16px',
+        borderTop: '1px solid #e2e8f0',
+        backgroundColor: '#f8fafc',
+        textAlign: 'center',
+        transition: 'all 0.3s ease'
+      }}>
+        {!collapsed ? (
+          <>
+            <div style={{
+              fontSize: '10px',
+              fontWeight: '600',
+              color: '#94a3b8',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: '4px'
+            }}>
+              Fecha y Hora
+            </div>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#475569',
+              fontFamily: 'monospace',
+              letterSpacing: '0.3px'
+            }}>
+              {formatDateTime(currentDateTime)}
+            </div>
+          </>
+        ) : (
+          <div style={{
+            fontSize: '10px',
+            fontWeight: '600',
+            color: '#475569',
+            fontFamily: 'monospace',
+            lineHeight: '1.4'
+          }} title={formatDateTime(currentDateTime)}>
+            <div>{currentDateTime.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+          </div>
+        )}
       </div>
     </div>
   );

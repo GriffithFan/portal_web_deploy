@@ -1280,12 +1280,61 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
       }
       
       case 'access_points': {
-  console.debug('Procesando puntos de acceso para', networkId);
+        console.debug('Procesando puntos de acceso para', networkId);
         // Datos de APs con LLDP y estadísticas wireless mejoradas
         const lldpSnapshots = {};
         const wirelessStats = {};
         
-  console.debug(`Total de APs encontrados: ${accessPoints.length}`);
+        console.debug(`Total de APs encontrados: ${accessPoints.length}`);
+        
+        // ============ DETECCIÓN DE MESH REPEATERS ============
+        console.log('[MESH] Iniciando detección de mesh repeaters...');
+        let meshRepeaterSet = new Set();
+        let meshParentMap = new Map(); // Mapea serial del repeater -> info del AP padre
+        try {
+          const rawTopology = await getNetworkTopologyLinkLayer(networkId);
+          console.log(`[MESH] Topología obtenida: ${rawTopology?.links?.length || 0} enlaces`);
+          if (rawTopology && rawTopology.links) {
+            // Un AP es mesh repeater si está conectado a otro AP en lugar de a un switch
+            const apSerials = new Set(accessPoints.map(ap => ap.serial));
+            
+            rawTopology.links.forEach(link => {
+              if (link.ends && link.ends.length === 2) {
+                const [end1, end2] = link.ends;
+                const serial1 = end1.device?.serial;
+                const serial2 = end2.device?.serial;
+                
+                // Si un AP está conectado a otro AP (no a switch ni MX), es mesh repeater
+                if (apSerials.has(serial1) && apSerials.has(serial2)) {
+                  // Determinar cuál es el repeater basándose en LLDP
+                  // El que NO tiene LLDP es el repeater (se conecta wirelessly)
+                  if (!end1.discovered?.lldp && !end1.discovered?.cdp) {
+                    meshRepeaterSet.add(serial1);
+                    meshParentMap.set(serial1, {
+                      parentSerial: serial2,
+                      parentName: end2.device?.name || serial2,
+                      parentPort: end2.discovered?.lldp?.portId || end2.discovered?.cdp?.portId || null
+                    });
+                    console.log(`[MESH DETECTED] ${end1.device?.name || serial1} es mesh repeater de ${end2.device?.name || serial2}`);
+                  }
+                  if (!end2.discovered?.lldp && !end2.discovered?.cdp) {
+                    meshRepeaterSet.add(serial2);
+                    meshParentMap.set(serial2, {
+                      parentSerial: serial1,
+                      parentName: end1.device?.name || serial1,
+                      parentPort: end1.discovered?.lldp?.portId || end1.discovered?.cdp?.portId || null
+                    });
+                    console.log(`[MESH DETECTED] ${end2.device?.name || serial2} es mesh repeater de ${end1.device?.name || serial1}`);
+                  }
+                }
+              }
+            });
+          }
+          console.log(`[MESH] Detectados ${meshRepeaterSet.size} APs en modo mesh/repeater: ${[...meshRepeaterSet].join(', ') || 'ninguno'}`);
+        } catch (err) {
+          console.error('[MESH] Error obteniendo topología:', err.message);
+        }
+        // ============ FIN DETECCIÓN DE MESH REPEATERS ============
         
         // Obtener estado de ethernet de todos los APs wireless desde la organización
         let wirelessEthernetStatuses = [];
@@ -1410,6 +1459,31 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
             }
           }
           
+          // ===== MESH REPEATER: Corregir datos si es un mesh repeater =====
+          const isMeshRepeater = meshRepeaterSet.has(ap.serial);
+          const meshParent = meshParentMap.get(ap.serial);
+          
+          // Detectar también si NO tiene ethernet (señal de mesh)
+          const noEthernet = !ethernetStatus?.ports?.[0]?.linkNegotiation?.speed;
+          const finalIsMesh = isMeshRepeater || (noEthernet && connectedTo === '-');
+          
+          // Si es mesh, corregir los valores
+          let finalConnectedTo = connectedTo;
+          let finalWiredSpeed = wiredSpeed;
+          let meshParentName = null;
+          
+          if (finalIsMesh) {
+            if (meshParent) {
+              finalConnectedTo = `${meshParent.parentName} (Mesh)`;
+              meshParentName = meshParent.parentName;
+            } else if (noEthernet) {
+              finalConnectedTo = 'Mesh Repeater';
+            }
+            finalWiredSpeed = '—'; // Mesh repeaters no tienen conexión ethernet
+            console.log(`[MESH] AP ${ap.name || ap.serial}: isMesh=${finalIsMesh}, connectedTo=${finalConnectedTo}, speed=${finalWiredSpeed}`);
+          }
+          // ===== FIN MESH REPEATER =====
+          
           return {
             serial: ap.serial,
             name: ap.name,
@@ -1417,9 +1491,11 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
             status: statusMap.get(ap.serial)?.status || ap.status,
             mac: ap.mac,
             lanIp: ap.lanIp,
-            connectedTo: connectedTo,
-            connectedPort: port?.cdp?.portId || port?.lldp?.portId || '-',
-            wiredSpeed: wiredSpeed,
+            connectedTo: finalConnectedTo,
+            connectedPort: finalIsMesh ? '—' : (port?.cdp?.portId || port?.lldp?.portId || '-'),
+            wiredSpeed: finalWiredSpeed,
+            isMeshRepeater: finalIsMesh,
+            meshParentName: meshParentName,
             connectionStats: stats ? {
               assoc: stats.assoc || 0,
               auth: stats.auth || 0,

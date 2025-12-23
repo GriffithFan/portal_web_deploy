@@ -1,0 +1,17 @@
+    font-family: Arial, Helvetica, sans-serif;
+    max-width: 100% !important;
+    justify-content: center;
+    align-content: start;
+    justify-items: stretch;
+    align-items: stretch;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;

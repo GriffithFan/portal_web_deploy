@@ -780,7 +780,7 @@ const ConnectivityBar = ({ ap, device, networkId, orgId, connectivityDataProp })
   }
   
   // Renderizar barras de conectividad
-  const segments = connectivityData.map((point) => {
+  const segments = connectivityData.map((point, idx) => {
     const hasLatency = point.latencyMs !== null && point.latencyMs !== undefined;
     const hasLoss = point.lossPercent !== null && point.lossPercent !== undefined;
     
@@ -850,6 +850,9 @@ const AccessPointCard = ({ ap, signalThreshold = 25, isEnriched = false }) => {
   const worst = summary.worst ?? summary.device?.min ?? null;
   const average = summary.average ?? summary.deviceAverage ?? null;
   const latest = summary.latest ?? null;
+  
+  // Detectar si está en modo mesh/repeater
+  const isMeshRepeater = ap.isMeshRepeater || false;
 
   const connectivitySeries = history.length
     ? {
@@ -870,24 +873,45 @@ const AccessPointCard = ({ ap, signalThreshold = 25, isEnriched = false }) => {
           <p className="modern-card-subtitle">
             {ap.model} · {ap.serial}
           </p>
-          <p className="modern-card-subtitle" style={{ marginTop: '2px', fontSize: '11px' }}>
-            LLDP: {ap.connectedTo || '-'} · {formatWiredSpeed(ap.wiredSpeed, isEnriched)}
-          </p>
+          {isMeshRepeater ? (
+            <p className="modern-card-subtitle" style={{ marginTop: '2px', fontSize: '11px', color: '#b45309' }}>
+              <span style={{ 
+                display: 'inline-block', 
+                background: '#fef3c7', 
+                padding: '1px 6px', 
+                borderRadius: 4, 
+                border: '1px dashed #f59e0b',
+                fontWeight: 500
+              }}>
+                Mesh Repeater
+              </span>
+              {ap.meshParentName && <span style={{ marginLeft: 6, color: '#6b7280' }}>→ {ap.meshParentName}</span>}
+            </p>
+          ) : (
+            <p className="modern-card-subtitle" style={{ marginTop: '2px', fontSize: '11px' }}>
+              LLDP: {ap.connectedTo || '-'} · {formatWiredSpeed(ap.wiredSpeed, isEnriched)}
+            </p>
+          )}
         </div>
         <span 
           className={`status-badge ${statusNormalized}`}
           style={{ 
             background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef9c3' : '#fee2e2',
-            color: statusColor 
+            color: statusColor,
+            border: isMeshRepeater ? '2px dashed' : 'none',
+            borderColor: isMeshRepeater ? statusColor : undefined
           }}
         >
           <span style={{ 
             width: '8px', 
             height: '8px', 
             borderRadius: '50%', 
-            background: statusColor 
+            background: statusColor,
+            border: isMeshRepeater ? '2px dashed' : 'none',
+            borderColor: isMeshRepeater ? 'white' : undefined,
+            boxSizing: 'border-box'
           }} />
-          {ap.status || 'unknown'}
+          {isMeshRepeater ? `${ap.status || 'unknown'} (Mesh)` : (ap.status || 'unknown')}
         </span>
       </div>
 
@@ -2651,13 +2675,16 @@ export default function Dashboard({ onLogout }) {
 
         const accessPoints = (enrichedAPs || devices.filter((d) => d.model?.toLowerCase().startsWith('mr')))
           .map((ap) => {
-            // Siempre intentar enriquecer con datos wireless del summary
-            const fallbackWireless = enrichWireless(ap.serial);
+            // Priorizar datos wireless del endpoint enriquecido
             const baseWireless = ap.wireless || null;
+            const fallbackWireless = enrichWireless(ap.serial);
             
-            // Priorizar datos wireless del summary si tienen historial
+            // Usar baseWireless primero (viene del endpoint /section/access_points con historial)
+            // Solo usar fallback si baseWireless no tiene datos
             let wirelessData = null;
-            if (fallbackWireless && (Array.isArray(fallbackWireless.history) && fallbackWireless.history.length > 0)) {
+            if (baseWireless && (Array.isArray(baseWireless.history) && baseWireless.history.length > 0)) {
+              wirelessData = baseWireless;
+            } else if (fallbackWireless && (Array.isArray(fallbackWireless.history) && fallbackWireless.history.length > 0)) {
               wirelessData = fallbackWireless;
             } else if (baseWireless) {
               wirelessData = baseWireless;
@@ -2730,12 +2757,22 @@ export default function Dashboard({ onLogout }) {
               <div className="mobile-device-list">
                 {mobileAps.map((d) => {
                   const statusColor = getStatusColor(d.status);
+                  const isMeshRepeater = d.isMeshRepeater || false;
                   const subline = d.serial || d.lanIp || d.connectedTo || '';
 
                   // Construir contenido seguro para tooltip (no pasar objetos crudos)
                   const apTooltip = d.tooltipInfo ? (
                     <div>
                       <div className="tooltip-title">{d.tooltipInfo.name}</div>
+                      {isMeshRepeater && (
+                        <div className="tooltip-row" style={{ background: '#fef3c7', borderRadius: 4, padding: '2px 6px', marginBottom: 4 }}>
+                          <span className="tooltip-label" style={{ color: '#92400e' }}>Modo</span>
+                          <span className="tooltip-value" style={{ color: '#b45309', fontWeight: 600 }}>Mesh Repeater</span>
+                        </div>
+                      )}
+                      {d.meshParentName && (
+                        <div className="tooltip-row"><span className="tooltip-label">Conectado a</span><span className="tooltip-value">{d.meshParentName} (Wireless)</span></div>
+                      )}
                       {d.tooltipInfo.model && (
                         <div className="tooltip-row"><span className="tooltip-label">Modelo</span><span className="tooltip-value">{d.tooltipInfo.model}</span></div>
                       )}
@@ -2760,10 +2797,10 @@ export default function Dashboard({ onLogout }) {
                       {!isMobile && d.tooltipInfo.microDrops > 0 && (
                         <div className="tooltip-row"><span className="tooltip-label">Microcortes</span><span className={`tooltip-badge error`}>{d.tooltipInfo.microDrops}</span></div>
                       )}
-                      {d.tooltipInfo.connectedTo && d.tooltipInfo.connectedTo !== '-' && (
+                      {d.tooltipInfo.connectedTo && d.tooltipInfo.connectedTo !== '-' && !isMeshRepeater && (
                         <div className="tooltip-row"><span className="tooltip-label">Conectado a</span><span className="tooltip-value">{d.tooltipInfo.connectedTo}</span></div>
                       )}
-                      {d.tooltipInfo.wiredSpeed && (
+                      {d.tooltipInfo.wiredSpeed && !isMeshRepeater && (
                         <div className="tooltip-row"><span className="tooltip-label">Velocidad Ethernet</span><span className="tooltip-value">{d.tooltipInfo.wiredSpeed}</span></div>
                       )}
                     </div>
@@ -2776,12 +2813,31 @@ export default function Dashboard({ onLogout }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
                             <div className="mobile-device-icon"><WifiIcon /></div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name || d.serial}</div>
+                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {d.name || d.serial}
+                                {isMeshRepeater && <span style={{ fontSize: 10, color: '#6b7280', marginLeft: 4 }}>(Mesh)</span>}
+                              </div>
                               <div className="mobile-device-subline">{subline}</div>
                             </div>
                             <div style={{ marginLeft: 8, flex: '0 0 auto' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', background: normalizeReachability(d.status) === 'connected' ? '#d1fae5' : '#fee2e2' }}>
-                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusColor }} />
+                              <span style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                width: 22, 
+                                height: 22, 
+                                borderRadius: '50%', 
+                                background: normalizeReachability(d.status) === 'connected' ? '#d1fae5' : '#fee2e2',
+                                border: isMeshRepeater ? '2px dashed' : 'none',
+                                borderColor: isMeshRepeater ? statusColor : undefined,
+                                boxSizing: 'border-box'
+                              }}>
+                                <span style={{ 
+                                  width: isMeshRepeater ? 7 : 9, 
+                                  height: isMeshRepeater ? 7 : 9, 
+                                  borderRadius: '50%', 
+                                  background: statusColor 
+                                }} />
                               </span>
                             </div>
                           </div>
@@ -3487,7 +3543,7 @@ export default function Dashboard({ onLogout }) {
   };
 
   return (
-    <div style={{ width: '100vw', overflow: 'visible' }}>
+    <div style={{ width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
   <TopBar onSearch={search} onLogout={onLogout} onSelectSection={handleSectionChange} sections={availableSections} selectedSection={section} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
       <div style={{ 
         display: 'grid', 
@@ -3498,8 +3554,10 @@ export default function Dashboard({ onLogout }) {
         alignItems: 'start', 
         background: '#f1f5f9', 
         minHeight: 'calc(100vh - 42px)',
-        maxWidth: '100vw',
-        boxSizing: 'border-box'
+        maxWidth: '100%',
+        width: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}>
         {!isMobile && (
           <div className="dashboard-sidebar">
@@ -3513,8 +3571,14 @@ export default function Dashboard({ onLogout }) {
           boxSizing: 'border-box'
         }}>
           {isMobile && (
-            <div className="mobile-section-tiles-wrapper">
-              <div className="mobile-section-tiles">
+            <div className="mobile-section-tiles-wrapper" style={{ overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
+              <div className="mobile-section-tiles" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '12px',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
                 {availableSections.map((item) => {
                   const IconComp = item.IconComponent || TopologyIcon;
                   // derive some counts for specific tiles
@@ -3542,11 +3606,23 @@ export default function Dashboard({ onLogout }) {
                   }
 
                   return (
-                    <div key={item.k} className="mobile-section-tile" role="button" onClick={() => setSection(item.k)} tabIndex={0}>
-                      <div className="mobile-section-tile-row">
+                    <div 
+                      key={item.k} 
+                      className="mobile-section-tile" 
+                      role="button" 
+                      onClick={() => setSection(item.k)} 
+                      tabIndex={0} 
+                      style={{ 
+                        minWidth: 0, 
+                        maxWidth: '100%',
+                        width: 'auto',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div className="mobile-section-tile-row" style={{ minWidth: 0 }}>
                         <div className="mobile-section-tile-icon"><IconComp /></div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
-                          <div className="mobile-section-tile-title">{item.t}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <div className="mobile-section-tile-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.t}</div>
                           <div className="mobile-section-tile-count">{total} {total === 1 ? 'device' : 'devices'}</div>
                         </div>
                       </div>
@@ -3575,14 +3651,14 @@ export default function Dashboard({ onLogout }) {
           {error && <div style={{ color: '#e74c3c', marginBottom: 10 }}>{error}</div>}
           
           <div style={{ 
-            overflowX: section === 'topology' ? 'auto' : 'visible',
+            overflowX: section === 'topology' && !isMobile ? 'auto' : 'visible',
             overflowY: 'visible',
             width: '100%', 
             maxWidth: '100%',
-            marginLeft: section === 'topology' ? '-40px' : '0',
-            marginRight: section === 'topology' ? '-40px' : '0',
-            paddingLeft: section === 'topology' ? '20px' : '0',
-            paddingRight: section === 'topology' ? '20px' : '0'
+            marginLeft: section === 'topology' && !isMobile ? '-40px' : '0',
+            marginRight: section === 'topology' && !isMobile ? '-40px' : '0',
+            paddingLeft: section === 'topology' && !isMobile ? '20px' : '0',
+            paddingRight: section === 'topology' && !isMobile ? '20px' : '0'
           }}>
             {renderSection()}
           </div>

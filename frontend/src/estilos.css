@@ -24,11 +24,18 @@
   transition: width 480ms cubic-bezier(.2,.9,.2,1), padding 380ms cubic-bezier(.2,.9,.2,1), box-shadow 380ms ease;
   will-change: width, transform, box-shadow;
   overflow: visible;
+  height: 100%;
 }
 .app-sidebar.collapsed {
   width: 64px;
   padding: 12px 6px;
   box-shadow: 0 6px 20px rgba(15,23,42,0.04);
+}
+
+/* Estilos para el indicador de fecha/hora */
+.sidebar-datetime {
+  margin-top: auto !important;
+  border-radius: 0 0 12px 12px;
 }
 
 .sidebar-header {
@@ -745,18 +752,18 @@ html, body {
 /* Mobile section tiles: 2x2 grid and blue cards matching topbar */
 @media (max-width: 900px) {
   .mobile-section-tiles {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
     margin: 0 !important;
     padding: 0 !important;
-    max-width: 100%;
-    width: 100%;
+    max-width: 100% !important;
+    width: 100% !important;
     justify-content: center;
     align-content: start;
     justify-items: stretch;
     align-items: stretch;
-    box-sizing: border-box;
+    box-sizing: border-box !important;
   }
 
   /* entrance animation for tiles */
@@ -778,7 +785,7 @@ html, body {
     gap: 8px;
     text-align: center;
     min-height: 120px;
-    width: 100%;
+    /* width: 100% ELIMINADO - el grid controla el ancho */
     box-sizing: border-box;
     overflow: hidden;
     animation: tileIn 220ms cubic-bezier(.2,.9,.2,1) both;
@@ -2360,6 +2367,12 @@ h1 {
     padding: 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
+  }
+
+  /* Forzar que los tiles respeten el grid y no tengan width fijo */
+  .mobile-section-tiles > .mobile-section-tile {
+    width: auto !important;
+    max-width: 100% !important;
   }
 
   /* Tiles con mejor estética y efectos de pulsación */
