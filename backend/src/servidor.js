@@ -1954,7 +1954,9 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
       speed: port.speed ?? port.speedMbps ?? port.linkSpeed,
       duplex: port.duplex,
       poeEnabled: port.poeEnabled ?? port.poe ?? undefined,
-      linkNegotiation: port.linkNegotiation
+      linkNegotiation: port.linkNegotiation,
+      errors: port.errors || [],
+      warnings: port.warnings || []
     };
   };
 
@@ -3760,6 +3762,14 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
 
         if ((port.type || '').toLowerCase() === 'trunk') acc.trunkPorts += 1;
         if ((port.type || '').toLowerCase() === 'access') acc.accessPorts += 1;
+
+        // Conteo de warnings y errores CRC
+        if (Array.isArray(port.warnings) && port.warnings.length > 0) {
+          acc.warningPorts += 1;
+          if (port.warnings.some(w => /crc/i.test(w))) acc.crcErrorPorts += 1;
+        }
+        if (Array.isArray(port.errors) && port.errors.length > 0) acc.errorPorts += 1;
+
         return acc;
       }, {
         totalPorts: 0,
@@ -3771,7 +3781,10 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
         poeActivePorts: 0,
         trunkPorts: 0,
         accessPorts: 0,
-        uplinkPorts: []
+        uplinkPorts: [],
+        warningPorts: 0,
+        crcErrorPorts: 0,
+        errorPorts: 0
       });
 
       // Determinar conexión upstream usando datos LLDP/CDP reales
@@ -3986,7 +3999,9 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
           speed: port.speed,
           duplex: port.duplex,
           poeEnabled: port.poeEnabled,
-          linkNegotiation: port.linkNegotiation
+          linkNegotiation: port.linkNegotiation,
+          errors: port.errors || [],
+          warnings: port.warnings || []
         }))
       };
     });

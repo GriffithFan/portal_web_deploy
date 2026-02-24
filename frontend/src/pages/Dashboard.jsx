@@ -1047,6 +1047,11 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
   const isDisabled = port.enabled === false;
   const hasPoe = port.poeEnabled === true;
   
+  // Detección de warnings y errores CRC
+  const hasWarnings = Array.isArray(port.warnings) && port.warnings.length > 0;
+  const hasCrcError = hasWarnings && port.warnings.some(w => /crc/i.test(w));
+  const hasErrors = Array.isArray(port.errors) && port.errors.length > 0;
+  
   const portName = port.name || '';
   const portNum = port.portId;
   
@@ -1087,6 +1092,7 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
 
   // Colores de Meraki
   const MERAKI_GREEN = '#67b346';
+  const MERAKI_WARNING = '#f5a623'; // Amarillo para CRC errors como en Meraki
   
   // Posiciones del sprite oficial de Meraki:
   // (0, 0) = Forma RJ45 con área para flecha blanca
@@ -1111,8 +1117,8 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
           height: '21px',
           backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
           backgroundPosition: getSpritePosition(),
-          backgroundColor: isConnected ? MERAKI_GREEN : '#000',
-          border: '1px solid #000',
+          backgroundColor: hasCrcError ? MERAKI_WARNING : isConnected ? MERAKI_GREEN : '#000',
+          border: hasCrcError ? '2px solid #e8960c' : '1px solid #000',
           cursor: 'pointer',
           boxSizing: 'border-box',
           position: 'relative',
@@ -1133,7 +1139,7 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
               <path d="M7 0 L2 8 L5 8 L4 16 L9 6 L6 6 Z" fill="#ff0" stroke="#000" strokeWidth="0.8"/>
             </svg>
           )}
-          {isConnected && !hasPoe && (
+          {isConnected && !hasPoe && !hasCrcError && (
             // Flecha hacia arriba - SVG blanca
             <svg width="10" height="14" viewBox="0 0 10 14" style={{ 
               position: 'absolute', 
@@ -1142,6 +1148,18 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
               transform: isFlipped ? 'rotate(180deg)' : 'none'
             }}>
               <path d="M5 0 L9 6 L6 6 L6 14 L4 14 L4 6 L1 6 Z" fill="#fff" stroke="#000" strokeWidth="0.3"/>
+            </svg>
+          )}
+          {hasCrcError && (
+            // Icono de advertencia CRC - triángulo con exclamación
+            <svg width="14" height="14" viewBox="0 0 14 14" style={{ 
+              position: 'absolute', 
+              top: '3px', 
+              left: '3px',
+              transform: isFlipped ? 'rotate(180deg)' : 'none'
+            }}>
+              <path d="M7 1 L13 13 L1 13 Z" fill="#fff" stroke="#000" strokeWidth="0.5"/>
+              <text x="7" y="12" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#000">!</text>
             </svg>
           )}
         </div>
@@ -1215,6 +1233,21 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
           <div style={{ color: isConnected ? '#67b346' : '#666' }}>
             {isConnected ? 'Connected' : 'Disconnected'}
           </div>
+          {hasCrcError && (
+            <div style={{ color: '#e8960c', fontWeight: '600' }}>
+              ⚠ CRC errors detected
+            </div>
+          )}
+          {hasWarnings && !hasCrcError && (
+            <div style={{ color: '#e8960c' }}>
+              {port.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+            </div>
+          )}
+          {hasErrors && (
+            <div style={{ color: '#d32f2f' }}>
+              {port.errors.map((e, i) => <div key={i}>✕ {e}</div>)}
+            </div>
+          )}
           <div style={{ color: '#666' }}>
             Auto negotiate{isConnected && getSpeed() ? ` (${getSpeed()})` : ''}
           </div>
@@ -1380,6 +1413,10 @@ const SwitchCard = ({ sw }) => {
   const stats = sw.stats || {};
   const portsToShow = Array.isArray(sw.ports) ? sw.ports : [];
   
+  // Calcular CRC/warnings del lado del cliente
+  const crcCount = stats.crcErrorPorts || portsToShow.filter(p => Array.isArray(p.warnings) && p.warnings.some(w => /crc/i.test(w))).length;
+  const warningCount = stats.warningPorts || portsToShow.filter(p => Array.isArray(p.warnings) && p.warnings.length > 0).length;
+  
   const statusNormalized = normalizeReachability(sw.status);
 
   // Información de uplink (conexión al appliance/upstream)
@@ -1488,7 +1525,37 @@ const SwitchCard = ({ sw }) => {
         }} />
         {sw.status}
       </span>
-    </div>      {/* Stats grid */}
+    </div>      {/* CRC Error Alert Banner */}
+      {crcCount > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 12px',
+          marginBottom: '12px',
+          background: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: '8px',
+          fontSize: '13px',
+          color: '#92400e',
+          fontWeight: '500'
+        }}>
+          <span style={{ fontSize: '16px' }}>⚠</span>
+          <span>CRC errors detected.</span>
+          <span style={{ 
+            marginLeft: 'auto', 
+            fontSize: '11px', 
+            background: '#f59e0b', 
+            color: '#fff', 
+            borderRadius: '999px', 
+            padding: '2px 8px',
+            fontWeight: '600' 
+          }}>
+            {crcCount} {crcCount === 1 ? 'puerto' : 'puertos'}
+          </span>
+        </div>
+      )}
+      {/* Stats grid */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', 
@@ -1530,6 +1597,16 @@ const SwitchCard = ({ sw }) => {
             {stats.poeActivePorts || 0}
           </div>
         </div>
+        {crcCount > 0 && (
+          <div>
+            <div style={{ fontSize: '11px', color: '#92400e', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              CRC Errors
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b', marginTop: '2px' }}>
+              {crcCount}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Ports grid - estilo Meraki */}
