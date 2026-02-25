@@ -335,6 +335,31 @@
   border-bottom: none;
 }
 
+/* Scrollbar sutil para tablas con overflow horizontal */
+.modern-table-scroll-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+.modern-table-scroll-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.modern-table-scroll-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modern-table-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.modern-table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+/* Firefox */
+.modern-table-scroll-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
 /* Cards mejorados */
 .modern-card {
   background: #fff;

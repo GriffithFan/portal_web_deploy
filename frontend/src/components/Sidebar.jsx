@@ -53,6 +53,10 @@ const LocationIcon = ({ size = 14, color = '#64748b' }) => (
   </svg>
 );
 
+// ── Feature flag: Fecha/Hora + Ubicación GPS ──────────────────────────
+// Mejora futura implementada por adelantado. Cambiar a true para activar.
+const SHOW_DATETIME_GPS = false;
+
 const defaultSections = [
   { k: 'topology', t: 'Topology', IconComponent: TopologyIcon },
   { k: 'switches', t: 'Switches', IconComponent: SwitchIcon },
@@ -63,11 +67,12 @@ const defaultSections = [
 export default function Sidebar({ section, setSection, sections, selectedNetwork, onRefreshPredio, getPredioURL }) {
   const [collapsed, setCollapsed] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
-  const [location, setLocation] = useState({ lat: null, lng: null, error: null, loading: true });
+  const [location, setLocation] = useState({ lat: null, lng: null, error: null, loading: SHOW_DATETIME_GPS });
   const items = Array.isArray(sections) && sections.length ? sections : defaultSections;
   
   // Actualizar fecha y hora cada segundo
   useEffect(() => {
+    if (!SHOW_DATETIME_GPS) return;
     const timer = setInterval(() => {
       setCurrentDateTime(new Date());
     }, 1000);
@@ -113,6 +118,7 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
 
   // Obtener ubicación GPS
   useEffect(() => {
+    if (!SHOW_DATETIME_GPS) return;
     if (!navigator.geolocation) {
       // Sin GPS, intentar por IP
       getLocationByIP().then(success => {
@@ -310,8 +316,8 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
         })}
       </div>
       
-      {/* Indicador de fecha y hora para capturas */}
-      <div className="sidebar-datetime" style={{
+      {/* Indicador de fecha y hora para capturas (feature flag: SHOW_DATETIME_GPS) */}
+      {SHOW_DATETIME_GPS && <div className="sidebar-datetime" style={{
         marginTop: 'auto',
         padding: collapsed ? '12px 8px' : '16px',
         borderTop: '1px solid #e2e8f0',
@@ -407,7 +413,7 @@ export default function Sidebar({ section, setSection, sections, selectedNetwork
             <div style={{ marginTop: '4px' }}><LocationIcon size={12} color="#475569" /></div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

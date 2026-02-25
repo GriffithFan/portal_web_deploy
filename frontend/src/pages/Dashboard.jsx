@@ -1094,29 +1094,34 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
   const MERAKI_GREEN = '#67b346';
   const MERAKI_WARNING = '#f5a623'; // Amarillo para CRC errors como en Meraki
   
-  // Posiciones del sprite oficial de Meraki:
-  // (0, 0) = Forma RJ45 con área para flecha blanca
-  // (0, -19px) = Forma RJ45 con área para rayito PoE
-  // (-18px, -19px) = Forma SFP (rectángulo, ancho 23px)
-  // (-39px, 0) = Stack port (ancho 45px)
+  // Sprite original de Meraki: 82×38px, escalado x1.25 = 103×48px
+  // Posiciones originales × 1.25:
+  // (0, 0) = Forma RJ45 con flecha → (0, 0)
+  // (0, -19px) = Forma RJ45 con rayito PoE → (0, -24px)
+  // (-18px, -19px) = Forma SFP → (-23px, -24px)
+  // (-39px, 0) = Stack port → (-49px, 0)
+  const SPRITE_BG = `url(${MERAKI_PORT_SPRITE})`;
+  const SPRITE_SIZE = '103px 48px';
+
   const getSpritePosition = () => {
-    if (isStackPort) return '-39px 0';
-    if (isUplink) return '-18px -19px';
-    // Puertos RJ45 (1-24) siempre usan forma RJ45
-    if (hasPoe) return '0 -19px';  // Forma para rayito
-    return '0 0';  // Forma para flecha
+    if (isStackPort) return '-49px 0';
+    if (isUplink) return '-23px -24px';
+    if (hasPoe) return '0 -24px';
+    return '0 0';
   };
   
-  // Renderizado del puerto usando el sprite oficial de Meraki
+  // Renderizado del puerto usando sprite escalado x1.25
   const getPortContent = () => {
     // Puerto RJ45 regular (1-24)
     if (!isUplink && !isStackPort) {
       return (
         <div style={{
-          width: '20px',
-          height: '21px',
-          backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
+          width: '25px',
+          height: '26px',
+          backgroundImage: SPRITE_BG,
           backgroundPosition: getSpritePosition(),
+          backgroundSize: SPRITE_SIZE,
+          backgroundRepeat: 'no-repeat',
           backgroundColor: hasCrcError ? MERAKI_WARNING : isConnected ? MERAKI_GREEN : '#000',
           border: hasCrcError ? '2px solid #e8960c' : '1px solid #000',
           cursor: 'pointer',
@@ -1128,12 +1133,12 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
           transform: isFlipped ? 'rotate(180deg)' : 'none'
         }}>
           {/* Ícono superpuesto - solo visible en puertos conectados */}
-          {isConnected && hasPoe && (
-            // Rayito PoE - SVG amarillo más ancho como el original
-            <svg width="12" height="16" viewBox="0 0 12 16" style={{ 
+          {isConnected && hasPoe && !hasCrcError && (
+            // Rayito PoE - SVG amarillo (oculto si hay CRC)
+            <svg width="15" height="20" viewBox="0 0 12 16" style={{ 
               position: 'absolute', 
               top: '2px', 
-              left: '4px',
+              left: '5px',
               transform: isFlipped ? 'rotate(180deg)' : 'none'
             }}>
               <path d="M7 0 L2 8 L5 8 L4 16 L9 6 L6 6 Z" fill="#ff0" stroke="#000" strokeWidth="0.8"/>
@@ -1141,21 +1146,21 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
           )}
           {isConnected && !hasPoe && !hasCrcError && (
             // Flecha hacia arriba - SVG blanca
-            <svg width="10" height="14" viewBox="0 0 10 14" style={{ 
+            <svg width="13" height="18" viewBox="0 0 10 14" style={{ 
               position: 'absolute', 
               top: '3px', 
-              left: '5px',
+              left: '6px',
               transform: isFlipped ? 'rotate(180deg)' : 'none'
             }}>
               <path d="M5 0 L9 6 L6 6 L6 14 L4 14 L4 6 L1 6 Z" fill="#fff" stroke="#000" strokeWidth="0.3"/>
             </svg>
           )}
           {hasCrcError && (
-            // Icono de advertencia CRC - triángulo con exclamación
-            <svg width="14" height="14" viewBox="0 0 14 14" style={{ 
+            // Icono de advertencia CRC - triángulo con exclamación (reemplaza cualquier otro ícono)
+            <svg width="18" height="18" viewBox="0 0 14 14" style={{ 
               position: 'absolute', 
               top: '3px', 
-              left: '3px',
+              left: '4px',
               transform: isFlipped ? 'rotate(180deg)' : 'none'
             }}>
               <path d="M7 1 L13 13 L1 13 Z" fill="#fff" stroke="#000" strokeWidth="0.5"/>
@@ -1166,14 +1171,16 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
       );
     }
     
-    // Puerto SFP (25-28) - rectángulo simple
+    // Puerto SFP (25-28)
     if (isUplink) {
       return (
         <div style={{
-          width: '23px',
-          height: '21px',
-          backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
-          backgroundPosition: '-18px -19px',
+          width: '29px',
+          height: '26px',
+          backgroundImage: SPRITE_BG,
+          backgroundPosition: '-23px -24px',
+          backgroundSize: SPRITE_SIZE,
+          backgroundRepeat: 'no-repeat',
           backgroundColor: isConnected ? MERAKI_GREEN : '#000',
           border: '1px solid #000',
           cursor: 'pointer',
@@ -1186,10 +1193,12 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
     if (isStackPort) {
       return (
         <div style={{
-          width: '45px',
-          height: '21px',
-          backgroundImage: `url(${MERAKI_PORT_SPRITE})`,
-          backgroundPosition: '-39px 0',
+          width: '56px',
+          height: '26px',
+          backgroundImage: SPRITE_BG,
+          backgroundPosition: '-49px 0',
+          backgroundSize: SPRITE_SIZE,
+          backgroundRepeat: 'no-repeat',
           backgroundColor: '#000',
           border: '1px solid #000',
           cursor: 'pointer',
@@ -1216,17 +1225,17 @@ const MerakiSwitchPort = ({ port, isUplink = false, isStackPort = false, isFlipp
           transform: 'translate(-50%, -100%)',
           background: '#fffde7',
           border: '1px solid #fbc02d',
-          borderRadius: '2px',
-          padding: '6px 10px',
-          fontSize: '12px',
+          borderRadius: '3px',
+          padding: '8px 13px',
+          fontSize: '13px',
           color: '#222',
           whiteSpace: 'nowrap',
           zIndex: 9999,
-          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+          boxShadow: '0 3px 9px rgba(0,0,0,0.18)',
           pointerEvents: 'none',
           fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
         }}>
-          <div style={{ fontWeight: '600', marginBottom: '2px' }}>
+          <div style={{ fontWeight: '600', marginBottom: '3px', fontSize: '13px' }}>
             {isStackPort ? `Stack port ${portNum}` : isUplink ? `SFP port ${portNum}` : `Port ${portNum}`}
             {portName && ` : ${portName}`}
           </div>
@@ -1295,27 +1304,27 @@ const SwitchPortsGrid = ({ ports = [] }) => {
     <div style={{ 
       display: 'inline-flex', 
       alignItems: 'center', 
-      gap: '8px',
+      gap: '10px',
       background: '#eee',
-      padding: '3px',
+      padding: '4px',
       whiteSpace: 'nowrap',
       fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
     }}>
       {/* Contenedor de puertos RJ45 con tabla exacta de Meraki */}
-      <table style={{ borderCollapse: 'separate', borderSpacing: '2px' }}>
+      <table style={{ borderCollapse: 'separate', borderSpacing: '3px' }}>
         <tbody>
           {/* Fila de números superiores (impares: 1,3,5...23) */}
           <tr>
             {oddPorts.map(port => (
               <td key={`num-top-${port.portId}`} style={{ 
                 textAlign: 'center', 
-                fontSize: '10px', 
+                fontSize: '15px', 
                 color: '#000',
                 fontWeight: '400',
                 padding: '0',
                 fontFamily: 'arial, sans-serif',
                 verticalAlign: 'bottom',
-                height: '14px'
+                height: '21px'
               }}>
                 {port.portId}
               </td>
@@ -1342,13 +1351,13 @@ const SwitchPortsGrid = ({ ports = [] }) => {
             {evenPorts.map(port => (
               <td key={`num-bottom-${port.portId}`} style={{ 
                 textAlign: 'center', 
-                fontSize: '10px', 
+                fontSize: '13px', 
                 color: '#000',
                 fontWeight: '400',
                 padding: '0',
                 fontFamily: 'arial, sans-serif',
                 verticalAlign: 'top',
-                height: '14px'
+                height: '18px'
               }}>
                 {port.portId}
               </td>
@@ -1359,19 +1368,19 @@ const SwitchPortsGrid = ({ ports = [] }) => {
       
       {/* Puertos SFP (25-28) */}
       {sfpPorts.length > 0 && (
-        <table style={{ borderCollapse: 'separate', borderSpacing: '2px' }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: '3px' }}>
           <tbody>
             {/* Números superiores */}
             <tr>
               {sfpPorts.map(port => (
                 <td key={`sfp-num-${port.portId}`} style={{ 
                   textAlign: 'center', 
-                  fontSize: '10px', 
+                  fontSize: '13px', 
                   color: '#000',
                   padding: '0',
                   fontFamily: 'arial, sans-serif',
                   verticalAlign: 'bottom',
-                  height: '14px'
+                  height: '18px'
                 }}>
                   {port.portId}
                 </td>
@@ -1391,13 +1400,13 @@ const SwitchPortsGrid = ({ ports = [] }) => {
       
       {/* Stack Ports */}
       {stackPorts.length > 0 && (
-        <table style={{ borderCollapse: 'separate', borderSpacing: '4px' }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: '5px' }}>
           <tbody>
             <tr>
               {stackPorts.map((port, idx) => (
                 <td key={`stack-${port.portId}`} style={{ padding: 0, textAlign: 'center' }}>
                   <MerakiSwitchPort port={port} isStackPort={true} />
-                  <div style={{ fontSize: '9px', color: '#000', marginTop: '2px' }}>{idx + 1}</div>
+                  <div style={{ fontSize: '13px', color: '#000', marginTop: '3px' }}>{idx + 1}</div>
                 </td>
               ))}
             </tr>
@@ -2517,9 +2526,62 @@ export default function Dashboard({ onLogout }) {
               fontSize: '20px', 
               fontWeight: '600',
               borderBottom: '2px solid #cbd5e1',
-              paddingBottom: '12px'
+              paddingBottom: '12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              Switches
+              <span>Switches</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => captureAndDownloadImage('Switches')}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Descargar como JPG"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  JPG
+                </button>
+                <button
+                  onClick={() => captureAndDownloadPDF('Switches')}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Descargar como PDF"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  PDF
+                </button>
+              </div>
             </h2>
 
             {/* Summary chips */}
@@ -3033,8 +3095,11 @@ export default function Dashboard({ onLogout }) {
                 />
               </div>
 
-              <div style={{ overflowX: 'visible', overflowY: 'visible', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                <table className="modern-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <div className="modern-table-scroll-wrapper" style={{ 
+                borderRadius: '12px', 
+                border: '1px solid #cbd5e1'
+              }}>
+                <table className="modern-table" style={{ tableLayout: 'fixed', width: '100%', minWidth: '960px' }}>
                   <thead>
                     <tr>
                       <SortableHeader label="Status" sortKey="status" align="center" width="5%" />
