@@ -83,7 +83,7 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
 
             <div style={{ flex: 1 }} />
 
-            <div className="topbar-logo-container" style={{ marginRight: 8 }}>
+            <div className="topbar-logo-container" style={{ marginRight: 12, flexShrink: 0 }}>
               <img src="/logo.svg" alt="Dinatech" className="topbar-logo" />
             </div>
 
@@ -92,6 +92,7 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
               className="mobile-search-toggle"
               onClick={() => setShowMobileSearch(s => !s)}
               aria-label="Abrir búsqueda"
+              style={{ flexShrink: 0 }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>

@@ -2727,8 +2727,9 @@ h1 {
 
 /* ============================================
    LANDSCAPE MODE - Celular horizontal
-   Detectamos landscape por altura pequeña + ancho mayor
-   Debe sobreescribir las reglas de min-width:901px
+   Solo lo mínimo: sobreescribir las reglas de min-width:901px
+   que ocultan elementos móviles.
+   El layout (tiles, contenido) viene del JS inline + portrait CSS.
    ============================================ */
 @media (max-height: 500px) and (orientation: landscape) {
   /* Forzar modo móvil en landscape */
@@ -2737,40 +2738,18 @@ h1 {
   }
 
   /* Re-mostrar elementos móviles que min-width:901px oculta */
-  .mobile-hamburger {
-    display: flex !important;
-  }
+  .mobile-hamburger,
   .mobile-drawer,
   .mobile-drawer-backdrop,
   .mobile-drawer-content {
-    display: unset !important;
+    display: revert !important;
   }
 
-  /* Ocultar elementos desktop del topbar */
+  /* Ocultar elementos desktop del topbar (JS ya renderiza mobile, pero por seguridad) */
   .topbar-brand,
   .topbar-search-form,
   .topbar-actions {
     display: none !important;
-  }
-
-  /* TopBar en landscape - estilo compacto móvil */
-  .topbar {
-    height: 48px !important;
-    min-height: 48px !important;
-    padding: 0 12px !important;
-    justify-content: space-between !important;
-  }
-
-  /* Topbar móvil visible */
-  .mobile-topbar {
-    display: flex !important;
-    height: 48px !important;
-    min-height: 48px !important;
-  }
-
-  /* Drawer de búsqueda */
-  .mobile-search-drawer {
-    display: block !important;
   }
 
   /* Contenedor principal - sin sidebar */
@@ -2778,78 +2757,9 @@ h1 {
     width: 100% !important;
     max-width: 100vw !important;
     margin-left: 0 !important;
-    padding: 0 !important;
-    overflow-x: hidden !important;
   }
 
-  /* Tiles wrapper */
-  .mobile-section-tiles-wrapper {
-    display: block !important;
-    width: 100% !important;
-    padding: 8px !important;
-  }
-
-  /* Grid de tiles - 4 columnas en landscape para aprovechar ancho */
-  .mobile-section-tiles {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-    width: 100% !important;
-  }
-
-  /* Tiles más compactos en landscape */
-  .mobile-section-tile {
-    min-height: 80px !important;
-    padding: 10px !important;
-    min-width: 0 !important;
-  }
-
-  .mobile-section-tile-icon {
-    width: 32px !important;
-    height: 32px !important;
-  }
-
-  .mobile-section-tile-title {
-    font-size: 11px !important;
-  }
-
-  .mobile-section-tile-count {
-    font-size: 10px !important;
-  }
-
-  /* Stats más pequeños */
-  .tile-stat-value {
-    font-size: 14px !important;
-  }
-
-  .tile-stat-label {
-    font-size: 9px !important;
-  }
-
-  /* Topología en landscape - más ancho, menos alto */
-  .mobile-topology-graph {
-    min-height: 250px !important;
-    max-height: calc(100vh - 180px) !important;
-  }
-
-  .mobile-topology-graph-inner {
-    min-height: 400px !important;
-  }
-
-  /* Tablas y listas - ajustar altura */
-  .mobile-ap-table,
-  .mobile-switches-table {
-    max-height: calc(100vh - 180px) !important;
-  }
-
-  /* Contenido scrollable */
-  .dashboard-content {
-    padding-top: 56px !important;
-    height: calc(100vh - 56px) !important;
-    overflow-y: auto !important;
-  }
-
-  /* Sidebar datetime más compacto */
+  /* Sidebar datetime oculto */
   .sidebar-datetime {
     display: none !important;
   }
@@ -2861,64 +2771,22 @@ h1 {
     display: none !important;
   }
 
-  /* Re-mostrar elementos móviles */
-  .mobile-hamburger {
-    display: flex !important;
+  .mobile-hamburger,
+  .mobile-drawer,
+  .mobile-drawer-backdrop,
+  .mobile-drawer-content {
+    display: revert !important;
   }
 
-  /* Ocultar elementos desktop del topbar */
   .topbar-brand,
   .topbar-search-form,
   .topbar-actions {
     display: none !important;
   }
 
-  .topbar {
-    height: 48px !important;
-    padding: 0 12px !important;
-  }
-
-  .mobile-topbar {
-    display: flex !important;
-  }
-
-  .mobile-section-tiles-wrapper {
-    display: block !important;
-  }
-
-  .mobile-section-tiles {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-  }
-
-  .mobile-section-tile {
-    min-height: 90px !important;
-  }
-
   .dashboard-container {
     width: 100% !important;
     max-width: 100vw !important;
     margin-left: 0 !important;
-    padding: 0 !important;
-  }
-}
-
-/* Asegurar que touch devices pequeños siempre usen móvil */
-@media (hover: none) and (pointer: coarse) and (max-width: 1024px) {
-  .app-sidebar {
-    display: none !important;
-  }
-
-  .mobile-hamburger {
-    display: flex !important;
-  }
-
-  .mobile-topbar {
-    display: flex !important;
-  }
-
-  .mobile-section-tiles-wrapper {
-    display: block !important;
   }
 }
