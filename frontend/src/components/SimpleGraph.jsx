@@ -611,7 +611,8 @@ const buildLayout = (graph, deviceMap = new Map()) => {
   const paddingLeft = 30;
   const paddingRight = 250;  // Aumentado de 100 a 250 para dar espacio a etiquetas de APs de la derecha
   const paddingTop = 150;  // Aumentado de 50 a 150 para dar espacio a las etiquetas
-  const paddingBottom = 200;  // Espacio inferior generoso para dispositivos en la parte baja con todas sus etiquetas
+  // Espacio inferior: más generoso para redes pequeñas (pocos APs quedan pegados al borde)
+  const paddingBottom = apCount <= 5 ? 350 : 200;
 
   // Normalizar: mover todo para que minX quede en paddingLeft
   const shiftX = paddingLeft - minX;
@@ -799,8 +800,8 @@ export default function SimpleGraph({ graph, devices = [] }) {
       width="100%" 
       height="auto"
       viewBox={viewBox} 
-      preserveAspectRatio="xMidYMin meet"
-      style={{ display: 'block', maxHeight: `${layout.height}px` }}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ display: 'block' }}
     >
       <g fill="none" stroke="#cfd8dc" strokeWidth="2" strokeLinecap="round">
         {layout.links.map(({ source, target }) => {

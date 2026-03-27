@@ -2322,42 +2322,41 @@ h1 {
   }
 }
 
-/* Make topology graph occupy most of the viewport height on mobile and be pannable/zoomable */
+/* Make topology graph size naturally on mobile, allowing pan/zoom without forced over-zoom */
 @media (max-width: 1024px) {
   .mobile-topology-graph {
-    min-height: 78vh; /* occupy most of vertical space */
-    max-height: calc(100vh - 88px); /* leave room for topbar/tiles */
-    overflow: auto; /* allow pan in both directions */
+    min-height: 300px;
+    max-height: calc(100vh - 88px);
+    overflow: auto;
     touch-action: pan-x pan-y pinch-zoom;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Let the SVG inside scale to fill the available height so details are larger */
+  /* Let the SVG size itself naturally from its viewBox — no forced height */
   .mobile-topology-graph-inner svg {
-    height: 74vh !important;
-    width: auto !important;
+    width: 100% !important;
+    height: auto !important;
     max-width: none !important;
     display: block;
     margin: 0 auto;
   }
 }
 
-/* Additional override to further increase mobile graph footprint and contain scrolling/panning.
-   Placed at the end to ensure it overrides earlier mobile rules when needed. */
+/* Override: pan/zoom and scrolling for mobile topology */
 @media (max-width: 1024px) {
   .mobile-topology-graph {
-    min-height: calc(100vh - 120px) !important; /* occupy most of vertical space */
-    max-height: calc(100vh - 88px) !important; /* leave room for topbar/tiles */
-    overflow: auto !important; /* allow pan in both directions */
+    min-height: 300px !important;
+    max-height: calc(100vh - 88px) !important;
+    overflow: auto !important;
     touch-action: pan-x pan-y pinch-zoom !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: contain !important; /* keep panning inside the graph from scrolling the page */
-    z-index: 1400 !important; /* sit under the tiles wrapper */
+    overscroll-behavior: contain !important;
+    z-index: 1400 !important;
   }
 
   .mobile-topology-graph-inner svg {
-    height: calc(100vh - 140px) !important; /* make the svg taller so nodes are larger */
-    width: auto !important;
+    width: 100% !important;
+    height: auto !important;
     max-width: none !important;
     display: block;
     margin: 0 auto;
