@@ -1700,6 +1700,12 @@ export default function Dashboard({ onLogout }) {
   const isLandscapeMobile = windowHeight <= 500 && windowWidth > windowHeight && windowWidth <= 1024;
   const isMobile = windowWidth <= 900 || isLandscapeMobile;
 
+  // Sync body class so CSS can match the JS mobile detection (landscape with width > 900)
+  useEffect(() => {
+    document.body.classList.toggle('mobile-view', isMobile);
+    return () => document.body.classList.remove('mobile-view');
+  }, [isMobile]);
+
   // Counts used in mobile section tiles (fall back to 0)
   const mobileCounts = {
     topology: summaryData?.topology?.nodes?.length || 0,
