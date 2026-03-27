@@ -403,16 +403,24 @@ const enrichPortsWithConnections = (ports, applianceSerial, topology) => {
     });
     
     // Enriquecer puertos con información de conexión
+    // IMPORTANTE: Solo agregar el nombre del dispositivo conectado pero respetar el
+    // status real que viene de la API de Meraki. No forzar 'connected' desde topología
+    // porque los datos de link-layer (LLDP/CDP) pueden ser stale y mostrar dispositivos
+    // fantasma que ya no están conectados (especialmente en Z3).
     return ports.map(port => {
       const portNum = Number(port.number);
       if (Number.isFinite(portNum) && portConnections.has(portNum)) {
+        const realStatus = (port.statusNormalized || port.status || '').toString().toLowerCase();
+        const isReallyConnected = realStatus === 'connected' || realStatus === 'active' || realStatus === 'online';
         return {
           ...port,
           connectedDevice: portConnections.get(portNum),
-          // Marcar como conectado para que se ilumine en verde
-          statusNormalized: 'connected',
-          status: 'active',
-          hasCarrier: true
+          // Solo marcar como conectado si el puerto realmente está activo según la API
+          ...(isReallyConnected ? {
+            statusNormalized: 'connected',
+            status: port.status || 'active',
+            hasCarrier: true
+          } : {})
         };
       }
       return port;
@@ -3363,8 +3371,10 @@ export default function Dashboard({ onLogout }) {
                     return norm.includes('connected') || p.hasCarrier === true || (p.uplink && normalizeReachability(p.uplink.status) === 'connected');
                   }).map(p => parseInt(p.number, 10)).filter(Number.isFinite);
 
-                  // Merge unique port numbers (topology-derived first)
-                  const mergedPortsSet = new Set([...connectedFromTopology, ...connectedFromPorts]);
+                  // Solo usar topología como refuerzo si el puerto también está activo según la API
+                  // Esto evita "dispositivos fantasma" de links LLDP/CDP stale (especialmente en Z3)
+                  const validTopologyPorts = connectedFromTopology.filter(portNum => connectedFromPorts.includes(portNum));
+                  const mergedPortsSet = new Set([...validTopologyPorts, ...connectedFromPorts]);
                   const mergedPorts = Array.from(mergedPortsSet).sort((a, b) => a - b);
 
                   // Determine unused ports (present in portsList but not in mergedPorts)
@@ -3433,54 +3443,9 @@ export default function Dashboard({ onLogout }) {
           );
         }
 
-        // Funciones de captura para Appliance Status
-        const captureApplianceJPG = async () => {
-          if (!applianceStatusRef.current) return;
-          try {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const canvas = await html2canvas(applianceStatusRef.current, {
-              backgroundColor: '#ffffff',
-              scale: 2,
-              logging: false,
-              useCORS: true
-            });
-            const fileName = `Appliance Status ${selectedNetwork?.predio_codigo || 'export'}.jpg`;
-            canvas.toBlob((blob) => {
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = fileName;
-              link.click();
-              URL.revokeObjectURL(url);
-            }, 'image/jpeg', 0.95);
-          } catch (error) {
-            console.error('Error capturing JPG:', error);
-          }
-        };
-
-        const captureAppliancePDF = async () => {
-          if (!applianceStatusRef.current) return;
-          try {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const canvas = await html2canvas(applianceStatusRef.current, {
-              backgroundColor: '#ffffff',
-              scale: 2,
-              logging: false,
-              useCORS: true
-            });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF({
-              orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-              unit: 'px',
-              format: [canvas.width, canvas.height]
-            });
-            pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
-            const fileName = `Appliance Status ${selectedNetwork?.predio_codigo || 'export'}.pdf`;
-            pdf.save(fileName);
-          } catch (error) {
-            console.error('Error capturing PDF:', error);
-          }
-        };
+        // Funciones de captura para Appliance Status — reusar las genéricas de página completa
+        const captureApplianceJPG = () => captureAndDownloadImage('Appliance Status');
+        const captureAppliancePDF = () => captureAndDownloadPDF('Appliance Status');
 
         return (
           <div ref={applianceStatusRef} style={{ display: 'flex', flexDirection: 'column', gap: '20px', background: '#ffffff', padding: '20px' }}>
