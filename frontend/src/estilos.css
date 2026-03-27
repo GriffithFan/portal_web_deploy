@@ -446,7 +446,7 @@ html, body {
 }
 
 /* Responsive: mobile-first adjustments */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   /* Aggressive mobile overrides: ensure no parent panels or pseudo-elements
      render a white card behind the tiles. Use higher-specificity selectors
      and explicit properties (background-image, background-color, box-shadow)
@@ -497,10 +497,10 @@ html, body {
     color: transparent !important;
     text-shadow: none !important;
   }
-} /* CIERRE DEL @media (max-width: 1024px) que abriÃ³ en lÃ­nea 408 */
+} /* CIERRE DEL @media (max-width: 960px) que abriÃ³ en lÃ­nea 408 */
 
-/* === MOBILE-ONLY RULES: ALL WRAPPED IN @media (max-width: 1024px) === */
-@media (max-width: 1024px) {
+/* === MOBILE-ONLY RULES: ALL WRAPPED IN @media (max-width: 960px) === */
+@media (max-width: 960px) {
 
   /* Make sure the topology graph doesn't render its own white card behind
      the tiles and that it sits cleanly on the page background. */
@@ -621,11 +621,11 @@ html, body {
     transform: scale(0.9);
   }
 
-  } /* END @media (max-width: 1024px) - Mobile-only rules */
+  } /* END @media (max-width: 960px) - Mobile-only rules */
 
 
 /* Mobile drawer (hamburger) ----------------------------------------------------------------- */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .mobile-hamburger {
     display: inline-flex !important;
     align-items: center;
@@ -775,7 +775,7 @@ html, body {
 }
 
 /* Mobile section tiles: 2x2 grid and blue cards matching topbar */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .mobile-section-tiles {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
@@ -858,7 +858,7 @@ html, body {
   }
 
   /* Desktop hover (only when not touch) */
-  @media (min-width: 1025px) {
+  @media (min-width: 961px) {
     .mobile-section-tile:hover { 
       transform: translateY(-2px) scale(1.01); 
       box-shadow: 0 8px 24px rgba(15,23,42,0.2); 
@@ -1449,7 +1449,7 @@ html, body {
 }
 
 /* Desktop override: hide mobile-only controls to avoid rendering them on large screens */
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   .mobile-hamburger, .mobile-drawer, .mobile-drawer-backdrop, .mobile-drawer-content { display: none !important; }
 }
 
@@ -1466,12 +1466,12 @@ html, body {
 }
 
 /* Desktop-specific stronger caps to avoid accidental shrink on wide layouts */
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   .topbar-search-form { max-width: 900px !important; }
 }
 
 /* Restaurar apariencia original del TopBar para desktop (no tocar mÃ³vil) */
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   /* MÃXIMA PRIORIDAD: Selector mÃ¡s especÃ­fico para sobrescribir reglas mÃ³viles */
   body .topbar,
   .topbar {
@@ -1639,9 +1639,9 @@ html, body {
 }
 
 /* Desktop: botÃ³n de bÃºsqueda redondo fusionado con la barra */
-/* ESTAS REGLAS ESTÃN CONSOLIDADAS EN EL @media (min-width: 1025px) DE ARRIBA */
+/* ESTAS REGLAS ESTÃN CONSOLIDADAS EN EL @media (min-width: 961px) DE ARRIBA */
 /*
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   .topbar-search-wrapper { position: relative; }
   .topbar-input {
     border-radius: 999px !important;
@@ -1769,14 +1769,14 @@ html, body {
   .search-submit { display: none; }
 }
 
-@media (max-width: 1024px) and (min-width: 481px) {
+@media (max-width: 960px) and (min-width: 481px) {
   .mobile-search-toggle { display: none !important; }
   .topbar-input { display: block !important; }
   .search-submit { display: inline-flex !important; }
 }
 
 /* Desktop: allow the search form to be wider so it doesn't look squashed */
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   .topbar-search-form { max-width: 720px !important; }
 }
 
@@ -1793,14 +1793,14 @@ html, body {
 .topbar-logout .logout-label { display: inline-block; }
 
 /* Mobile: show compact selector and ensure search shrinks instead of being cropped */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .topbar { padding-left: 12px !important; padding-right: 12px !important; }
   .topbar form { max-width: none; flex: 1 1 auto; margin-left: 8px; margin-right: 8px; }
   .topbar input[type="text"] { width: 100%; min-width: 0; }
   .mobile-section-select { display: inline-block !important; }
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   .mobile-section-select { display: none !important; }
 }
 
@@ -1833,7 +1833,7 @@ html, body {
 }
 
 /* Fixes especÃ­ficos de mobile: asegurar que el toggle sea clicable, el selector visible y el placeholder centrado */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .mobile-search-toggle {
     z-index: 1400 !important;
     pointer-events: auto !important;
@@ -1872,7 +1872,7 @@ html, body {
 }
 
 /* Mobile: lupa sin recuadro, posicionada al extremo derecho; desplegable centrado; input alineado */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   /* Remove visual box from the magnifier and place it at the far right of the topbar */
   .mobile-search-toggle {
     background: transparent !important;
@@ -1932,7 +1932,7 @@ html, body {
 }
 
 /* Mobile-specific visual fixes: topbar should be blue like desktop and icons visible on dark bg */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .topbar {
     /* Match desktop gradient so mobile topbar is blue like requested */
     background: linear-gradient(135deg, #0e2a47 0%, #1a3a5a 100%) !important;
@@ -1986,7 +1986,7 @@ html, body {
 }
 
 /* On intermediate small screens show the mobile toggle and hide extra labels */
-@media (max-width: 1024px) and (min-width: 481px) {
+@media (max-width: 960px) and (min-width: 481px) {
   /* Intermediate sizes: show regular search input, hide the mobile-only toggle */
   .mobile-search-toggle { display: none !important; }
   .topbar-input { display: block !important; }
@@ -2292,7 +2292,7 @@ h1 {
 }
 
 /* Authoritative mobile topbar override (placed after other rules to avoid conflicts) */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .topbar {
     height: 56px !important;
     padding-top: 6px !important;
@@ -2312,7 +2312,7 @@ h1 {
 /* Make the parent dashboard panel visually transparent on mobile so only the
    mobile-section-tiles-wrapper renders as the white card. This avoids the
    "double white card" effect while preserving desktop appearance. */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .dashboard-container {
     background: transparent !important;
     box-shadow: none !important;
@@ -2323,7 +2323,7 @@ h1 {
 }
 
 /* Make topology graph size naturally on mobile, allowing pan/zoom without forced over-zoom */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .mobile-topology-graph {
     min-height: 300px;
     max-height: calc(100vh - 88px);
@@ -2343,7 +2343,7 @@ h1 {
 }
 
 /* Override: pan/zoom and scrolling for mobile topology */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .mobile-topology-graph {
     min-height: 300px !important;
     max-height: calc(100vh - 88px) !important;
@@ -2365,7 +2365,7 @@ h1 {
 }
 
 /* Ensure desktop sidebar / collapsed app-sidebar doesn't show on small screens */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   /* Ocultar la barra lateral de desktop en mobile */
   .app-sidebar { display: none !important; }
 
@@ -2565,7 +2565,7 @@ h1 {
 /* ============================================
    FIX RESPONSIVE: Tarjetas 2x2 y TopologÃ­a scrollable
    ============================================ */
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   /* Contenedor principal - evitar overflow horizontal */
   .dashboard-container {
     width: 100% !important;
@@ -2725,3 +2725,4 @@ h1 {
 }
 
 /* body.mobile-view overrides eliminados — breakpoint 1024px cubre landscape */
+

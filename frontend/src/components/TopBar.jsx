@@ -51,8 +51,8 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Detectar móvil: ancho <= 1024 cubre portrait y landscape de celulares
-  const isMobileView = windowWidth <= 1024;
+  // Detectar móvil: ancho <= 960 (celulares portrait/landscape). Tablets landscape (>=961) → desktop
+  const isMobileView = windowWidth <= 960;
 
   // Cargar predios recientes cuando se abre el drawer
   useEffect(() => {

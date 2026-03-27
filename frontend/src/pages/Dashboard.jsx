@@ -1696,8 +1696,8 @@ export default function Dashboard({ onLogout }) {
     return undefined;
   }, []);
 
-  // Detectar móvil: ancho <= 1024 cubre portrait y landscape de celulares
-  const isMobile = windowWidth <= 1024;
+  // Detectar móvil: ancho <= 960 (celulares portrait/landscape). Tablets landscape (>=961) → desktop
+  const isMobile = windowWidth <= 960;
 
   // Counts used in mobile section tiles (fall back to 0)
   const mobileCounts = {
