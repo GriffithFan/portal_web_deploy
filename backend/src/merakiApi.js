@@ -743,6 +743,17 @@ async function runCableTestAndWait(serial, ports, maxWaitMs = 30000, pollInterva
   }
 }
 
+// Buscar un dispositivo directamente por serial (GET /devices/{serial})
+async function getDevice(serial) {
+  const { data } = await client.get(`/devices/${serial}`);
+  return data;
+}
+
+// Listar dispositivos de una organización con filtros opcionales (serial, mac, model, etc.)
+async function getOrganizationDevices(organizationId, params = {}) {
+  return fetchAllPages(`/organizations/${organizationId}/devices`, params, { perPage: 1000 });
+}
+
 module.exports = {
   getOrganizations,
   getNetworks,
@@ -823,5 +834,8 @@ module.exports = {
   // Live Tools - Cable Test
   createDeviceLiveToolsCableTest,
   getDeviceLiveToolsCableTest,
-  runCableTestAndWait
+  runCableTestAndWait,
+  // Búsqueda por serial/MAC
+  getDevice,
+  getOrganizationDevices
 };

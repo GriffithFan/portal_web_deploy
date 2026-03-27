@@ -78,6 +78,10 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
 
             <div style={{ flex: 1 }} />
 
+            <div className="topbar-logo-container" style={{ marginRight: 8 }}>
+              <img src="/logo.svg" alt="Dinatech" className="topbar-logo" />
+            </div>
+
             <button
               type="button"
               className="mobile-search-toggle"
@@ -107,8 +111,8 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar predio por ID o nombre..."
-                  aria-label="Buscar predio"
+                  placeholder="Buscar por predio, serial (XXXX-XXXX-XXXX) o MAC..."
+                  aria-label="Buscar predio, serial o MAC"
                 />
                 <button type="submit" className="search-submit" aria-label="Buscar">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -134,6 +138,11 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                   ))}
                 </select>
               )}
+
+              {/* Logo Dinatech */}
+              <div className="topbar-logo-container">
+                <img src="/logo.svg" alt="Dinatech" className="topbar-logo" />
+              </div>
 
               {/* Botón de logout */}
               <button 
@@ -191,8 +200,8 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                   type="text"
                   value={drawerSearch}
                   onChange={(e) => setDrawerSearch(e.target.value)}
-                  placeholder="Buscar predio por ID o nombre..."
-                  aria-label="Buscar predio en drawer"
+                  placeholder="Buscar por predio, serial o MAC..."
+                  aria-label="Buscar predio, serial o MAC"
                   className="drawer-search-input"
                 />
                 <button type="submit" className="drawer-search-button" aria-label="Buscar predio">
@@ -252,8 +261,8 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar predio por ID o nombre..."
-                aria-label="Buscar predio"
+                placeholder="Buscar por predio, serial o MAC..."
+                aria-label="Buscar predio, serial o MAC"
                 style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}
               />
               <button type="submit" style={{ background: '#2563eb', color: '#fff', borderRadius: 8, padding: '10px 14px', border: 'none' }}>Buscar</button>
@@ -346,6 +355,20 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
         }
         input::placeholder {
           color: rgba(255, 255, 255, 0.6);
+        }
+        .topbar-logo-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #fff;
+          border-radius: 6px;
+          padding: 4px 10px;
+          height: 34px;
+        }
+        .topbar-logo {
+          height: 26px;
+          width: auto;
+          display: block;
         }
       `}</style>
     </>

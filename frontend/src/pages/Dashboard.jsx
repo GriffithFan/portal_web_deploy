@@ -1973,9 +1973,15 @@ export default function Dashboard({ onLogout }) {
         const resolveData = await resolveRes.json();
         network = resolveData.network || (Array.isArray(resolveData.networks) && resolveData.networks[0]);
       } else if (resolveRes.status === 404) {
-        // Predio no encontrado en catálogo, pero puede ser un network ID válido
-        // Intentar usar el query como network ID directamente
-  console.warn('Predio no encontrado en catálogo, intentando como network ID directo');
+        const errData = await resolveRes.json().catch(() => ({}));
+        // Si el query es un serial (XXXX-XXXX-XXXX) o MAC, NO intentar como network ID
+        const isSerial = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(q);
+        const isMac = /^([0-9a-f]{2}[:\-]){5}[0-9a-f]{2}$/i.test(q) || /^[0-9a-f]{12}$/i.test(q);
+        if (isSerial || isMac) {
+          throw new Error(errData.error || `Dispositivo ${q} no encontrado en Meraki`);
+        }
+        // Para predios/networks no encontrados en catálogo, intentar como network ID directo
+        console.warn('Predio no encontrado en catálogo, intentando como network ID directo');
         network = { id: q, name: q };
       } else {
         throw new Error('Error al buscar el predio');
@@ -2500,7 +2506,14 @@ export default function Dashboard({ onLogout }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
                             <div className="mobile-device-icon"><SwitchIcon /></div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sw.name || sw.serial}</div>
+                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {sw.name || sw.serial}
+                                {(sw.crcErrorPorts > 0) && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fff7ed', border: '1px solid #e8960c', borderRadius: 5, padding: '1px 5px', fontSize: 10, fontWeight: 700, color: '#92400e', whiteSpace: 'nowrap' }}>
+                                    ⚠ CRC
+                                  </span>
+                                )}
+                              </div>
                               <div className="mobile-device-subline">{subline}</div>
                             </div>
                             <div style={{ marginLeft: 8, flex: '0 0 auto' }}>
@@ -2636,6 +2649,11 @@ export default function Dashboard({ onLogout }) {
                     // Buscar datos detallados del switch para obtener puertos
                     const switchDetail = switchesDetailed?.find(s => s.serial === sw.serial);
                     const ports = switchDetail?.ports || [];
+
+                    // Puertos con CRC: usar el valor precalculado del backend, o contar desde ports
+                    const swCrcCount = sw.crcErrorPorts != null
+                      ? sw.crcErrorPorts
+                      : ports.filter(p => Array.isArray(p.warnings) && p.warnings.some(w => /crc/i.test(w))).length;
                     
                     // Construir tooltip para la tabla
                     const switchTooltip = sw.tooltipInfo ? (
@@ -2702,24 +2720,43 @@ export default function Dashboard({ onLogout }) {
                           onClick={() => setExpandedSwitch(isExpanded ? null : sw.serial)}
                         >
                           <td style={{ textAlign: 'center', padding: '10px 6px' }}>
-                            <span 
-                              style={{ 
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '22px',
-                                height: '22px',
-                                borderRadius: '50%',
-                                background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef3c7' : statusNormalized === 'disconnected' ? '#fee2e2' : '#f1f5f9',
-                              }}
-                            >
-                              <span style={{ 
-                                width: '9px', 
-                                height: '9px', 
-                                borderRadius: '50%', 
-                                background: statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'warning' ? '#f59e0b' : statusNormalized === 'disconnected' ? '#ef4444' : '#94a3b8'
-                              }} />
-                            </span>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                              <span 
+                                style={{ 
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '22px',
+                                  height: '22px',
+                                  borderRadius: '50%',
+                                  background: statusNormalized === 'connected' ? '#d1fae5' : statusNormalized === 'warning' ? '#fef3c7' : statusNormalized === 'disconnected' ? '#fee2e2' : '#f1f5f9',
+                                }}
+                              >
+                                <span style={{ 
+                                  width: '9px', 
+                                  height: '9px', 
+                                  borderRadius: '50%', 
+                                  background: statusNormalized === 'connected' ? '#22c55e' : statusNormalized === 'warning' ? '#f59e0b' : statusNormalized === 'disconnected' ? '#ef4444' : '#94a3b8'
+                                }} />
+                              </span>
+                              {swCrcCount > 0 && (
+                                <Tooltip content={<div><div className="tooltip-title" style={{ color: '#f59e0b' }}>⚠ CRC Errors</div><div className="tooltip-row"><span className="tooltip-label">Puertos afectados</span><span className="tooltip-value">{swCrcCount}</span></div></div>} position="auto">
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '18px',
+                                    height: '18px',
+                                    cursor: 'default'
+                                  }}>
+                                    <svg width="16" height="14" viewBox="0 0 16 14" fill="none">
+                                      <path d="M7.07 1.5L1.07 11.5A1 1 0 0 0 2 13H14a1 1 0 0 0 .93-1.5L8.93 1.5a1 1 0 0 0-1.86 0Z" fill="#fef3c7" stroke="#e8960c" strokeWidth="1.2"/>
+                                      <text x="8" y="10.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="#92400e">!</text>
+                                    </svg>
+                                  </span>
+                                </Tooltip>
+                              )}
+                            </div>
                           </td>
                           <td style={{ textAlign: 'left', fontSize: '14px', padding: '10px 12px', overflow: 'visible', position: 'relative' }}>
                             <Tooltip content={switchTooltip || "Click para ver puertos"} position="auto">
@@ -2747,6 +2784,28 @@ export default function Dashboard({ onLogout }) {
                                   ▶
                                 </span>
                                 {sw.name || sw.serial}
+                                {swCrcCount > 0 && (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    background: '#fff7ed',
+                                    border: '1px solid #e8960c',
+                                    borderRadius: '6px',
+                                    padding: '1px 6px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    color: '#92400e',
+                                    whiteSpace: 'nowrap',
+                                    marginLeft: '4px'
+                                  }}>
+                                    <svg width="10" height="9" viewBox="0 0 16 14" fill="none" style={{ flexShrink: 0 }}>
+                                      <path d="M7.07 1.5L1.07 11.5A1 1 0 0 0 2 13H14a1 1 0 0 0 .93-1.5L8.93 1.5a1 1 0 0 0-1.86 0Z" fill="#fef3c7" stroke="#e8960c" strokeWidth="1.5"/>
+                                      <text x="8" y="10.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="#92400e">!</text>
+                                    </svg>
+                                    CRC {swCrcCount > 1 ? `(${swCrcCount})` : ''}
+                                  </span>
+                                )}
                               </span>
                             </Tooltip>
                           </td>

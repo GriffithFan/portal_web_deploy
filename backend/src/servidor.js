@@ -8,7 +8,7 @@ const { logger, expressLogger, logSecurity, logError, logAdmin } = require('./co
 
 const axios = require('axios');
 const { validarTecnico, listarTecnicos, agregarTecnico, eliminarTecnico } = require('./usuario');
-const { getOrganizations, getNetworks, getNetworkDevices, getNetworkTopology, getNetworkTopologyLinkLayer, getNetworkTopologyNetworkLayer, getApplianceStatuses, getOrganizationDevicesStatuses, getNetworkInfo, getOrgSwitchPortsTopologyDiscoveryByDevice, getNetworkApplianceConnectivityMonitoringDestinations, getNetworkWirelessSSIDs, getNetworkWirelessSSID, getOrgWirelessDevicesRadsecAuthorities, getOrgWirelessSignalQualityByNetwork, getOrgWirelessSignalQualityByDevice, getOrgWirelessSignalQualityByClient, getNetworkWirelessSignalQualityHistory, getDeviceLldpCdp, getNetworkSwitchPortsStatuses, getDeviceSwitchPortsStatuses, getOrgApplianceUplinksStatuses, getOrgTopAppliancesByUtilization, getOrgDevicesUplinksAddressesByDevice, getOrganizationUplinksStatuses, getAppliancePerformance, getDeviceAppliancePerformance, getApplianceUplinks, getDeviceUplink, getApplianceClientSecurity, getOrganizationApplianceSecurityIntrusion, getApplianceTrafficShaping, getNetworkClientsBandwidthUsage, getNetworkApplianceSecurityMalware, getAppliancePorts, getDeviceAppliancePortsStatuses, getOrgApplianceUplinksLossAndLatency, getOrgApplianceUplinksUsageByDevice, getDeviceSwitchPorts, getNetworkSwitchAccessControlLists, getOrgSwitchPortsBySwitch, getNetworkSwitchStackRoutingInterfaces, getNetworkCellularGatewayConnectivityMonitoringDestinations, getDeviceWirelessConnectionStats, getNetworkWirelessConnectionStats, getNetworkWirelessLatencyStats, getDeviceWirelessLatencyStats, getNetworkWirelessFailedConnections, getDeviceLossAndLatencyHistory, getOrgDevicesUplinksLossAndLatency, getOrgWirelessDevicesPacketLossByClient, getOrgWirelessDevicesPacketLossByDevice, getNetworkApplianceConnectivityMonitoringDests, getNetworkAppliancePortsConfig, getOrgApplianceUplinkStatuses, getNetworkApplianceVlans, getNetworkApplianceVlan, getNetworkApplianceSettings, getOrgApplianceSdwanInternetPolicies, getOrgUplinksStatuses, getDeviceApplianceUplinksSettings, getNetworkApplianceTrafficShapingUplinkSelection, getOrgApplianceUplinksUsageByNetwork, getNetworkApplianceUplinksUsageHistory, getOrgApplianceUplinksStatusesOverview, getOrgWirelessDevicesEthernetStatuses, getOrgDevicesAvailabilitiesChangeHistory } = require('./merakiApi');
+const { getOrganizations, getNetworks, getNetworkDevices, getNetworkTopology, getNetworkTopologyLinkLayer, getNetworkTopologyNetworkLayer, getApplianceStatuses, getOrganizationDevicesStatuses, getNetworkInfo, getOrgSwitchPortsTopologyDiscoveryByDevice, getNetworkApplianceConnectivityMonitoringDestinations, getNetworkWirelessSSIDs, getNetworkWirelessSSID, getOrgWirelessDevicesRadsecAuthorities, getOrgWirelessSignalQualityByNetwork, getOrgWirelessSignalQualityByDevice, getOrgWirelessSignalQualityByClient, getNetworkWirelessSignalQualityHistory, getDeviceLldpCdp, getNetworkSwitchPortsStatuses, getDeviceSwitchPortsStatuses, getOrgApplianceUplinksStatuses, getOrgTopAppliancesByUtilization, getOrgDevicesUplinksAddressesByDevice, getOrganizationUplinksStatuses, getAppliancePerformance, getDeviceAppliancePerformance, getApplianceUplinks, getDeviceUplink, getApplianceClientSecurity, getOrganizationApplianceSecurityIntrusion, getApplianceTrafficShaping, getNetworkClientsBandwidthUsage, getNetworkApplianceSecurityMalware, getAppliancePorts, getDeviceAppliancePortsStatuses, getOrgApplianceUplinksLossAndLatency, getOrgApplianceUplinksUsageByDevice, getDeviceSwitchPorts, getNetworkSwitchAccessControlLists, getOrgSwitchPortsBySwitch, getNetworkSwitchStackRoutingInterfaces, getNetworkCellularGatewayConnectivityMonitoringDestinations, getDeviceWirelessConnectionStats, getNetworkWirelessConnectionStats, getNetworkWirelessLatencyStats, getDeviceWirelessLatencyStats, getNetworkWirelessFailedConnections, getDeviceLossAndLatencyHistory, getOrgDevicesUplinksLossAndLatency, getOrgWirelessDevicesPacketLossByClient, getOrgWirelessDevicesPacketLossByDevice, getNetworkApplianceConnectivityMonitoringDests, getNetworkAppliancePortsConfig, getOrgApplianceUplinkStatuses, getNetworkApplianceVlans, getNetworkApplianceVlan, getNetworkApplianceSettings, getOrgApplianceSdwanInternetPolicies, getOrgUplinksStatuses, getDeviceApplianceUplinksSettings, getNetworkApplianceTrafficShapingUplinkSelection, getOrgApplianceUplinksUsageByNetwork, getNetworkApplianceUplinksUsageHistory, getOrgApplianceUplinksStatusesOverview, getOrgWirelessDevicesEthernetStatuses, getOrgDevicesAvailabilitiesChangeHistory, getDevice, getOrganizationDevices } = require('./merakiApi');
 // Import full merakiApi module for cable test functions
 const merakiApi = require('./merakiApi');
 const { toGraphFromLinkLayer, toGraphFromDiscoveryByDevice, toGraphFromLldpCdp, buildTopologyFromLldp } = require('./transformers');
@@ -1043,6 +1043,95 @@ app.get('/api/resolve-network', async (req, res) => {
         organization: organizationPayload,
         network: networkFromCSV,
       });
+    }
+
+    // 1.5 Detectar si es un serial de dispositivo Meraki (XXXX-XXXX-XXXX)
+    const SERIAL_REGEX = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
+    if (SERIAL_REGEX.test(qRaw)) {
+      const serialUpper = qRaw.toUpperCase();
+      // Prefijos conocidos de seriales Meraki para logging
+      const prefix = serialUpper.substring(0, 4);
+      const deviceHint = { Q2TN: 'UTM/Appliance (MX)', Q2HP: 'Switch (MS)', Q2GD: 'Access Point (MR)', Q2FN: 'Switch (MS)', Q2KD: 'Access Point (MR)', Q2PD: 'Appliance (MX)', Q2YN: 'Appliance (MX)', Q2QN: 'Appliance (MX)', Q3CA: 'Camera (MV)', Q2EK: 'Switch (MS)' }[prefix] || null;
+      console.info(`Búsqueda por serial: ${serialUpper}${deviceHint ? ` (probable ${deviceHint})` : ''} (${Date.now() - startTime}ms)`);
+
+      try {
+        const device = await getDevice(serialUpper);
+        if (device && device.networkId) {
+          const predio = findPredio(device.networkId);
+          const networkInfo = {
+            id: device.networkId,
+            name: predio?.predio_name || device.name || serialUpper,
+            organizationId: predio?.organization_id || null,
+            productTypes: ['wireless', 'appliance', 'switch'],
+          };
+          console.info(`Serial ${serialUpper} encontrado → network ${device.networkId} (${Date.now() - startTime}ms)`);
+          return respondAndWarm({
+            network: networkInfo,
+            organization: predio?.organization_id ? { id: predio.organization_id, name: predio.organization_name || '' } : (device.networkId ? { id: device.networkId } : null),
+            predio: predio || null,
+            source: 'serial-direct',
+            cached: false,
+          });
+        }
+      } catch (serialErr) {
+        console.warn(`Serial ${serialUpper} no encontrado vía API directa:`, serialErr.response?.status, serialErr.message);
+      }
+      // El input tiene formato de serial Meraki: si llegamos aquí es porque no se encontró
+      return res.status(404).json({ error: `Serial ${serialUpper} no encontrado. Verifica que el dispositivo esté activo en Meraki Dashboard.`, type: 'serial_not_found' });
+    }
+
+    // 1.6 Detectar si es una MAC address (XX:XX:XX:XX:XX:XX o XX-XX-XX-XX-XX-XX o xxxxxxxxxxxx)
+    const MAC_COLON_REGEX = /^([0-9a-f]{2}[:\-]){5}[0-9a-f]{2}$/i;
+    const MAC_RAW_REGEX = /^[0-9a-f]{12}$/i;
+    const isMac = MAC_COLON_REGEX.test(qRaw) || MAC_RAW_REGEX.test(qRaw);
+    if (isMac) {
+      // Normalizar MAC a formato xx:xx:xx:xx:xx:xx
+      const cleanMac = qRaw.replace(/[:\-]/g, '').toLowerCase();
+      const normalizedMac = cleanMac.match(/.{2}/g).join(':');
+      console.info(`Búsqueda por MAC: ${normalizedMac} (${Date.now() - startTime}ms)`);
+
+      try {
+        // Buscar en todas las organizaciones en paralelo
+        const orgIdEnv = process.env.MERAKI_ORG_ID;
+        let macOrgs = [];
+        if (orgIdEnv) {
+          macOrgs = [{ id: orgIdEnv, name: '' }];
+        } else {
+          macOrgs = await getOrganizations();
+        }
+
+        const macResults = await Promise.allSettled(
+          macOrgs.map(org => getOrganizationDevices(org.id, { mac: normalizedMac }).then(devices => ({ org, devices })))
+        );
+
+        for (const result of macResults) {
+          if (result.status !== 'fulfilled') continue;
+          const { org, devices } = result.value;
+          if (devices && devices.length > 0) {
+            const device = devices[0];
+            const predio = findPredio(device.networkId);
+            const networkInfo = {
+              id: device.networkId,
+              name: predio?.predio_name || device.name || normalizedMac,
+              organizationId: org.id,
+              productTypes: ['wireless', 'appliance', 'switch'],
+            };
+            console.info(`MAC ${normalizedMac} encontrada → device ${device.serial} → network ${device.networkId} (${Date.now() - startTime}ms)`);
+            return respondAndWarm({
+              network: networkInfo,
+              organization: { id: org.id, name: org.name || '' },
+              predio: predio || null,
+              source: 'mac-search',
+              cached: false,
+            });
+          }
+        }
+
+        console.warn(`MAC ${normalizedMac} no encontrada en ninguna organización (${Date.now() - startTime}ms)`);
+        return res.status(404).json({ error: `Dispositivo con MAC ${normalizedMac} no encontrado` });
+      } catch (macErr) {
+        console.error('Error buscando por MAC:', macErr.response?.status, macErr.message);
+      }
     }
 
     // 2. Si es un network ID directo, intentar obtenerlo via API

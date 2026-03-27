@@ -55,7 +55,7 @@ const LocationIcon = ({ size = 14, color = '#64748b' }) => (
 
 // ── Feature flag: Fecha/Hora + Ubicación GPS ──────────────────────────
 // Mejora futura implementada por adelantado. Cambiar a true para activar.
-const SHOW_DATETIME_GPS = false;
+const SHOW_DATETIME_GPS = true;
 
 const defaultSections = [
   { k: 'topology', t: 'Topology', IconComponent: TopologyIcon },
