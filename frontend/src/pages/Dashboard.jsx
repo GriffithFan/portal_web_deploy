@@ -1673,7 +1673,7 @@ export default function Dashboard({ onLogout }) {
   }, []);
 
   const [expandedSwitch, setExpandedSwitch] = useState(null); // Serial del switch expandido para ver puertos
-  const [expandedMobileDevice, setExpandedMobileDevice] = useState(null); // Serial del dispositivo expandido en mobile
+  const [expandedMobileDevices, setExpandedMobileDevices] = useState(new Set()); // Serials de dispositivos expandidos en mobile
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
   const [loadingLLDP, setLoadingLLDP] = useState(false); // Estado de carga de datos LLDP
   const [apConnectivityData, setApConnectivityData] = useState({}); // Datos de conectividad por serial
@@ -2489,11 +2489,37 @@ export default function Dashboard({ onLogout }) {
                 <SummaryChip label="Online" value={switchesData.filter(s => normalizeReachability(s.status) === 'connected').length} accent="#22c55e" />
                 <SummaryChip label="Offline" value={switchesData.filter(s => normalizeReachability(s.status) === 'disconnected').length} accent="#ef4444" />
               </div>
+              {/* Expand / Collapse all */}
+              {(() => {
+                const allSwSerials = mobileList.map(s => s.serial);
+                const allSwExpanded = allSwSerials.length > 0 && allSwSerials.every(s => expandedMobileDevices.has(s));
+                return (
+                  <button type="button" onClick={() => {
+                    setExpandedMobileDevices(prev => {
+                      const next = new Set(prev);
+                      if (allSwExpanded) allSwSerials.forEach(s => next.delete(s));
+                      else allSwSerials.forEach(s => next.add(s));
+                      return next;
+                    });
+                  }} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 10px 0',
+                    padding: '6px 14px', border: '1px solid #cbd5e1', borderRadius: 8,
+                    background: allSwExpanded ? '#f1f5f9' : '#fff', cursor: 'pointer',
+                    fontSize: 13, color: '#475569', fontWeight: 500, transition: 'background 0.15s'
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                      style={{ transition: 'transform 0.2s', transform: allSwExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                    {allSwExpanded ? 'Contraer todos' : 'Expandir todos'}
+                  </button>
+                );
+              })()}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {mobileList.map((sw) => {
                   const statusColor = getStatusColor(sw.status);
                   const normalizedStatus = normalizeReachability(sw.status);
-                  const isExpanded = expandedMobileDevice === sw.serial;
+                  const isExpanded = expandedMobileDevices.has(sw.serial);
                   const connectedPorts = (sw.tooltipInfo && sw.tooltipInfo.connectedPorts != null) ? sw.tooltipInfo.connectedPorts : (sw.activePorts ?? sw.connectedPorts ?? 0);
                   const totalPorts = (sw.tooltipInfo && sw.tooltipInfo.totalPorts != null) ? sw.tooltipInfo.totalPorts : (sw.totalPorts ?? (sw.ports ? sw.ports.length : '-'));
 
@@ -2509,7 +2535,12 @@ export default function Dashboard({ onLogout }) {
                       {/* Collapsed header */}
                       <button
                         type="button"
-                        onClick={() => setExpandedMobileDevice(isExpanded ? null : sw.serial)}
+                        onClick={() => setExpandedMobileDevices(prev => {
+                          const next = new Set(prev);
+                          if (next.has(sw.serial)) next.delete(sw.serial);
+                          else next.add(sw.serial);
+                          return next;
+                        })}
                         style={{
                           display: 'flex', alignItems: 'center', width: '100%', padding: '12px 14px',
                           border: 'none', background: 'transparent', cursor: 'pointer', gap: 10
@@ -3033,11 +3064,37 @@ export default function Dashboard({ onLogout }) {
                 <SummaryChip label="Advertencia" value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'warning').length} accent="#f59e0b" />
                 <SummaryChip label="Offline" value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'disconnected').length} accent="#ef4444" />
               </div>
+              {/* Expand / Collapse all */}
+              {(() => {
+                const allApIds = mobileAps.map(a => a.serial || a.mac);
+                const allApExpanded = allApIds.length > 0 && allApIds.every(id => expandedMobileDevices.has(id));
+                return (
+                  <button type="button" onClick={() => {
+                    setExpandedMobileDevices(prev => {
+                      const next = new Set(prev);
+                      if (allApExpanded) allApIds.forEach(id => next.delete(id));
+                      else allApIds.forEach(id => next.add(id));
+                      return next;
+                    });
+                  }} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 10px 0',
+                    padding: '6px 14px', border: '1px solid #cbd5e1', borderRadius: 8,
+                    background: allApExpanded ? '#f1f5f9' : '#fff', cursor: 'pointer',
+                    fontSize: 13, color: '#475569', fontWeight: 500, transition: 'background 0.15s'
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                      style={{ transition: 'transform 0.2s', transform: allApExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                    {allApExpanded ? 'Contraer todos' : 'Expandir todos'}
+                  </button>
+                );
+              })()}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {mobileAps.map((d) => {
                   const statusColor = getStatusColor(d.status);
                   const isMeshRepeater = d.isMeshRepeater || false;
-                  const isExpanded = expandedMobileDevice === (d.serial || d.mac);
+                  const isExpanded = expandedMobileDevices.has(d.serial || d.mac);
                   const normalizedStatus = normalizeReachability(d.status);
 
                   return (
@@ -3052,7 +3109,13 @@ export default function Dashboard({ onLogout }) {
                       {/* Collapsed header — always visible */}
                       <button
                         type="button"
-                        onClick={() => setExpandedMobileDevice(isExpanded ? null : (d.serial || d.mac))}
+                        onClick={() => setExpandedMobileDevices(prev => {
+                          const next = new Set(prev);
+                          const id = d.serial || d.mac;
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        })}
                         style={{
                           display: 'flex', alignItems: 'center', width: '100%', padding: '12px 14px',
                           border: 'none', background: 'transparent', cursor: 'pointer', gap: 10
