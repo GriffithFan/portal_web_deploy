@@ -8,6 +8,7 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
   const [recentPredios, setRecentPredios] = useState([]);
   const [drawerSearch, setDrawerSearch] = useState('');
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 900);
   const inputRef = useRef(null);
   
   const handleLogoutClick = () => {
@@ -43,12 +44,16 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
     }
   }, [showMobileSearch]);
 
-  // track window width to switch between desktop/mobile render
+  // track window size to switch between desktop/mobile render
   useEffect(() => {
-    const onResize = () => setWindowWidth(window.innerWidth);
+    const onResize = () => { setWindowWidth(window.innerWidth); setWindowHeight(window.innerHeight); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Detectar landscape mobile (celular girado con ancho > 900 pero altura pequeña)
+  const isLandscapeMobile = windowHeight <= 500 && windowWidth > windowHeight && windowWidth <= 1024;
+  const isMobileView = windowWidth <= 900 || isLandscapeMobile;
 
   // Cargar predios recientes cuando se abre el drawer
   useEffect(() => {
@@ -65,7 +70,7 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
   return (
     <>
   <div className={`topbar ${showMobileSearch ? 'mobile-search-open' : ''}`}>
-        {windowWidth <= 900 ? (
+        {isMobileView ? (
           // Mobile minimal: only hamburger (left) and magnifier (right)
           <>
             <button className="mobile-hamburger" type="button" onClick={() => setShowDrawer(true)} aria-label="Abrir menú">
