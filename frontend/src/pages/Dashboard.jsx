@@ -1673,6 +1673,7 @@ export default function Dashboard({ onLogout }) {
   }, []);
 
   const [expandedSwitch, setExpandedSwitch] = useState(null); // Serial del switch expandido para ver puertos
+  const [expandedMobileDevice, setExpandedMobileDevice] = useState(null); // Serial del dispositivo expandido en mobile
   const [enrichedAPs, setEnrichedAPs] = useState(null); // Datos completos de APs con LLDP/CDP
   const [loadingLLDP, setLoadingLLDP] = useState(false); // Estado de carga de datos LLDP
   const [apConnectivityData, setApConnectivityData] = useState({}); // Datos de conectividad por serial
@@ -2477,61 +2478,120 @@ export default function Dashboard({ onLogout }) {
             </div>
           );
         }
-        // Mobile optimized list
+        // Mobile optimized list — expandable cards
         if (isMobile) {
           const mobileList = sortData(switchesData, sortConfig.key, sortConfig.direction);
           return (
             <div>
               <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Switches</h2>
-              <div className="mobile-device-list">
+              {/* Summary chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, padding: '10px 12px', background: '#f1f5f9', borderRadius: 10 }}>
+                <SummaryChip label="Total" value={switchesData.length} accent="#1f2937" />
+                <SummaryChip label="Online" value={switchesData.filter(s => normalizeReachability(s.status) === 'connected').length} accent="#22c55e" />
+                <SummaryChip label="Offline" value={switchesData.filter(s => normalizeReachability(s.status) === 'disconnected').length} accent="#ef4444" />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {mobileList.map((sw) => {
                   const statusColor = getStatusColor(sw.status);
-                  const subline = sw.serial || sw.lanIp || sw.connectedTo || '';
-                  const swTooltip = (sw.tooltipInfo || sw) ? (
-                    <div>
-                      <div className="tooltip-title">{(sw.tooltipInfo && sw.tooltipInfo.name) || sw.name || sw.serial}</div>
-                      <div className="tooltip-row"><span className="tooltip-label">Modelo</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.model) || sw.model || '-'}</span></div>
-                      <div className="tooltip-row"><span className="tooltip-label">Serial</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.serial) || sw.serial || '-'}</span></div>
-                      <div className="tooltip-row"><span className="tooltip-label">Firmware</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.firmware) || sw.firmware || 'N/A'}</span></div>
-                      <div className="tooltip-row"><span className="tooltip-label">LAN IP</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.lanIp) || sw.lanIp || '-'}</span></div>
-                      <div className="tooltip-row"><span className="tooltip-label">Puertos activos</span><span className="tooltip-value">{(sw.tooltipInfo && (sw.tooltipInfo.connectedPorts != null ? sw.tooltipInfo.connectedPorts : null)) ?? sw.activePorts ?? (sw.connectedPorts || 0)}/{(sw.tooltipInfo && (sw.tooltipInfo.totalPorts != null ? sw.tooltipInfo.totalPorts : null)) ?? sw.totalPorts ?? (sw.ports ? sw.ports.length : '-')}</span></div>
-                      {((sw.tooltipInfo && sw.tooltipInfo.poePorts) || sw.poePorts) ? (
-                        <div className="tooltip-row"><span className="tooltip-label">PoE</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.poeActivePorts) || sw.poeActivePorts || 0}/{(sw.tooltipInfo && sw.tooltipInfo.poePorts) || sw.poePorts || 0} activos</span></div>
-                      ) : null}
-                      {(sw.tooltipInfo && sw.tooltipInfo.connectedTo) || sw.connectedTo ? (
-                        <div className="tooltip-row"><span className="tooltip-label">Conectado a</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.connectedTo) || sw.connectedTo}</span></div>
-                      ) : null}
-                      {(sw.tooltipInfo && sw.tooltipInfo.detectionMethod) || sw.detectionMethod ? (
-                        <div className="tooltip-row"><span className="tooltip-label">Detección</span><span className="tooltip-value">{(sw.tooltipInfo && sw.tooltipInfo.detectionMethod) || sw.detectionMethod}</span></div>
-                      ) : null}
-                    </div>
-                  ) : null;
+                  const normalizedStatus = normalizeReachability(sw.status);
+                  const isExpanded = expandedMobileDevice === sw.serial;
+                  const connectedPorts = (sw.tooltipInfo && sw.tooltipInfo.connectedPorts != null) ? sw.tooltipInfo.connectedPorts : (sw.activePorts ?? sw.connectedPorts ?? 0);
+                  const totalPorts = (sw.tooltipInfo && sw.tooltipInfo.totalPorts != null) ? sw.tooltipInfo.totalPorts : (sw.totalPorts ?? (sw.ports ? sw.ports.length : '-'));
 
                   return (
-                    <div key={sw.serial} className="mobile-device-item">
-                      <Tooltip content={swTooltip || "Switch"} position="auto" modalOnMobile={true}>
-                        <button className="mobile-device-button" style={{ display: 'flex', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-                            <div className="mobile-device-icon"><SwitchIcon /></div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                {sw.name || sw.serial}
-                                {(sw.crcErrorPorts > 0) && (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fff7ed', border: '1px solid #e8960c', borderRadius: 5, padding: '1px 5px', fontSize: 10, fontWeight: 700, color: '#92400e', whiteSpace: 'nowrap' }}>
-                                    ⚠ CRC
-                                  </span>
-                                )}
-                              </div>
-                              <div className="mobile-device-subline">{subline}</div>
-                            </div>
-                            <div style={{ marginLeft: 8, flex: '0 0 auto' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', background: normalizeReachability(sw.status) === 'connected' ? '#d1fae5' : '#fee2e2' }}>
-                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusColor }} />
+                    <div key={sw.serial} style={{
+                      background: '#fff',
+                      borderRadius: 12,
+                      border: '1px solid #e2e8f0',
+                      overflow: 'hidden',
+                      boxShadow: isExpanded ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'box-shadow 0.2s'
+                    }}>
+                      {/* Collapsed header */}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMobileDevice(isExpanded ? null : sw.serial)}
+                        style={{
+                          display: 'flex', alignItems: 'center', width: '100%', padding: '12px 14px',
+                          border: 'none', background: 'transparent', cursor: 'pointer', gap: 10
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                          background: normalizedStatus === 'connected' ? '#d1fae5' : normalizedStatus === 'warning' ? '#fef3c7' : '#fee2e2'
+                        }}>
+                          <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusColor }} />
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                          <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {sw.name || sw.serial}
+                            {(sw.crcErrorPorts > 0) && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fff7ed', border: '1px solid #e8960c', borderRadius: 5, padding: '1px 5px', fontSize: 10, fontWeight: 700, color: '#92400e', whiteSpace: 'nowrap' }}>
+                                ⚠ CRC
                               </span>
-                            </div>
+                            )}
                           </div>
-                        </button>
-                      </Tooltip>
+                          <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {sw.model || ''}{sw.lanIp ? ` · ${sw.lanIp}` : ''}
+                          </div>
+                        </div>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div style={{ padding: '0 14px 14px', borderTop: '1px solid #f1f5f9' }}>
+                          {/* Connectivity bar */}
+                          <div style={{ margin: '10px 0' }}>
+                            <ConnectivityBar device={sw} />
+                          </div>
+                          {/* Detail rows */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>Serial</span>
+                              <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 500 }}>{sw.serial || '-'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>Modelo</span>
+                              <span style={{ color: '#1e293b', fontWeight: 500 }}>{sw.model || '-'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>MAC</span>
+                              <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 500 }}>{sw.mac || '-'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>LAN IP</span>
+                              <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 500 }}>{sw.lanIp || '-'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>Puertos activos</span>
+                              <span style={{ color: '#1e293b', fontWeight: 500 }}>{connectedPorts}/{totalPorts}</span>
+                            </div>
+                            {((sw.tooltipInfo && sw.tooltipInfo.poePorts) || sw.poePorts) ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#64748b' }}>PoE</span>
+                                <span style={{ color: '#1e293b', fontWeight: 500 }}>{(sw.tooltipInfo && sw.tooltipInfo.poeActivePorts) || sw.poeActivePorts || 0}/{(sw.tooltipInfo && sw.tooltipInfo.poePorts) || sw.poePorts || 0} activos</span>
+                              </div>
+                            ) : null}
+                            {((sw.tooltipInfo && sw.tooltipInfo.connectedTo) || sw.connectedTo) && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#64748b' }}>Conectado a</span>
+                                <span style={{ color: '#1e293b', fontWeight: 500 }}>{(sw.tooltipInfo && sw.tooltipInfo.connectedTo) || sw.connectedTo}</span>
+                              </div>
+                            )}
+                            {sw.crcErrorPorts > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', background: '#fff7ed', padding: '4px 6px', borderRadius: 6 }}>
+                                <span style={{ color: '#92400e' }}>CRC Errors</span>
+                                <span style={{ color: '#b45309', fontWeight: 700 }}>{sw.crcErrorPorts} puerto(s)</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -2958,104 +3018,108 @@ export default function Dashboard({ onLogout }) {
 
         // Forzar vista de tabla siempre (sin tarjetas de wireless)
         const hasWireless = false; // Cambiado a false para siempre mostrar tabla
-        // Mobile optimized list for APs
+        // Mobile optimized list for APs — expandable cards
         if (isMobile) {
           const mobileAps = sortData(accessPoints, sortConfig.key, sortConfig.direction);
           return (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                <h2 style={{ margin: 0, color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Wireless</h2>
+                <h2 style={{ margin: 0, color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Access Points</h2>
                 {lldpBadge}
               </div>
-              <div className="mobile-device-list">
+              {/* Summary chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, padding: '10px 12px', background: '#f1f5f9', borderRadius: 10 }}>
+                <SummaryChip label="Total APs" value={accessPoints.length} accent="#1f2937" />
+                <SummaryChip label="Online" value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'connected').length} accent="#22c55e" />
+                <SummaryChip label="Advertencia" value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'warning').length} accent="#f59e0b" />
+                <SummaryChip label="Offline" value={accessPoints.filter(ap => normalizeReachability(ap.status) === 'disconnected').length} accent="#ef4444" />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {mobileAps.map((d) => {
                   const statusColor = getStatusColor(d.status);
                   const isMeshRepeater = d.isMeshRepeater || false;
-                  const subline = d.serial || d.lanIp || d.connectedTo || '';
-
-                  // Construir contenido seguro para tooltip (no pasar objetos crudos)
-                  const apTooltip = d.tooltipInfo ? (
-                    <div>
-                      <div className="tooltip-title">{d.tooltipInfo.name}</div>
-                      {isMeshRepeater && (
-                        <div className="tooltip-row" style={{ background: '#fef3c7', borderRadius: 4, padding: '2px 6px', marginBottom: 4 }}>
-                          <span className="tooltip-label" style={{ color: '#92400e' }}>Modo</span>
-                          <span className="tooltip-value" style={{ color: '#b45309', fontWeight: 600 }}>Mesh Repeater</span>
-                        </div>
-                      )}
-                      {d.meshParentName && (
-                        <div className="tooltip-row"><span className="tooltip-label">Conectado a</span><span className="tooltip-value">{d.meshParentName} (Wireless)</span></div>
-                      )}
-                      {d.tooltipInfo.model && (
-                        <div className="tooltip-row"><span className="tooltip-label">Modelo</span><span className="tooltip-value">{d.tooltipInfo.model}</span></div>
-                      )}
-                      {d.tooltipInfo.serial && (
-                        <div className="tooltip-row"><span className="tooltip-label">Serial</span><span className="tooltip-value">{d.tooltipInfo.serial}</span></div>
-                      )}
-                      {d.tooltipInfo.mac && (
-                        <div className="tooltip-row"><span className="tooltip-label">MAC</span><span className="tooltip-value">{d.tooltipInfo.mac}</span></div>
-                      )}
-                      {d.tooltipInfo.firmware && (
-                        <div className="tooltip-row"><span className="tooltip-label">Firmware</span><span className="tooltip-value">{d.tooltipInfo.firmware}</span></div>
-                      )}
-                      {d.tooltipInfo.lanIp && (
-                        <div className="tooltip-row"><span className="tooltip-label">LAN IP</span><span className="tooltip-value">{d.tooltipInfo.lanIp}</span></div>
-                      )}
-                      {d.tooltipInfo.signalQuality != null && (
-                        <div className="tooltip-row"><span className="tooltip-label">Calidad señal</span><span className="tooltip-value">{d.tooltipInfo.signalQuality}%</span></div>
-                      )}
-                      {!isMobile && d.tooltipInfo.clients != null && (
-                        <div className="tooltip-row"><span className="tooltip-label">Clientes</span><span className="tooltip-value">{d.tooltipInfo.clients}</span></div>
-                      )}
-                      {!isMobile && d.tooltipInfo.microDrops > 0 && (
-                        <div className="tooltip-row"><span className="tooltip-label">Microcortes</span><span className={`tooltip-badge error`}>{d.tooltipInfo.microDrops}</span></div>
-                      )}
-                      {d.tooltipInfo.connectedTo && d.tooltipInfo.connectedTo !== '-' && !isMeshRepeater && (
-                        <div className="tooltip-row"><span className="tooltip-label">Conectado a</span><span className="tooltip-value">{d.tooltipInfo.connectedTo}</span></div>
-                      )}
-                      {d.tooltipInfo.wiredSpeed && !isMeshRepeater && (
-                        <div className="tooltip-row"><span className="tooltip-label">Velocidad Ethernet</span><span className="tooltip-value">{d.tooltipInfo.wiredSpeed}</span></div>
-                      )}
-                    </div>
-                  ) : null;
+                  const isExpanded = expandedMobileDevice === (d.serial || d.mac);
+                  const normalizedStatus = normalizeReachability(d.status);
 
                   return (
-                    <div key={d.serial || d.mac || d.name} className="mobile-device-item">
-                      <Tooltip content={apTooltip} position="auto" modalOnMobile={true}>
-                        <button type="button" className="mobile-device-button" style={{ display: 'flex', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-                            <div className="mobile-device-icon"><WifiIcon /></div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {d.name || d.serial}
-                                {isMeshRepeater && <span style={{ fontSize: 10, color: '#6b7280', marginLeft: 4 }}>(Mesh)</span>}
-                              </div>
-                              <div className="mobile-device-subline">{subline}</div>
+                    <div key={d.serial || d.mac || d.name} style={{
+                      background: '#fff',
+                      borderRadius: 12,
+                      border: '1px solid #e2e8f0',
+                      overflow: 'hidden',
+                      boxShadow: isExpanded ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'box-shadow 0.2s'
+                    }}>
+                      {/* Collapsed header — always visible */}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMobileDevice(isExpanded ? null : (d.serial || d.mac))}
+                        style={{
+                          display: 'flex', alignItems: 'center', width: '100%', padding: '12px 14px',
+                          border: 'none', background: 'transparent', cursor: 'pointer', gap: 10
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                          background: normalizedStatus === 'connected' ? '#d1fae5' : normalizedStatus === 'warning' ? '#fef3c7' : '#fee2e2',
+                          border: isMeshRepeater ? '2px dashed' : 'none',
+                          borderColor: isMeshRepeater ? statusColor : undefined,
+                          boxSizing: 'border-box'
+                        }}>
+                          <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusColor }} />
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                          <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {d.name || d.serial}
+                            {isMeshRepeater && <span style={{ fontSize: 10, color: '#6b7280', marginLeft: 4 }}>(Mesh)</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {d.model || ''}{d.lanIp ? ` · ${d.lanIp}` : ''}
+                          </div>
+                        </div>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div style={{ padding: '0 14px 14px', borderTop: '1px solid #f1f5f9' }}>
+                          {/* Connectivity bar */}
+                          <div style={{ margin: '10px 0' }}>
+                            <ConnectivityBar device={d} />
+                          </div>
+                          {/* Detail rows */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>Serial</span>
+                              <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 500 }}>{d.serial || '-'}</span>
                             </div>
-                            <div style={{ marginLeft: 8, flex: '0 0 auto' }}>
-                              <span style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center', 
-                                width: 22, 
-                                height: 22, 
-                                borderRadius: '50%', 
-                                background: normalizeReachability(d.status) === 'connected' ? '#d1fae5' : '#fee2e2',
-                                border: isMeshRepeater ? '2px dashed' : 'none',
-                                borderColor: isMeshRepeater ? statusColor : undefined,
-                                boxSizing: 'border-box'
-                              }}>
-                                <span style={{ 
-                                  width: isMeshRepeater ? 7 : 9, 
-                                  height: isMeshRepeater ? 7 : 9, 
-                                  borderRadius: '50%', 
-                                  background: statusColor 
-                                }} />
-                              </span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>MAC</span>
+                              <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 500 }}>{d.mac || '-'}</span>
+                            </div>
+                            {(d.wiredSpeed || d.tooltipInfo?.wiredSpeed) && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#64748b' }}>Ethernet 1</span>
+                                <span style={{ color: '#1e293b', fontWeight: 500 }}>{d.wiredSpeed || d.tooltipInfo?.wiredSpeed}</span>
+                              </div>
+                            )}
+                            {(d.connectedTo || d.tooltipInfo?.connectedTo) && (d.connectedTo || d.tooltipInfo?.connectedTo) !== '-' && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#64748b' }}>LLDP</span>
+                                <span style={{ color: '#1e293b', fontWeight: 500 }}>{d.connectedTo || d.tooltipInfo?.connectedTo}</span>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748b' }}>IP</span>
+                              <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 500 }}>{d.lanIp || '-'}</span>
                             </div>
                           </div>
-                        </button>
-                      </Tooltip>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
