@@ -1696,15 +1696,8 @@ export default function Dashboard({ onLogout }) {
     return undefined;
   }, []);
 
-  // Detectar móvil: ancho <= 900 O landscape con altura pequeña (< 500px típico de celulares)
-  const isLandscapeMobile = windowHeight <= 500 && windowWidth > windowHeight && windowWidth <= 1024;
-  const isMobile = windowWidth <= 900 || isLandscapeMobile;
-
-  // Sync body class so CSS can match the JS mobile detection (landscape with width > 900)
-  useEffect(() => {
-    document.body.classList.toggle('mobile-view', isMobile);
-    return () => document.body.classList.remove('mobile-view');
-  }, [isMobile]);
+  // Detectar móvil: ancho <= 1024 cubre portrait y landscape de celulares
+  const isMobile = windowWidth <= 1024;
 
   // Counts used in mobile section tiles (fall back to 0)
   const mobileCounts = {
