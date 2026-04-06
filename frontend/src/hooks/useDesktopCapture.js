@@ -13,17 +13,18 @@ export const useDesktopCapture = () => {
       }
 
       // Crear un contenedor temporal con estilos de desktop
+      // NOTA: NO usar visibility:hidden ni opacity:0 — html2canvas no captura elementos ocultos
       const captureContainer = document.createElement('div');
       captureContainer.style.position = 'fixed';
-      captureContainer.style.left = '0';
+      captureContainer.style.left = '-9999px'; // Off-screen pero renderizado
       captureContainer.style.top = '0';
       captureContainer.style.width = '1920px';
       captureContainer.style.height = '1080px';
       captureContainer.style.backgroundColor = '#f1f5f9';
-      captureContainer.style.zIndex = '-9999';
-      captureContainer.style.visibility = 'hidden';
-      captureContainer.style.overflow = 'auto';
+      captureContainer.style.zIndex = '99999';
+      captureContainer.style.overflow = 'hidden';
       captureContainer.style.fontFamily = 'Arial, Helvetica, sans-serif';
+      captureContainer.style.pointerEvents = 'none';
 
       // Clonar el contenido
       const clonedContent = contentElement.cloneNode(true);
@@ -77,21 +78,23 @@ export const useDesktopCapture = () => {
       captureContainer.appendChild(clonedContent);
       document.body.appendChild(captureContainer);
 
-      // Esperar a que se renderice
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Esperar a que se renderice en el DOM
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Capturar con html2canvas
+      // NOTA: foreignObjectRendering:true causa capturas en blanco — NO usar
       const canvas = await html2canvas(captureContainer, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
-        foreignObjectRendering: true,
+        foreignObjectRendering: false,
         removeContainer: false,
-        imageTimeout: 0,
+        imageTimeout: 15000,
         windowWidth: 1920,
         windowHeight: 1080,
+        scrollX: 9999, // Compensar el offset de left:-9999px
         onclone: (clonedDoc) => {
           // Asegurar que los SVG se rendericen correctamente
           const svgs = clonedDoc.querySelectorAll('svg');
