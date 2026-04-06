@@ -2194,11 +2194,28 @@ export default function Dashboard({ onLogout }) {
     const prevBodyOverflow = body.style.overflow;
 
     try {
-      // Paso 1: activar layout desktop en React
-      setForcedDesktopCapture(true);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Paso 1: scroll al inicio para que el TopBar quede en el tope de la captura
+      window.scrollTo(0, 0);
 
-      // Paso 2: forzar DOM a 1920px para que el browser renderice a ese ancho
+      // Paso 2: activar layout desktop en React
+      setForcedDesktopCapture(true);
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Paso 3: pre-cargar el logo como data URL para evitar rotura en html2canvas
+      let logoDataUrl = null;
+      try {
+        const logoRes = await fetch(`${window.location.origin}/logo.svg`);
+        const logoBlob = await logoRes.blob();
+        logoDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(logoBlob);
+        });
+      } catch (e) {
+        console.warn('No se pudo pre-cargar el logo:', e);
+      }
+
+      // Paso 4: forzar DOM a 1920px
       html.style.width = '1920px';
       html.style.minWidth = '1920px';
       html.style.overflow = 'hidden';
@@ -2206,10 +2223,10 @@ export default function Dashboard({ onLogout }) {
       body.style.minWidth = '1920px';
       body.style.overflow = 'hidden';
 
-      // Paso 3: esperar a que el layout se recalcule a 1920px
-      await new Promise(resolve => setTimeout(resolve, 600));
+      // Paso 5: esperar recálculo de layout a 1920px
+      await new Promise(resolve => setTimeout(resolve, 700));
 
-      // Paso 4: capturar con html2canvas a 1920x1080 explícito
+      // Paso 6: capturar
       const predioCode = selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown';
       const fileName = `${sectionName} ${predioCode}.jpg`;
 
@@ -2217,7 +2234,7 @@ export default function Dashboard({ onLogout }) {
         scale: 1,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#f1f5f9',
         logging: false,
         foreignObjectRendering: false,
         removeContainer: false,
@@ -2228,14 +2245,45 @@ export default function Dashboard({ onLogout }) {
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          const svgs = clonedDoc.querySelectorAll('svg');
-          svgs.forEach(svg => {
+          // Fix 1: TopBar tiene position:fixed via CSS @media ≤960px
+          // Al capturar con windowWidth:1920 ese CSS no aplica pero el TopBar
+          // quedó en el DOM como fixed. Lo forzamos a relative para que aparezca en flujo normal.
+          const topbar = clonedDoc.querySelector('.topbar');
+          if (topbar) {
+            topbar.style.position = 'relative';
+            topbar.style.top = 'auto';
+            topbar.style.left = 'auto';
+            topbar.style.right = 'auto';
+            topbar.style.width = '100%';
+          }
+
+          // Fix 2: Logo SVG — reemplazar src por data URL pre-cargado
+          if (logoDataUrl) {
+            clonedDoc.querySelectorAll('img').forEach(img => {
+              if (img.src && (img.src.includes('logo.svg') || img.getAttribute('src') === '/logo.svg')) {
+                img.src = logoDataUrl;
+              }
+            });
+          }
+
+          // Fix 3: Topología — dar altura mínima al SVG principal para que se vea
+          // como en desktop (el SVG con width=100% height=auto queda pequeño en capturas)
+          const mainSvg = clonedDoc.querySelector('.dashboard-container svg[viewBox], main svg[viewBox]');
+          if (mainSvg && sectionName === 'Topología') {
+            mainSvg.style.minHeight = '800px';
+            mainSvg.style.height = '900px';
+          }
+
+          // Fix 4: Asegurar xmlns en todos los SVG y dimensiones explícitas
+          clonedDoc.querySelectorAll('svg').forEach(svg => {
             svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-            try {
-              const bbox = svg.getBBox();
-              if (!svg.hasAttribute('width')) svg.setAttribute('width', bbox.width);
-              if (!svg.hasAttribute('height')) svg.setAttribute('height', bbox.height);
-            } catch (e) { /* ignorar SVG sin getBBox */ }
+            if (!svg.hasAttribute('width') && !svg.style.width) {
+              try {
+                const bbox = svg.getBBox();
+                if (bbox.width > 0) svg.setAttribute('width', bbox.width);
+                if (bbox.height > 0) svg.setAttribute('height', bbox.height);
+              } catch (e) { /* ignorar */ }
+            }
           });
         }
       });
@@ -2253,7 +2301,7 @@ export default function Dashboard({ onLogout }) {
       console.error('Error en captura desktop desde móvil:', error);
       alert('Error al generar la captura. Por favor intenta nuevamente.');
     } finally {
-      // Restaurar todo siempre
+      // Restaurar todo siempre, aunque falle
       html.style.width = prevHtmlWidth;
       html.style.minWidth = prevHtmlMinWidth;
       html.style.overflow = prevHtmlOverflow;
