@@ -4012,7 +4012,7 @@ export default function Dashboard({ onLogout }) {
 
   return (
     <div style={{ width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
-  <TopBar onSearch={search} onLogout={onLogout} onSelectSection={handleSectionChange} sections={availableSections} selectedSection={section} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} />
+  <TopBar onSearch={search} onLogout={onLogout} onSelectSection={handleSectionChange} sections={availableSections} selectedSection={section} selectedNetwork={selectedNetwork} onRefreshPredio={refreshPredio} getPredioURL={getPredioURL} forceDesktop={forcedDesktopCapture} />
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: isMobile ? '1fr' : 'auto minmax(0, 1fr)', 

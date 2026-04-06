@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-export default function TopBar({ onSearch, onLogout, onSelectSection, sections = [], selectedSection, selectedNetwork, onRefreshPredio, getPredioURL }) {
+export default function TopBar({ onSearch, onLogout, onSelectSection, sections = [], selectedSection, selectedNetwork, onRefreshPredio, getPredioURL, forceDesktop = false }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -52,7 +52,8 @@ export default function TopBar({ onSearch, onLogout, onSelectSection, sections =
   }, []);
 
   // Detectar móvil: ancho <= 960 (celulares portrait/landscape). Tablets landscape (>=961) → desktop
-  const isMobileView = windowWidth <= 960;
+  // forceDesktop=true durante captureDesktopFromMobile para que el TopBar muestre el layout desktop con logo
+  const isMobileView = forceDesktop ? false : windowWidth <= 960;
 
   // Cargar predios recientes cuando se abre el drawer
   useEffect(() => {
