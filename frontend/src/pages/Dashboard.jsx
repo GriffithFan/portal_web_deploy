@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import AppliancePortsMatrix from '../components/AppliancePortsMatrix';
 import '../components/AppliancePorts.css'; // CSS para puertos RJ45
 import Tooltip from '../components/Tooltip';
+import DesktopCaptureButton from '../components/DesktopCaptureButton';
 import { SkeletonTable, SkeletonDeviceList, SkeletonTopology } from '../components/ui/SkeletonLoaders';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
 import { normalizeReachability, getStatusColor as getStatusColorUtil, resolvePortColor as resolvePortColorUtil, looksLikeSerial } from '../utils/networkUtils';
@@ -1680,6 +1681,12 @@ export default function Dashboard({ onLogout }) {
   const hasAppliedPreferredRef = useRef(false);
   const hasMarkedApsSectionRef = useRef(false); // Track if we already marked APs section as loaded
   const applianceStatusRef = useRef(null); // Ref para captura de Appliance Status
+  
+  // Refs para captura de pantalla en versión desktop desde móvil
+  const topologyRef = useRef(null);
+  const switchesRef = useRef(null);
+  const accessPointsRef = useRef(null);
+  const applianceRef = useRef(null);
 
   // Track window width to enable mobile-specific rendering without affecting desktop
   const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 900);
@@ -2323,8 +2330,16 @@ export default function Dashboard({ onLogout }) {
         // It intentionally keeps the same `SimpleGraph` component so desktop layout is unchanged.
         if (isMobile) {
           return (
-            <div>
-              <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Topología</h2>
+            <div ref={topologyRef}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h2 style={{ margin: '0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Topología</h2>
+                <DesktopCaptureButton 
+                  isMobile={isMobile} 
+                  contentRef={topologyRef} 
+                  sectionName="Topología"
+                  predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                />
+              </div>
               {topology?.nodes && topology.nodes.length > 0 ? (
                 <div className="mobile-topology-graph-wrapper">
                   <div className="mobile-topology-graph" role="region" aria-label="Topología - gráfico desplazable">
@@ -2481,8 +2496,16 @@ export default function Dashboard({ onLogout }) {
         if (isMobile) {
           const mobileList = sortData(switchesData, sortConfig.key, sortConfig.direction);
           return (
-            <div>
-              <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Switches</h2>
+            <div ref={switchesRef}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h2 style={{ margin: '0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Switches</h2>
+                <DesktopCaptureButton 
+                  isMobile={isMobile} 
+                  contentRef={switchesRef} 
+                  sectionName="Switches"
+                  predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                />
+              </div>
               {/* Summary chips */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, padding: '10px 12px', background: '#f1f5f9', borderRadius: 10 }}>
                 <SummaryChip label="Total" value={switchesData.length} accent="#1f2937" />
@@ -3052,10 +3075,18 @@ export default function Dashboard({ onLogout }) {
         if (isMobile) {
           const mobileAps = sortData(accessPoints, sortConfig.key, sortConfig.direction);
           return (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                <h2 style={{ margin: 0, color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Access Points</h2>
-                {lldpBadge}
+            <div ref={accessPointsRef}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h2 style={{ margin: 0, color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Access Points</h2>
+                  {lldpBadge}
+                </div>
+                <DesktopCaptureButton 
+                  isMobile={isMobile} 
+                  contentRef={accessPointsRef} 
+                  sectionName="Access Points"
+                  predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                />
               </div>
               {/* Summary chips */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, padding: '10px 12px', background: '#f1f5f9', borderRadius: 10 }}>
@@ -3478,8 +3509,16 @@ export default function Dashboard({ onLogout }) {
         // Mobile compact list/cards for appliances
         if (isMobile) {
           return (
-            <div>
-              <h2 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Appliance</h2>
+            <div ref={applianceRef}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h2 style={{ margin: '0', color: '#1e293b', fontSize: '20px', fontWeight: '600' }}>Appliance</h2>
+                <DesktopCaptureButton 
+                  isMobile={isMobile} 
+                  contentRef={applianceRef} 
+                  sectionName="Appliance"
+                  predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                />
+              </div>
               <div className="mobile-appliance-list">
                 {applianceStatus.map((appliance) => {
                   const uplinks = Array.isArray(appliance.uplinks) ? appliance.uplinks : [];
