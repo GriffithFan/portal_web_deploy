@@ -2180,28 +2180,31 @@ export default function Dashboard({ onLogout }) {
   // 1. Fuerza isMobile=false (re-render layout desktop)
   // 2. Expande el DOM a 1920px (el celular seguía renderizando en su ancho físico)
   // 3. Captura con html2canvas en dimensiones desktop
-  // 4. Restaura todo
+  // Captura desktop real desde móvil.
+  // Estrategia: cambiar meta[name="viewport"] a width=1920 para que el browser
+  // evalúe los @media queries correctamente (no depender solo de windowWidth de html2canvas).
   const captureDesktopFromMobile = async (sectionName) => {
     const html = document.documentElement;
     const body = document.body;
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
 
-    // Guardar estilos originales
+    // Guardar estado original
     const prevHtmlWidth = html.style.width;
     const prevHtmlMinWidth = html.style.minWidth;
     const prevHtmlOverflow = html.style.overflow;
     const prevBodyWidth = body.style.width;
     const prevBodyMinWidth = body.style.minWidth;
     const prevBodyOverflow = body.style.overflow;
+    const prevViewport = viewportMeta ? viewportMeta.content : null;
 
     try {
-      // Paso 1: scroll al inicio para que el TopBar quede en el tope de la captura
       window.scrollTo(0, 0);
 
-      // Paso 2: activar layout desktop en React
+      // Paso 1: activar layout desktop en React
       setForcedDesktopCapture(true);
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Paso 3: pre-cargar el logo como data URL para evitar rotura en html2canvas
+      // Paso 2: pre-cargar logo como data URL
       let logoDataUrl = null;
       try {
         const logoRes = await fetch(`${window.location.origin}/logo.svg`);
@@ -2215,7 +2218,12 @@ export default function Dashboard({ onLogout }) {
         console.warn('No se pudo pre-cargar el logo:', e);
       }
 
-      // Paso 4: forzar DOM a 1920px
+      // Paso 3: CRÍTICO — cambiar viewport meta a 1920px.
+      // Esto hace que el browser evalúe @media (max-width: 960px) como FALSE,
+      // eliminando: td::before con ':', topbar:fixed, estilos móviles de SVG, etc.
+      if (viewportMeta) {
+        viewportMeta.content = 'width=1920';
+      }
       html.style.width = '1920px';
       html.style.minWidth = '1920px';
       html.style.overflow = 'hidden';
@@ -2223,10 +2231,10 @@ export default function Dashboard({ onLogout }) {
       body.style.minWidth = '1920px';
       body.style.overflow = 'hidden';
 
-      // Paso 5: esperar recálculo de layout a 1920px
-      await new Promise(resolve => setTimeout(resolve, 700));
+      // Paso 4: esperar a que el browser re-evalúe el CSS con viewport=1920
+      await new Promise(resolve => setTimeout(resolve, 900));
 
-      // Paso 6: capturar
+      // Paso 5: capturar
       const predioCode = selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown';
       const fileName = `${sectionName} ${predioCode}.jpg`;
 
@@ -2245,24 +2253,7 @@ export default function Dashboard({ onLogout }) {
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          // Fix 1: Inyectar CSS que anula reglas @media ≤960px en el clon.
-          // El viewport del celular sigue siendo pequeño cuando html2canvas clona
-          // el DOM, así que las media queries móviles siguen activas (topbar:fixed,
-          // mobile wrappers, etc.). Sobreescribimos solo lo crítico.
-          const overrideStyle = clonedDoc.createElement('style');
-          overrideStyle.textContent = `
-            .topbar {
-              position: sticky !important;
-              top: 0 !important;
-              left: auto !important;
-              right: auto !important;
-              width: 100% !important;
-            }
-          `;
-          clonedDoc.head.appendChild(overrideStyle);
-
-          // Fix 2: Logo SVG — reemplazar src por data URL pre-cargado.
-          // html2canvas no resuelve rutas relativas como /logo.svg correctamente.
+          // Logo: reemplazar src por data URL pre-cargado
           if (logoDataUrl) {
             clonedDoc.querySelectorAll('img').forEach(img => {
               const src = img.getAttribute('src');
@@ -2271,11 +2262,7 @@ export default function Dashboard({ onLogout }) {
               }
             });
           }
-
-          // Fix 3: xmlns en SVG para renderizado correcto (sin manipular tamaños).
-          // IMPORTANTE: NO modificar width/height/minHeight de SVGs individuales aquí
-          // porque querySelector('svg[viewBox]') también apunta a íconos de botones
-          // causando que se vuelvan enormes.
+          // xmlns en SVG
           clonedDoc.querySelectorAll('svg').forEach(svg => {
             if (!svg.hasAttribute('xmlns')) {
               svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -2297,7 +2284,10 @@ export default function Dashboard({ onLogout }) {
       console.error('Error en captura desktop desde móvil:', error);
       alert('Error al generar la captura. Por favor intenta nuevamente.');
     } finally {
-      // Restaurar todo siempre, aunque falle
+      // Restaurar SIEMPRE: viewport, html/body width y estado React
+      if (viewportMeta && prevViewport !== null) {
+        viewportMeta.content = prevViewport;
+      }
       html.style.width = prevHtmlWidth;
       html.style.minWidth = prevHtmlMinWidth;
       html.style.overflow = prevHtmlOverflow;
