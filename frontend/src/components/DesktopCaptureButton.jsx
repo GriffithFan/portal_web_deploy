@@ -12,6 +12,7 @@ export const DesktopCaptureButton = ({
   sectionName, 
   predioCode = 'unknown',
   buttonStyle = {},
+  onCapture = null,
   onSuccess = null,
   onError = null
 }) => {
@@ -19,25 +20,23 @@ export const DesktopCaptureButton = ({
   const { captureDesktopVersion } = useDesktopCapture();
 
   const handleCapture = async () => {
-    if (!contentRef?.current) {
-      const error = new Error('Contenido no disponible para capturar');
-      console.error(error);
-      onError?.(error);
-      return;
-    }
-
     setIsCapturing(true);
     try {
-      await captureDesktopVersion(
-        contentRef.current,
-        sectionName,
-        predioCode
-      );
+      if (onCapture) {
+        // Usa la función del padre que fuerza re-render desktop real
+        await onCapture(sectionName);
+      } else {
+        // Fallback: captura el ref directamente (sin re-render)
+        if (!contentRef?.current) {
+          throw new Error('Contenido no disponible para capturar');
+        }
+        await captureDesktopVersion(contentRef.current, sectionName, predioCode);
+      }
       onSuccess?.('Captura completada y descargada');
     } catch (error) {
       console.error('Error en captura:', error);
       onError?.(error);
-      alert(`Error: ${error.message}. Por favor intenta nuevamente.`);
+      alert(`Error al capturar. Por favor intenta nuevamente.`);
     } finally {
       setIsCapturing(false);
     }

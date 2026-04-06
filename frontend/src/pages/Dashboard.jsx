@@ -1703,8 +1703,12 @@ export default function Dashboard({ onLogout }) {
     return undefined;
   }, []);
 
+  // Estado para forzar renderizado desktop durante captura desde móvil
+  const [forcedDesktopCapture, setForcedDesktopCapture] = useState(false);
+
   // Detectar móvil: ancho <= 960 (celulares portrait/landscape). Tablets landscape (>=961) → desktop
-  const isMobile = windowWidth <= 960;
+  // Durante captura desktop se fuerza isMobile=false para capturar el layout desktop real
+  const isMobile = forcedDesktopCapture ? false : windowWidth <= 960;
 
   // Counts used in mobile section tiles (fall back to 0)
   const mobileCounts = {
@@ -2172,6 +2176,15 @@ export default function Dashboard({ onLogout }) {
     }
   };
 
+  // Captura desktop real desde móvil: fuerza re-render en modo desktop, captura y restaura
+  const captureDesktopFromMobile = async (sectionName) => {
+    setForcedDesktopCapture(true);
+    // Esperar a que React re-renderice la página completa en layout desktop
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await captureAndDownloadImage(sectionName);
+    setForcedDesktopCapture(false);
+  };
+
   const captureAndDownloadPDF = async (sectionName) => {
     try {
       // Pequeño delay para asegurar renderizado completo
@@ -2338,6 +2351,7 @@ export default function Dashboard({ onLogout }) {
                   contentRef={topologyRef} 
                   sectionName="Topología"
                   predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                  onCapture={captureDesktopFromMobile}
                 />
               </div>
               {topology?.nodes && topology.nodes.length > 0 ? (
@@ -2504,6 +2518,7 @@ export default function Dashboard({ onLogout }) {
                   contentRef={switchesRef} 
                   sectionName="Switches"
                   predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                  onCapture={captureDesktopFromMobile}
                 />
               </div>
               {/* Summary chips */}
@@ -3086,6 +3101,7 @@ export default function Dashboard({ onLogout }) {
                   contentRef={accessPointsRef} 
                   sectionName="Access Points"
                   predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                  onCapture={captureDesktopFromMobile}
                 />
               </div>
               {/* Summary chips */}
@@ -3517,6 +3533,7 @@ export default function Dashboard({ onLogout }) {
                   contentRef={applianceRef} 
                   sectionName="Appliance"
                   predioCode={selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown'}
+                  onCapture={captureDesktopFromMobile}
                 />
               </div>
               <div className="mobile-appliance-list">
