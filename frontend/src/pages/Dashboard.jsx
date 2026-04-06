@@ -2176,13 +2176,92 @@ export default function Dashboard({ onLogout }) {
     }
   };
 
-  // Captura desktop real desde móvil: fuerza re-render en modo desktop, captura y restaura
+  // Captura desktop real desde móvil:
+  // 1. Fuerza isMobile=false (re-render layout desktop)
+  // 2. Expande el DOM a 1920px (el celular seguía renderizando en su ancho físico)
+  // 3. Captura con html2canvas en dimensiones desktop
+  // 4. Restaura todo
   const captureDesktopFromMobile = async (sectionName) => {
-    setForcedDesktopCapture(true);
-    // Esperar a que React re-renderice la página completa en layout desktop
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await captureAndDownloadImage(sectionName);
-    setForcedDesktopCapture(false);
+    const html = document.documentElement;
+    const body = document.body;
+
+    // Guardar estilos originales
+    const prevHtmlWidth = html.style.width;
+    const prevHtmlMinWidth = html.style.minWidth;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyWidth = body.style.width;
+    const prevBodyMinWidth = body.style.minWidth;
+    const prevBodyOverflow = body.style.overflow;
+
+    try {
+      // Paso 1: activar layout desktop en React
+      setForcedDesktopCapture(true);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Paso 2: forzar DOM a 1920px para que el browser renderice a ese ancho
+      html.style.width = '1920px';
+      html.style.minWidth = '1920px';
+      html.style.overflow = 'hidden';
+      body.style.width = '1920px';
+      body.style.minWidth = '1920px';
+      body.style.overflow = 'hidden';
+
+      // Paso 3: esperar a que el layout se recalcule a 1920px
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Paso 4: capturar con html2canvas a 1920x1080 explícito
+      const predioCode = selectedNetwork?.predio_code || selectedNetwork?.id || 'unknown';
+      const fileName = `${sectionName} ${predioCode}.jpg`;
+
+      const canvas = await html2canvas(body, {
+        scale: 1,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        foreignObjectRendering: false,
+        removeContainer: false,
+        imageTimeout: 15000,
+        width: 1920,
+        windowWidth: 1920,
+        windowHeight: 1080,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const svgs = clonedDoc.querySelectorAll('svg');
+          svgs.forEach(svg => {
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            try {
+              const bbox = svg.getBBox();
+              if (!svg.hasAttribute('width')) svg.setAttribute('width', bbox.width);
+              if (!svg.hasAttribute('height')) svg.setAttribute('height', bbox.height);
+            } catch (e) { /* ignorar SVG sin getBBox */ }
+          });
+        }
+      });
+
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      }, 'image/jpeg', 0.95);
+
+    } catch (error) {
+      console.error('Error en captura desktop desde móvil:', error);
+      alert('Error al generar la captura. Por favor intenta nuevamente.');
+    } finally {
+      // Restaurar todo siempre
+      html.style.width = prevHtmlWidth;
+      html.style.minWidth = prevHtmlMinWidth;
+      html.style.overflow = prevHtmlOverflow;
+      body.style.width = prevBodyWidth;
+      body.style.minWidth = prevBodyMinWidth;
+      body.style.overflow = prevBodyOverflow;
+      setForcedDesktopCapture(false);
+    }
   };
 
   const captureAndDownloadPDF = async (sectionName) => {
