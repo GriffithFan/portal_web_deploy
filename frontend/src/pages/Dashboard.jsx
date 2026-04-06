@@ -2245,44 +2245,40 @@ export default function Dashboard({ onLogout }) {
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          // Fix 1: TopBar tiene position:fixed via CSS @media ≤960px
-          // Al capturar con windowWidth:1920 ese CSS no aplica pero el TopBar
-          // quedó en el DOM como fixed. Lo forzamos a relative para que aparezca en flujo normal.
-          const topbar = clonedDoc.querySelector('.topbar');
-          if (topbar) {
-            topbar.style.position = 'relative';
-            topbar.style.top = 'auto';
-            topbar.style.left = 'auto';
-            topbar.style.right = 'auto';
-            topbar.style.width = '100%';
-          }
+          // Fix 1: Inyectar CSS que anula reglas @media ≤960px en el clon.
+          // El viewport del celular sigue siendo pequeño cuando html2canvas clona
+          // el DOM, así que las media queries móviles siguen activas (topbar:fixed,
+          // mobile wrappers, etc.). Sobreescribimos solo lo crítico.
+          const overrideStyle = clonedDoc.createElement('style');
+          overrideStyle.textContent = `
+            .topbar {
+              position: sticky !important;
+              top: 0 !important;
+              left: auto !important;
+              right: auto !important;
+              width: 100% !important;
+            }
+          `;
+          clonedDoc.head.appendChild(overrideStyle);
 
-          // Fix 2: Logo SVG — reemplazar src por data URL pre-cargado
+          // Fix 2: Logo SVG — reemplazar src por data URL pre-cargado.
+          // html2canvas no resuelve rutas relativas como /logo.svg correctamente.
           if (logoDataUrl) {
             clonedDoc.querySelectorAll('img').forEach(img => {
-              if (img.src && (img.src.includes('logo.svg') || img.getAttribute('src') === '/logo.svg')) {
+              const src = img.getAttribute('src');
+              if (src && (src === '/logo.svg' || src.includes('logo.svg'))) {
                 img.src = logoDataUrl;
               }
             });
           }
 
-          // Fix 3: Topología — dar altura mínima al SVG principal para que se vea
-          // como en desktop (el SVG con width=100% height=auto queda pequeño en capturas)
-          const mainSvg = clonedDoc.querySelector('.dashboard-container svg[viewBox], main svg[viewBox]');
-          if (mainSvg && sectionName === 'Topología') {
-            mainSvg.style.minHeight = '800px';
-            mainSvg.style.height = '900px';
-          }
-
-          // Fix 4: Asegurar xmlns en todos los SVG y dimensiones explícitas
+          // Fix 3: xmlns en SVG para renderizado correcto (sin manipular tamaños).
+          // IMPORTANTE: NO modificar width/height/minHeight de SVGs individuales aquí
+          // porque querySelector('svg[viewBox]') también apunta a íconos de botones
+          // causando que se vuelvan enormes.
           clonedDoc.querySelectorAll('svg').forEach(svg => {
-            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-            if (!svg.hasAttribute('width') && !svg.style.width) {
-              try {
-                const bbox = svg.getBBox();
-                if (bbox.width > 0) svg.setAttribute('width', bbox.width);
-                if (bbox.height > 0) svg.setAttribute('height', bbox.height);
-              } catch (e) { /* ignorar */ }
+            if (!svg.hasAttribute('xmlns')) {
+              svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
             }
           });
         }
