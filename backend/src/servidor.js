@@ -1251,8 +1251,12 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
     console.log(`[SECTION-ENDPOINT] Got ${devices.length} devices`);
     
     const statusMap = new Map();
-    const deviceStatuses = await getOrganizationDevicesStatuses(orgId, { 'networkIds[]': networkId });
-    deviceStatuses.forEach(status => statusMap.set(status.serial, status));
+    try {
+      const deviceStatuses = await getOrganizationDevicesStatuses(orgId, { 'networkIds[]': networkId });
+      deviceStatuses.forEach(status => statusMap.set(status.serial, status));
+    } catch (statusError) {
+      console.warn(`[SECTION-ENDPOINT] Device statuses no disponibles para ${networkId}; continuando con estado de devices`, statusError.message);
+    }
     
     const switches = devices.filter(d => /^ms/i.test(d.model));
     const accessPoints = devices.filter(d => /^mr/i.test(d.model));
