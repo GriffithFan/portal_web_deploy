@@ -3,16 +3,154 @@ const axios = require('axios');
 const MERAKI_API_KEY = process.env.MERAKI_API_KEY || '';
 const BASE_URL = process.env.MERAKI_BASE_URL || 'https://api.meraki.com/api/v1';
 
+function toPositiveInt(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
+const MERAKI_TIMEOUT_MS = toPositiveInt(process.env.MERAKI_TIMEOUT_MS, 25000);
+const MERAKI_MAX_RETRIES = toPositiveInt(process.env.MERAKI_MAX_RETRIES, 7);
+const MERAKI_RETRY_BASE_DELAY_MS = toPositiveInt(process.env.MERAKI_RETRY_BASE_DELAY_MS, 800);
+const MERAKI_RETRY_MAX_DELAY_MS = toPositiveInt(process.env.MERAKI_RETRY_MAX_DELAY_MS, 12000);
+const MERAKI_RETRY_AFTER_MAX_MS = toPositiveInt(process.env.MERAKI_RETRY_AFTER_MAX_MS, 30000);
+
+const RETRYABLE_METHODS = new Set(['get', 'head', 'options']);
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+const RETRYABLE_ERROR_CODES = new Set([
+  'ECONNABORTED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'ECONNREFUSED',
+  'ERR_NETWORK',
+  'ERR_BAD_RESPONSE',
+  'ERR_SOCKET_CLOSED'
+]);
+
 // Centralized Meraki API client with retry logic and authentication
 const client = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: MERAKI_TIMEOUT_MS,
   headers: {
     'X-Cisco-Meraki-API-Key': MERAKI_API_KEY,
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   }
 });
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function hasMerakiAuthHeader(headers = {}) {
+  if (!headers) return false;
+  if (typeof headers.get === 'function') {
+    return Boolean(headers.get('X-Cisco-Meraki-API-Key'));
+  }
+  return Object.keys(headers).some((key) => key.toLowerCase() === 'x-cisco-meraki-api-key');
+}
+
+function isMerakiRequest(config = {}, forceMeraki = false) {
+  if (forceMeraki) return true;
+  const url = `${config.baseURL || ''}${config.url || ''}`;
+  return /api\.meraki\.com\/api\/v1/i.test(url) || hasMerakiAuthHeader(config.headers);
+}
+
+function shouldRetryMerakiError(error, forceMeraki = false) {
+  const config = error?.config;
+  if (!config || !isMerakiRequest(config, forceMeraki)) return false;
+
+  const method = (config.method || 'get').toLowerCase();
+  if (!RETRYABLE_METHODS.has(method)) return false;
+
+  const status = error?.response?.status;
+  if (status && RETRYABLE_STATUS_CODES.has(status)) return true;
+  if (!error?.response && RETRYABLE_ERROR_CODES.has(error?.code)) return true;
+
+  const message = (error?.message || '').toLowerCase();
+  return !error?.response && (
+    message.includes('timeout')
+    || message.includes('network error')
+    || message.includes('socket hang up')
+  );
+}
+
+function readHeader(headers = {}, name) {
+  if (!headers) return null;
+  if (typeof headers.get === 'function') return headers.get(name);
+
+  const exact = headers[name] || headers[name.toLowerCase()];
+  if (exact) return exact;
+
+  const foundKey = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase());
+  return foundKey ? headers[foundKey] : null;
+}
+
+function getRetryAfterDelayMs(headers = {}) {
+  const retryAfter = readHeader(headers, 'retry-after');
+  if (!retryAfter) return null;
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds)) {
+    return Math.min(MERAKI_RETRY_AFTER_MAX_MS, Math.max(0, seconds * 1000));
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  if (Number.isFinite(retryAt)) {
+    return Math.min(MERAKI_RETRY_AFTER_MAX_MS, Math.max(0, retryAt - Date.now()));
+  }
+
+  return null;
+}
+
+function getRetryDelayMs(error, retryNumber) {
+  const retryAfterMs = getRetryAfterDelayMs(error?.response?.headers);
+  if (retryAfterMs !== null) return retryAfterMs;
+
+  const exponentialDelay = Math.min(
+    MERAKI_RETRY_MAX_DELAY_MS,
+    MERAKI_RETRY_BASE_DELAY_MS * Math.pow(2, retryNumber - 1)
+  );
+  const jitterMs = Math.floor(Math.random() * 250);
+  return exponentialDelay + jitterMs;
+}
+
+function getRequestLabel(config = {}) {
+  const method = (config.method || 'get').toUpperCase();
+  const rawUrl = config.url || '';
+  try {
+    const parsed = new URL(rawUrl, config.baseURL || BASE_URL);
+    return `${method} ${parsed.pathname}`;
+  } catch {
+    return `${method} ${rawUrl}`;
+  }
+}
+
+function setupMerakiRetryInterceptor(instance, { forceMeraki = false } = {}) {
+  instance.interceptors.response.use(undefined, async (error) => {
+    const config = error?.config;
+    if (!config || !shouldRetryMerakiError(error, forceMeraki)) {
+      return Promise.reject(error);
+    }
+
+    const maxRetries = toPositiveInt(config.__merakiMaxRetries, MERAKI_MAX_RETRIES);
+    const retryCount = config.__merakiRetryCount || 0;
+    if (retryCount >= maxRetries) {
+      return Promise.reject(error);
+    }
+
+    config.__merakiRetryCount = retryCount + 1;
+    const delayMs = getRetryDelayMs(error, config.__merakiRetryCount);
+    const reason = error?.response?.status || error?.code || error?.message || 'error';
+
+    console.warn(`[merakiApi] ${getRequestLabel(config)} fallo (${reason}). Reintento ${config.__merakiRetryCount}/${maxRetries} en ${delayMs}ms`);
+
+    await sleep(delayMs);
+    return instance.request(config);
+  });
+}
+
+setupMerakiRetryInterceptor(client, { forceMeraki: true });
+setupMerakiRetryInterceptor(axios);
 
 // Extract pagination cursor from RFC 5988 Link header format
 // The Meraki API returns cursors in various header formats depending on endpoint
