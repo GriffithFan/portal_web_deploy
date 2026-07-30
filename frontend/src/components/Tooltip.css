@@ -27,6 +27,24 @@
   white-space: nowrap;
 }
 
+.tooltip-content.tooltip-portal {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  animation: tooltipPortalFadeIn 0.15s ease-out;
+}
+
+.tooltip-content.tooltip-portal.tooltip-top::after,
+.tooltip-content.tooltip-portal.tooltip-bottom::after {
+  left: var(--tooltip-arrow-x, 50%);
+}
+
+.tooltip-content.tooltip-portal.tooltip-left::after,
+.tooltip-content.tooltip-portal.tooltip-right::after {
+  top: var(--tooltip-arrow-y, 50%);
+}
+
 .tooltip-top {
   bottom: calc(100% + 12px);
   left: 50%;
@@ -101,6 +119,11 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
+}
+
+@keyframes tooltipPortalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Estilos para contenido estructurado */

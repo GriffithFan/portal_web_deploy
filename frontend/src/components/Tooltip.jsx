@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './Tooltip.css';
 
 /**
@@ -18,6 +19,9 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
   const [visible, setVisible] = useState(false);
   const [calculatedPosition, setCalculatedPosition] = useState(position);
   const [isTouch, setIsTouch] = useState(false);
+  const [tooltipCoordinates, setTooltipCoordinates] = useState(null);
+  const wrapperRef = useRef(null);
+  const tooltipRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -37,10 +41,69 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
 
   const modalRef = useRef(null);
 
+  useLayoutEffect(() => {
+    if (!visible || isTouch || !wrapperRef.current || !tooltipRef.current) return undefined;
+
+    const updatePosition = () => {
+      const anchor = wrapperRef.current?.getBoundingClientRect();
+      const tooltip = tooltipRef.current?.getBoundingClientRect();
+      if (!anchor || !tooltip) return;
+
+      const margin = 8;
+      const gap = 12;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      let placement = calculatedPosition === 'auto' ? 'top' : calculatedPosition;
+      let left = anchor.left + (anchor.width / 2) - (tooltip.width / 2);
+      let top = anchor.top - tooltip.height - gap;
+
+      if (placement === 'top' && top < margin && anchor.bottom + gap + tooltip.height <= viewportHeight - margin) {
+        placement = 'bottom';
+      } else if (placement === 'bottom' && anchor.bottom + gap + tooltip.height > viewportHeight - margin && top >= margin) {
+        placement = 'top';
+      }
+
+      if (placement === 'bottom') {
+        top = anchor.bottom + gap;
+      } else if (placement === 'left') {
+        left = anchor.left - tooltip.width - gap;
+        top = anchor.top + (anchor.height / 2) - (tooltip.height / 2);
+        if (left < margin && anchor.right + gap + tooltip.width <= viewportWidth - margin) placement = 'right';
+      } else if (placement === 'right') {
+        left = anchor.right + gap;
+        top = anchor.top + (anchor.height / 2) - (tooltip.height / 2);
+        if (left + tooltip.width > viewportWidth - margin && anchor.left - gap - tooltip.width >= margin) placement = 'left';
+      }
+
+      if (placement === 'left') left = anchor.left - tooltip.width - gap;
+      if (placement === 'right') left = anchor.right + gap;
+
+      left = Math.max(margin, Math.min(left, viewportWidth - tooltip.width - margin));
+      top = Math.max(margin, Math.min(top, viewportHeight - tooltip.height - margin));
+
+      setTooltipCoordinates({
+        left,
+        top,
+        placement,
+        arrowX: anchor.left + (anchor.width / 2) - left,
+        arrowY: anchor.top + (anchor.height / 2) - top,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [visible, isTouch, calculatedPosition]);
+
   const handleMouseEnter = (e) => {
     // No activar hover si es dispositivo táctil
     if (isTouch) return;
     setVisible(true);
+    setTooltipCoordinates(null);
     if (position === 'auto') {
       try {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -116,6 +179,7 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
 
   return (
     <div
+      ref={wrapperRef}
       className={`tooltip-wrapper${visible ? ' tooltip-open' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -124,7 +188,7 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
       {children}
 
       {/* Modal variant for touch devices */}
-      {visible && isTouch && modalOnMobile && (
+      {visible && isTouch && modalOnMobile && typeof document !== 'undefined' && createPortal((
         <>
           <div className="tooltip-modal-backdrop" onClick={close} />
           <div ref={modalRef} className="tooltip-modal-content" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
@@ -133,14 +197,24 @@ const Tooltip = ({ children, content, position = 'auto', modalOnMobile = true })
             </div>
           </div>
         </>
-      )}
+      ), document.body)}
 
       {/* Classic inline tooltip for non-touch or when not using modal */}
-      {visible && (!isTouch || !modalOnMobile) && (
-        <div className={`tooltip-content tooltip-${calculatedPosition}`}>
+      {visible && (!isTouch || !modalOnMobile) && typeof document !== 'undefined' && createPortal((
+        <div
+          ref={tooltipRef}
+          className={`tooltip-content tooltip-portal tooltip-${tooltipCoordinates?.placement || calculatedPosition}`}
+          style={{
+            left: tooltipCoordinates?.left ?? 0,
+            top: tooltipCoordinates?.top ?? 0,
+            visibility: tooltipCoordinates ? 'visible' : 'hidden',
+            '--tooltip-arrow-x': tooltipCoordinates ? `${tooltipCoordinates.arrowX}px` : '50%',
+            '--tooltip-arrow-y': tooltipCoordinates ? `${tooltipCoordinates.arrowY}px` : '50%',
+          }}
+        >
           {typeof content === 'string' ? <div>{content}</div> : content}
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 };
