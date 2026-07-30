@@ -14,6 +14,54 @@ const DEFAULT_WAN_INTERFACE_MAP = {
 };
 
 const MODEL_PORT_LAYOUTS = {
+  MX84: {
+    management: [],
+    columns: [
+      { label: 'Management', kind: 'management', top: { number: 'management', overrides: { role: 'management', type: 'management', enabled: true, hideNumber: true } } },
+      { label: 'Internet', kind: 'wan', top: { number: 1 }, bottom: { number: 2 } },
+      { label: 'LAN GbE', kind: 'lan', top: { number: 3 }, bottom: { number: 4 } },
+      { label: '', kind: 'lan', top: { number: 5 }, bottom: { number: 6 } },
+      { label: '', kind: 'lan', top: { number: 7 }, bottom: { number: 8 } },
+      { label: '', kind: 'lan', top: { number: 9 }, bottom: { number: 10 } },
+      { label: 'LAN SFP', kind: 'lan', top: { number: 11, overrides: { formFactor: 'sfp' } }, bottom: { number: 12, overrides: { formFactor: 'sfp' } } },
+    ],
+    interfaceToPort: {
+      wan: 1,
+      wan1: 1,
+      internet: 1,
+      internet1: 1,
+      primary: 1,
+      wan2: 2,
+      internet2: 2,
+      secondary: 2,
+    },
+  },
+  MX85: {
+    management: [],
+    columns: [
+      { label: 'USB', kind: 'utility', top: { number: 'usb', overrides: { role: 'utility', type: 'usb', formFactor: 'usb', enabled: true, hideNumber: true } } },
+      { label: 'Management', kind: 'management', top: { number: 'management', overrides: { role: 'management', type: 'management', enabled: true, hideNumber: true } } },
+      { label: 'WAN SFP', kind: 'wan', top: { number: 1, overrides: { formFactor: 'sfp' } }, bottom: { number: 2, overrides: { formFactor: 'sfp' } } },
+      { label: 'WAN GbE', kind: 'wan', top: { number: 3 }, bottom: { number: 4 } },
+      { label: 'LAN GbE', kind: 'lan', top: { number: 5 }, bottom: { number: 6 } },
+      { label: '', kind: 'lan', top: { number: 7 }, bottom: { number: 8 } },
+      { label: '', kind: 'lan', top: { number: 9 }, bottom: { number: 10 } },
+      { label: '', kind: 'lan', top: { number: 11 }, bottom: { number: 12 } },
+      { label: 'LAN SFP', kind: 'lan', top: { number: 13, overrides: { formFactor: 'sfp' } }, bottom: { number: 14, overrides: { formFactor: 'sfp' } } },
+    ],
+    // MX85 exposes two media options per logical WAN. When Meraki only returns
+    // wan1/wan2 (without a physical port), the copper GbE connectors are 3/4.
+    interfaceToPort: {
+      wan: 3,
+      wan1: 3,
+      internet: 3,
+      internet1: 3,
+      primary: 3,
+      wan2: 4,
+      internet2: 4,
+      secondary: 4,
+    },
+  },
   Z3: {
     management: [],
     columns: [
@@ -32,9 +80,8 @@ const MODEL_PORT_LAYOUTS = {
 const getModelLayout = (model = '') => {
   if (!model) return null;
   const normalized = model.toString().trim().toUpperCase();
-  // Z3 is the only appliance with a fallback diagram. MX appliances are
-  // rendered from the ports returned by the API so MX84 and MX85 keep their
-  // distinct physical port counts.
+  if (normalized.startsWith('MX84')) return MODEL_PORT_LAYOUTS.MX84;
+  if (normalized.startsWith('MX85')) return MODEL_PORT_LAYOUTS.MX85;
   if (normalized.startsWith('Z3')) return MODEL_PORT_LAYOUTS.Z3;
   return null;
 };
@@ -69,13 +116,17 @@ const applyUplinkStatus = (port, portNumber, uplinkByPort) => {
   if (numeric !== null && uplinkByPort.has(numeric)) {
     const uplink = uplinkByPort.get(numeric);
     const normalized = normalizeReachability(uplink.statusNormalized || uplink.status);
+    const physicalStatus = normalizeReachability(port.statusNormalized || port.status);
+    const hasPhysicalStatus = Boolean(port.raw?.status)
+      || port.hasCarrier === true
+      || ['connected', 'disconnected', 'disabled', 'warning'].includes(physicalStatus);
     return {
       ...port,
-      enabled: port.enabled ?? normalized !== 'disabled',
-      status: uplink.status || uplink.statusNormalized || normalized,
-      statusNormalized: normalized,
       uplink,
-      hasCarrier: normalized === 'connected',
+      enabled: port.enabled ?? normalized !== 'disabled',
+      status: hasPhysicalStatus ? port.status : (uplink.status || uplink.statusNormalized || normalized),
+      statusNormalized: hasPhysicalStatus ? physicalStatus : normalized,
+      hasCarrier: hasPhysicalStatus ? port.hasCarrier === true || physicalStatus === 'connected' : normalized === 'connected',
       speedLabel: port.speedLabel || uplink.speedLabel || uplink.speed || uplink.throughput || null,
     };
   }
@@ -181,12 +232,14 @@ const buildPortClassName = (port, { rotated } = {}) => {
       classes.push('warning');
       return classes.join(' ');
     }
-    const hasCarrier = port?.hasCarrier === true
-      || normalizeReachability(port?.uplink?.statusNormalized || port?.uplink?.status) === 'connected'
-      || normalized === 'connected'
-      || /up|ready|active/.test(normalized || '')
-      || (typeof port?.speed === 'number' && port.speed > 0)
-      || Boolean(port?.speedLabel);
+    const canInferCarrier = normalized === 'unknown' || normalized === 'enabled';
+    const hasCarrier = normalized === 'connected'
+      || port?.hasCarrier === true
+      || (canInferCarrier && (
+        normalizeReachability(port?.uplink?.statusNormalized || port?.uplink?.status) === 'connected'
+        || (typeof port?.speed === 'number' && port.speed > 0)
+        || Boolean(port?.speedLabel)
+      ));
 
     if (hasCarrier) {
       classes.push('has_carrier');
@@ -671,20 +724,34 @@ const buildColumns = (ports = [], model, uplinks = [], connectedOverrides = []) 
   const managementCandidates = [];
   const connectedSet = new Set((Array.isArray(connectedOverrides) ? connectedOverrides : []).map((v) => Number(v)).filter(Number.isFinite));
 
-  ports.forEach((port) => {
-    const copy = { ...port };
-    const number = parsePortNumber(copy.number);
-    if (number !== null) portByNumber.set(number, copy);
-    const tokens = collectTokens(copy);
-    if (tokens.some((token) => /manage|mgmt|admin|console/.test(token))) {
-      managementCandidates.push(copy);
-    }
-  });
-
   const interfaceToPort = {
     ...DEFAULT_WAN_INTERFACE_MAP,
     ...(layout?.interfaceToPort || {}),
   };
+
+  ports.forEach((port) => {
+    const copy = { ...port };
+    const portIdText = copy.portId == null ? '' : copy.portId.toString().trim();
+    const hasInterfacePortId = portIdText && !/^\d+$/.test(portIdText);
+    const rawNumber = layout && hasInterfacePortId
+      ? copy.portId
+      : (copy.number ?? copy.portId ?? copy.port ?? copy.portNumber);
+    const rawText = rawNumber == null ? '' : rawNumber.toString().trim();
+    const interfaceKey = rawText.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const number = /^\d+$/.test(rawText)
+      ? parsePortNumber(rawText)
+      : (layout && interfaceToPort[interfaceKey] !== undefined
+        ? interfaceToPort[interfaceKey]
+        : parsePortNumber(rawNumber));
+    if (number !== null && rawText && !/^\d+$/.test(rawText) && interfaceToPort[interfaceKey] !== undefined) {
+      copy.number = number;
+    }
+    if (number !== null) portByNumber.set(number, copy);
+    const tokens = collectTokens(copy);
+    if (!layout && tokens.some((token) => /manage|mgmt|admin|console/.test(token))) {
+      managementCandidates.push(copy);
+    }
+  });
 
   const uplinkByPort = new Map();
   uplinks.forEach((uplink) => {
@@ -782,7 +849,7 @@ const buildColumns = (ports = [], model, uplinks = [], connectedOverrides = []) 
     columns = layout.columns.map((column) => {
       const kind = column.kind || column.group || 'lan';
       return {
-        group: kind === 'wan' ? 'wan' : 'lan',
+        group: kind === 'wan' || kind === 'lan' ? kind : 'utility',
         label: column.label || '',
         kind,
         top: resolveDescriptor(column.top, kind),
@@ -918,6 +985,7 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
   }
 
   const isZ3 = model && typeof model === 'string' && model.toString().trim().toUpperCase().startsWith('Z3');
+  const usesInlineUtilityPorts = Boolean(layout && !isZ3);
 
   const wanColumnCount = columns.filter((column) => column.group === 'wan').length;
   // Fallback columns based on layout when buildColumns returned none
@@ -975,6 +1043,7 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
 
   const formatPortNumber = (port, group = '') => {
     if (!port) return '';
+    if (port.hideNumber) return '';
     if (port.displayNumber) return port.displayNumber;
     if (port.number !== undefined && port.number !== null && port.number !== '') return port.number;
     const alias = getPortAlias(port, networkName, model, group, deviceCount);
@@ -984,6 +1053,7 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
   // Prefer a plain numeric port label when available (useful for WAN mappings like 'wan1' -> '1')
   const formatVisiblePortNumber = (port, group) => {
     if (!port) return '';
+    if (port.hideNumber) return '';
     
     // Para redes USAP con MX, usar el alias completo (Wan1, Wan2)
     const isUSAP = (networkName && networkName.toUpperCase().includes('USAP')) || 
@@ -1061,7 +1131,7 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
         <table className="NodePortTable">
           <tbody>
             <tr>
-              <td className={managementCellClass} />
+              {!usesInlineUtilityPorts && <td className={managementCellClass} />}
               {effectiveColumns.map((column, index) => (
                 <td key={`header-${index}`} className={classForColumn(column, index)}>
                   {isZ3 ? (column.label || '') : (column.group === 'wan' ? (column.label || 'Internet') : (column.label || ''))}
@@ -1069,7 +1139,7 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
               ))}
             </tr>
             <tr>
-              <td className={`${managementCellClass} port-number`} />
+              {!usesInlineUtilityPorts && <td className={`${managementCellClass} port-number`} />}
               {effectiveColumns.map((column, index) => {
                 if (isZ3) {
                   const num = parsePortNumber(column.top?.number ?? column.top?.displayNumber);
@@ -1112,9 +1182,11 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
               })}
             </tr>
             <tr>
-              <td className={`${managementCellClass} label-cell`}>
-                {!isZ3 && management.length ? 'Management' : ''}
-              </td>
+              {!usesInlineUtilityPorts && (
+                <td className={`${managementCellClass} label-cell`}>
+                  {!isZ3 && management.length ? 'Management' : ''}
+                </td>
+              )}
               {effectiveColumns.map((column, index) => (
                 <td key={`top-icon-${index}`} className={classForColumn(column, index)}>
                   <div className="port-content">
@@ -1125,9 +1197,11 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
             </tr>
             {!isZ3 && (
               <tr>
-                <td className={managementCellClass}>
-                  {renderManagementIcons()}
-                </td>
+                {!usesInlineUtilityPorts && (
+                  <td className={managementCellClass}>
+                    {renderManagementIcons()}
+                  </td>
+                )}
                 {effectiveColumns.map((column, index) => (
                   <td key={`bottom-icon-${index}`} className={classForColumn(column, index)}>
                     <div className="port-content">
@@ -1139,9 +1213,11 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
             )}
             {!isZ3 && (
               <tr>
-                <td className={managementCellClass}>
-                  {renderManagementNumbers()}
-                </td>
+                {!usesInlineUtilityPorts && (
+                  <td className={managementCellClass}>
+                    {renderManagementNumbers()}
+                  </td>
+                )}
                 {effectiveColumns.map((column, index) => (
                   <td key={`bottom-number-${index}`} className={`${classForColumn(column, index)} port-number`}>
                     <span className="port-number-value">
@@ -1171,4 +1247,4 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
 export default AppliancePortsMatrix;
 
 // Named export for individual port renderer used by other components
-export { NodePort };
+export { NodePort, buildColumns, buildPortClassName };
