@@ -11,6 +11,7 @@ const { validarTecnico, listarTecnicos, agregarTecnico, eliminarTecnico } = requ
 const { getOrganizations, getNetworks, getNetworkDevices, getNetworkTopology, getNetworkTopologyLinkLayer, getNetworkTopologyNetworkLayer, getApplianceStatuses, getOrganizationDevicesStatuses, getNetworkInfo, getOrgSwitchPortsTopologyDiscoveryByDevice, getNetworkApplianceConnectivityMonitoringDestinations, getNetworkWirelessSSIDs, getNetworkWirelessSSID, getOrgWirelessDevicesRadsecAuthorities, getOrgWirelessSignalQualityByNetwork, getOrgWirelessSignalQualityByDevice, getOrgWirelessSignalQualityByClient, getNetworkWirelessSignalQualityHistory, getDeviceLldpCdp, getNetworkSwitchPortsStatuses, getDeviceSwitchPortsStatuses, getOrgApplianceUplinksStatuses, getOrgTopAppliancesByUtilization, getOrgDevicesUplinksAddressesByDevice, getOrganizationUplinksStatuses, getAppliancePerformance, getDeviceAppliancePerformance, getApplianceUplinks, getDeviceUplink, getApplianceClientSecurity, getOrganizationApplianceSecurityIntrusion, getApplianceTrafficShaping, getNetworkClientsBandwidthUsage, getNetworkApplianceSecurityMalware, getAppliancePorts, getDeviceAppliancePortsStatuses, getOrgApplianceUplinksLossAndLatency, getOrgApplianceUplinksUsageByDevice, getDeviceSwitchPorts, getNetworkSwitchAccessControlLists, getOrgSwitchPortsBySwitch, getNetworkSwitchStackRoutingInterfaces, getNetworkCellularGatewayConnectivityMonitoringDestinations, getDeviceWirelessConnectionStats, getNetworkWirelessConnectionStats, getNetworkWirelessLatencyStats, getDeviceWirelessLatencyStats, getNetworkWirelessFailedConnections, getDeviceLossAndLatencyHistory, getOrgDevicesUplinksLossAndLatency, getOrgWirelessDevicesPacketLossByClient, getOrgWirelessDevicesPacketLossByDevice, getNetworkApplianceConnectivityMonitoringDests, getNetworkAppliancePortsConfig, getOrgApplianceUplinkStatuses, getNetworkApplianceVlans, getNetworkApplianceVlan, getNetworkApplianceSettings, getOrgApplianceSdwanInternetPolicies, getOrgUplinksStatuses, getDeviceApplianceUplinksSettings, getNetworkApplianceTrafficShapingUplinkSelection, getOrgApplianceUplinksUsageByNetwork, getNetworkApplianceUplinksUsageHistory, getOrgApplianceUplinksStatusesOverview, getOrgWirelessDevicesEthernetStatuses, getOrgDevicesAvailabilitiesChangeHistory, getDevice, getOrganizationDevices } = require('./merakiApi');
 // Import full merakiApi module for cable test functions
 const merakiApi = require('./merakiApi');
+const { mergeAppliancePortData, summarizeAppliancePorts: summarizePhysicalAppliancePorts } = require('./appliancePorts');
 const { toGraphFromLinkLayer, toGraphFromDiscoveryByDevice, toGraphFromLldpCdp, buildTopologyFromLldp } = require('./transformers');
 const { findPredio, searchPredios, getNetworkIdForPredio, getPredioInfoForNetwork, refreshCache, getStats } = require('./prediosManager');
 const { warmUpFrequentPredios, getTopPredios } = require('./warmCache');
@@ -1675,8 +1676,33 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
           return res.json({ ...result, message: 'No hay appliances en esta red' });
         }
         
-        const appliancePorts = await getAppliancePorts(networkId);
-        const applianceUplinksRaw = await getOrganizationUplinksStatuses(orgId, { 'networkIds[]': networkId });
+        const appliances = [mxDevice, ...utmDevices, ...teleworkerDevices].filter(Boolean);
+        const portStatusRequests = appliances.map((device) => getDeviceAppliancePortsStatuses(device.serial));
+        const [portConfigsResult, uplinksResult, ...portStatusResults] = await Promise.allSettled([
+          getAppliancePorts(networkId),
+          getOrganizationUplinksStatuses(orgId, { 'networkIds[]': networkId }),
+          ...portStatusRequests,
+        ]);
+
+        // La configuracion de red no incluye siempre el estado de enlace. Para cada
+        // appliance se consulta el estado fisico por serial y se conserva la
+        // configuracion como respaldo si Meraki no responde uno de los endpoints.
+        const appliancePortConfigs = portConfigsResult.status === 'fulfilled' && Array.isArray(portConfigsResult.value)
+          ? portConfigsResult.value
+          : [];
+        const applianceUplinksRaw = uplinksResult.status === 'fulfilled' && Array.isArray(uplinksResult.value)
+          ? uplinksResult.value
+          : [];
+        const appliancePortStatusesBySerial = new Map();
+        appliances.forEach((device, index) => {
+          const response = portStatusResults[index];
+          if (response?.status === 'fulfilled') {
+            appliancePortStatusesBySerial.set(device.serial, response.value);
+          } else {
+            console.warn(`[SECTION-ENDPOINT] Estado fisico de puertos no disponible para ${device.serial}; se usara configuracion como respaldo`);
+            appliancePortStatusesBySerial.set(device.serial, []);
+          }
+        });
         
         // Obtener destinos de monitoreo de conectividad
         let connectivityDestinations = null;
@@ -1698,20 +1724,11 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
         
         const uplinksBySerial = {};
         applianceUplinksRaw.forEach(uplink => {
-          const serial = uplink.serial || mxDevice?.serial;
+          const serial = uplink.serial || (appliances.length === 1 ? appliances[0]?.serial : mxDevice?.serial);
+          if (!serial) return;
           if (!uplinksBySerial[serial]) uplinksBySerial[serial] = [];
-          uplinksBySerial[serial].push({
-            interface: uplink.interface,
-            status: uplink.status,
-            ip: uplink.ip,
-            publicIp: uplink.publicIp,
-            gateway: uplink.gateway,
-            latency: uplink.latency,
-            loss: uplink.loss
-          });
+          uplinksBySerial[serial].push({ ...uplink });
         });
-        
-        const appliances = [mxDevice, ...utmDevices, ...teleworkerDevices].filter(Boolean);
         
         // ============================================================================
         // ENRIQUECER CON LOSS & LATENCY HISTORY PARA LA GRÁFICA DE CONECTIVIDAD
@@ -1753,21 +1770,34 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
         }
         
         // Agregar los datos de Loss & Latency a cada appliance
-        result.applianceStatus = appliances.map(device => ({
-          device: {
-            serial: device.serial,
-            name: device.name,
-            model: device.model,
-            mac: device.mac,
-            lanIp: device.lanIp,
-            status: statusMap.get(device.serial)?.status || device.status,
-            productType: device.model?.startsWith('Z') ? 'teleworker' : 
-                         device.model?.startsWith('MX') ? 'security_appliance' : 'utm'
-          },
-          ports: appliancePorts.filter(p => p.serial === device.serial || !p.serial),
-          uplinks: uplinksBySerial[device.serial] || [],
-          lossAndLatencyHistory: lossAndLatencyBySerial[device.serial] || []
-        }));
+        result.applianceStatus = appliances.map((device) => {
+          const deviceConfigs = appliancePortConfigs.filter((port) => {
+            if (!port?.serial) return true;
+            return port.serial.toString().toUpperCase() === device.serial.toString().toUpperCase();
+          });
+          const ports = mergeAppliancePortData(
+            deviceConfigs,
+            appliancePortStatusesBySerial.get(device.serial) || [],
+            uplinksBySerial[device.serial] || []
+          );
+
+          return {
+            device: {
+              serial: device.serial,
+              name: device.name,
+              model: device.model,
+              mac: device.mac,
+              lanIp: device.lanIp,
+              status: statusMap.get(device.serial)?.status || device.status,
+              productType: device.model?.startsWith('Z') ? 'teleworker' :
+                           device.model?.startsWith('MX') ? 'security_appliance' : 'utm'
+            },
+            ports,
+            portSummary: summarizePhysicalAppliancePorts(ports),
+            uplinks: uplinksBySerial[device.serial] || [],
+            lossAndLatencyHistory: lossAndLatencyBySerial[device.serial] || []
+          };
+        });
         
         // Agregar destinos de monitoreo si están disponibles
         if (connectivityDestinations && connectivityDestinations.destinations) {
@@ -2820,16 +2850,23 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
         const deviceLabel = connectivity.deviceType === 'ap' ? 'AP' : 'Switch';
         const portInfo = connectivity.deviceType === 'ap' ? '' : ` / Puerto ${connectivity.devicePort}`;
         
-        // Marcar puerto como conectado con status real + metadata para tooltip
+        const physicalStatus = normalizeStatus(port.statusNormalized || port.status, {
+          defaultStatus: 'unknown',
+          forPort: true,
+        });
+        const canUseTopologyAsFallback = physicalStatus === 'unknown';
+
+        // La topologia identifica el vecino, pero no puede reemplazar un estado
+        // fisico de Meraki. Solo se usa para iluminar un puerto sin telemetria.
         return {
           ...port,
           connectedTo: `${connectivity.deviceName}${portInfo}`,
           connectedDevice: connectivity.deviceSerial,
           connectedDevicePort: connectivity.devicePort,
           connectedDeviceType: connectivity.deviceType,
-          // IMPORTANTE: Forzar status "connected" para que se ilumine en verde
-          statusNormalized: 'connected',
-          status: 'active',
+          statusNormalized: canUseTopologyAsFallback ? 'connected' : physicalStatus,
+          status: canUseTopologyAsFallback ? 'active' : port.status,
+          hasCarrier: canUseTopologyAsFallback ? true : port.hasCarrier,
           _connectivitySource: connectivity._sourceMethod,
           // Metadata para tooltip
           tooltipInfo: {
@@ -3740,8 +3777,8 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
     const appliancePortStatusesRaw = optionalResults.appliancePortStatuses?.status === 'fulfilled' ? optionalResults.appliancePortStatuses.value : [];
 
     if ((Array.isArray(appliancePortConfigs) && appliancePortConfigs.length) || (Array.isArray(appliancePortStatusesRaw) && appliancePortStatusesRaw.length)) {
-  appliancePorts = mergeAppliancePorts(appliancePortConfigs, appliancePortStatusesRaw, applianceUplinks);
-      appliancePortSummary = summarizeAppliancePorts(appliancePorts);
+  appliancePorts = mergeAppliancePortData(appliancePortConfigs, appliancePortStatusesRaw, applianceUplinks);
+      appliancePortSummary = summarizePhysicalAppliancePorts(appliancePorts);
     }
 
     const appliancePerformance = optionalResults.appliancePerformance?.status === 'fulfilled' ? optionalResults.appliancePerformance.value : null;
@@ -4418,7 +4455,7 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
         accessPoints: accessPoints,
       });
       // Recalcular resumen después del enriquecimiento
-      appliancePortSummary = summarizeAppliancePorts(appliancePorts);
+      appliancePortSummary = summarizePhysicalAppliancePorts(appliancePorts);
     }
 
     const applianceStatusList = [];

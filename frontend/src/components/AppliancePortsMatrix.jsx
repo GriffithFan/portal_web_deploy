@@ -14,37 +14,6 @@ const DEFAULT_WAN_INTERFACE_MAP = {
 };
 
 const MODEL_PORT_LAYOUTS = {
-  MX84: {
-    management: [
-      {
-        number: 'mgmt',
-        displayNumber: 'MGMT',
-        overrides: { role: 'management', type: 'management' },
-      },
-    ],
-    columns: [
-      {
-        label: 'Internet',
-        kind: 'wan',
-        top: { number: 1, overrides: { role: 'wan', type: 'wan', enabled: true } },
-        bottom: { number: 2, overrides: { role: 'wan', type: 'wan', enabled: true } },
-      },
-      { label: '', kind: 'lan', top: 3, bottom: 4 },
-      { label: '', kind: 'lan', top: 5, bottom: 6 },
-      { label: '', kind: 'lan', top: 7, bottom: 8 },
-      { label: '', kind: 'lan', top: 9, bottom: 10 },
-      {
-        label: '',
-        kind: 'sfp',
-        top: { number: 11, overrides: { formFactor: 'sfp', type: 'sfp' } },
-        bottom: { number: 12, overrides: { formFactor: 'sfp', type: 'sfp' } },
-      },
-    ],
-    interfaceToPort: {
-      wan1: 1,
-      wan2: 2,
-    },
-  },
   Z3: {
     management: [],
     columns: [
@@ -63,10 +32,10 @@ const MODEL_PORT_LAYOUTS = {
 const getModelLayout = (model = '') => {
   if (!model) return null;
   const normalized = model.toString().trim().toUpperCase();
-  // Support Z3 variants like Z3C, Z3-*, etc.
+  // Z3 is the only appliance with a fallback diagram. MX appliances are
+  // rendered from the ports returned by the API so MX84 and MX85 keep their
+  // distinct physical port counts.
   if (normalized.startsWith('Z3')) return MODEL_PORT_LAYOUTS.Z3;
-  // Check exact model matches (MX84, MX68, etc.)
-  if (MODEL_PORT_LAYOUTS[normalized]) return MODEL_PORT_LAYOUTS[normalized];
   return null;
 };
 
@@ -123,6 +92,11 @@ const normalizeReachability = (value, fallback = 'unknown') => {
   if (/(connected|online|up|active|ready|reachable|operational)/.test(text)) return 'connected';
   if (/disabled/.test(text)) return 'disabled';
   return text;
+};
+
+const canInferConnectedFromTopology = (port = {}) => {
+  const status = normalizeReachability(port.statusNormalized || port.status);
+  return status === 'unknown' || status === 'enabled';
 };
 
 const collectTokens = (port = {}) => {
@@ -771,7 +745,7 @@ const buildColumns = (ports = [], model, uplinks = [], connectedOverrides = []) 
 
     const applied = applyUplinkStatus(resolved, parsePortNumber(resolved.number ?? config.number), uplinkByPort);
     const numeric = parsePortNumber(applied.number);
-    if (numeric !== null && connectedSet.has(numeric)) {
+    if (numeric !== null && connectedSet.has(numeric) && canInferConnectedFromTopology(applied)) {
       return {
         ...applied,
         status: applied.status || 'connected',
@@ -785,7 +759,7 @@ const buildColumns = (ports = [], model, uplinks = [], connectedOverrides = []) 
   let management = managementCandidates.map((port) => applyUplinkStatus(port, parsePortNumber(port.number), uplinkByPort));
   management = management.map((p) => {
     const numeric = parsePortNumber(p.number);
-    if (numeric !== null && connectedSet.has(numeric)) {
+    if (numeric !== null && connectedSet.has(numeric) && canInferConnectedFromTopology(p)) {
       return { ...p, status: p.status || 'connected', statusNormalized: 'connected', hasCarrier: true };
     }
     return p;
