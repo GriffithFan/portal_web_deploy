@@ -223,33 +223,24 @@ const buildPortClassName = (port, { rotated } = {}) => {
 
   if (rotated) classes.push('rotated');
 
-  if (port?.enabled === false) {
-    classes.push('disabled');
-  } else {
-    const normalized = normalizeReachability(port?.statusNormalized || port?.status);
-    // treat explicit 'warning' normalized state as warning class
-    if (normalized === 'warning') {
-      classes.push('warning');
-      return classes.join(' ');
-    }
-    const canInferCarrier = normalized === 'unknown' || normalized === 'enabled';
-    const hasCarrier = normalized === 'connected'
-      || port?.hasCarrier === true
-      || (canInferCarrier && (
-        normalizeReachability(port?.uplink?.statusNormalized || port?.uplink?.status) === 'connected'
-        || (typeof port?.speed === 'number' && port.speed > 0)
-        || Boolean(port?.speedLabel)
-      ));
+  const normalized = normalizeReachability(port?.statusNormalized || port?.status);
+  const canInferCarrier = normalized === 'unknown' || normalized === 'enabled';
+  const hasCarrier = normalized === 'connected'
+    || port?.hasCarrier === true
+    || (canInferCarrier && (
+      normalizeReachability(port?.uplink?.statusNormalized || port?.uplink?.status) === 'connected'
+      || (typeof port?.speed === 'number' && port.speed > 0)
+      || Boolean(port?.speedLabel)
+    ));
 
-    if (hasCarrier) {
-      classes.push('has_carrier');
-    } else if (normalized === 'disabled') {
-      classes.push('disabled');
-    } else if (/alert|warn|degrad|loss/.test(normalized || '')) {
-      classes.push('warning');
-    } else {
-      classes.push('passthrough');
-    }
+  if (hasCarrier) {
+    classes.push('has_carrier');
+  } else if (port?.enabled === false || normalized === 'disabled') {
+    classes.push('disabled');
+  } else if (normalized === 'warning' || /alert|warn|degrad|loss/.test(normalized || '')) {
+    classes.push('warning');
+  } else {
+    classes.push('passthrough');
   }
 
   return classes.join(' ');
@@ -1060,7 +1051,7 @@ const AppliancePortsMatrix = ({ ports = [], model, uplinks = [], connectedOverri
                    (deviceCount.aps > 3 && deviceCount.hasMX);
     const isMX = model && model.toUpperCase().startsWith('MX');
     
-    if (isUSAP && isMX && group === 'wan') {
+    if (isUSAP && isMX && group === 'wan' && !getModelLayout(model)) {
       const alias = getPortAlias(port, networkName, model, group, deviceCount) || '';
       if (alias.startsWith('Wan')) return alias; // Devolver "Wan1" o "Wan2" completo
     }

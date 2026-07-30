@@ -45,6 +45,22 @@ async function processInBatches(items, batchSize, processFn) {
   return results;
 }
 
+function getPhysicalAppliancePortFromDiscovery(discovery = {}, applianceModel = '') {
+  const portId = discovery.portId || discovery.portDescription || '';
+  const portDescription = discovery.portDescription || '';
+  const portMatch = portId.toString().match(/(\d+)/);
+  if (!portMatch) return portId || null;
+
+  const discoveredPort = Number(portMatch[1]);
+  const normalizedModel = applianceModel.toString().trim().toUpperCase();
+  if (normalizedModel.startsWith('MX85') && /lan\s*port/i.test(portDescription)) {
+    // MX85 reports LAN indexes as 0-9 in LLDP; the chassis labels them 5-14.
+    return String(discoveredPort + 5);
+  }
+
+  return String(discoveredPort);
+}
+
 const host = process.env.HOST || '0.0.0.0';
 
 // Configure proxy headers for reverse proxy setups (Nginx, Cloudflare, etc)
@@ -1270,7 +1286,7 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
     switch (sectionKey) {
       case 'topology': {
         // Solo topología básica
-        const rawTopology = await getNetworkTopology_LinkLayer(networkId);
+        const rawTopology = await getNetworkTopologyLinkLayer(networkId);
         const topology = toGraphFromLinkLayer(rawTopology, statusMap);
         result.topology = topology;
         result.devices = devices.map(d => ({
@@ -1847,7 +1863,6 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
                 const lldpInfo = lldpPort.lldp || lldpPort.cdp;
                 if (lldpInfo) {
                   const remoteName = lldpInfo.deviceId || lldpInfo.systemName || '';
-                  const remotePort = lldpInfo.portId || lldpInfo.portDescription || '';
                   
                   // Verificar si está conectado al appliance MX
                   const isConnectedToAppliance = mxDevice && (
@@ -1857,9 +1872,7 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
                   );
                   
                   if (isConnectedToAppliance) {
-                    // Extraer número de puerto
-                    const portMatch = remotePort.match(/(\d+)/);
-                    uplinkPortOnRemote = portMatch ? portMatch[1] : remotePort;
+                    uplinkPortOnRemote = getPhysicalAppliancePortFromDiscovery(lldpInfo, mxDevice.model);
                     connectedTo = `${mxDevice.name || mxDevice.model}/Port ${uplinkPortOnRemote}`.replace(/switch/i, 'SWITCH');
                     console.info(`${sw.name} conectado a ${connectedTo} (LLDP)`);
                     break;
@@ -1883,19 +1896,32 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
           if (result.applianceStatus && result.applianceStatus.length && mxDevice) {
             const applianceEntry = result.applianceStatus.find(a => a.device.serial === mxDevice.serial);
             if (applianceEntry && applianceEntry.ports) {
-              const enrichedPorts = enrichAppliancePortsWithSwitchConnectivity(applianceEntry.ports, {
-                applianceSerial: mxDevice.serial,
-                applianceModel: mxDevice.model,
-                topology: result.topology,
-                switchesDetailed,
-                accessPoints: result.accessPoints || []
+              const connectionsByPort = new Map(switchesDetailed
+                .filter((switchInfo) => switchInfo.uplinkPortOnRemote)
+                .map((switchInfo) => [switchInfo.uplinkPortOnRemote.toString(), switchInfo]));
+              const enrichedPorts = applianceEntry.ports.map((port) => {
+                const portNumber = (port.number || port.portId || '').toString();
+                const switchInfo = connectionsByPort.get(portNumber);
+                if (!switchInfo || port.enabled === false) return port;
+                return {
+                  ...port,
+                  enabled: true,
+                  status: 'active',
+                  statusNormalized: 'connected',
+                  hasCarrier: true,
+                  connectedTo: switchInfo.name,
+                  connectedDevice: switchInfo.serial,
+                  connectedDeviceType: 'switch',
+                  _connectivitySource: 'lldp-real-data',
+                };
               });
               applianceEntry.ports = enrichedPorts;
+              applianceEntry.portSummary = summarizePhysicalAppliancePorts(enrichedPorts);
               console.info(`Puertos del appliance enriquecidos: ${enrichedPorts.filter(p => p.connectedTo).length} conexiones detectadas`);
             }
           }
           
-          const rawTopology = await getNetworkTopology_LinkLayer(networkId);
+          const rawTopology = await getNetworkTopologyLinkLayer(networkId);
           const topology = toGraphFromLinkLayer(rawTopology, statusMap);
           
           if (!topology.links?.length && Object.keys(lldpSnapshots).length) {
@@ -2657,8 +2683,8 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
         wan2: 2,
       },
       'MX85': {
-        wan1: 1,
-        wan2: 2,
+        wan1: 3,
+        wan2: 4,
       },
       'MX95': {
         wan1: 1,
@@ -3962,9 +3988,7 @@ app.get('/api/networks/:networkId/summary', limiterDatos, async (req, res) => {
               console.debug(`${sw.name} - remoteName: "${remoteName}", remotePort: "${remotePort}"`);
               console.debug(`${sw.name} - MX device: name=${mxDevice?.name}, serial=${mxDevice?.serial}, model=${mxDevice?.model}`);
               
-              // Intentar extraer número de puerto del remotePort
-              const portMatch = remotePort ? remotePort.match(/(\d+)/) : null;
-              uplinkPortOnRemote = portMatch ? portMatch[1] : remotePort;
+              uplinkPortOnRemote = getPhysicalAppliancePortFromDiscovery(lldpInfo, mxDevice?.model);
               
               // Verificar si está conectado al appliance (buscar por SERIAL y MODELO, no por nombre)
               const isConnectedToAppliance = mxDevice && (
