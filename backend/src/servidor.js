@@ -1739,11 +1739,19 @@ app.get('/api/networks/:networkId/section/:sectionKey', async (req, res) => {
         }
         
         const uplinksBySerial = {};
-        applianceUplinksRaw.forEach(uplink => {
-          const serial = uplink.serial || (appliances.length === 1 ? appliances[0]?.serial : mxDevice?.serial);
+        applianceUplinksRaw.forEach((entry) => {
+          const serial = entry.serial || (appliances.length === 1 ? appliances[0]?.serial : mxDevice?.serial);
           if (!serial) return;
           if (!uplinksBySerial[serial]) uplinksBySerial[serial] = [];
-          uplinksBySerial[serial].push({ ...uplink });
+          const device = appliances.find((item) => item.serial === serial) || mxDevice;
+          const normalizedModel = (entry.model || device?.model || '').toString().toUpperCase();
+          const uplinks = Array.isArray(entry.uplinks) ? entry.uplinks : [entry];
+          uplinks.forEach((uplink) => {
+            const interfaceName = (uplink.interface || uplink.name || '').toString().toLowerCase();
+            const logicalWan = Number(interfaceName.match(/(\d+)$/)?.[1]) || 1;
+            const portNumber = normalizedModel.startsWith('MX85') ? logicalWan + 2 : logicalWan;
+            uplinksBySerial[serial].push({ ...uplink, serial, portNumber });
+          });
         });
         
         // ============================================================================
